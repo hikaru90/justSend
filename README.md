@@ -33,6 +33,8 @@ Open [http://localhost:5173](http://localhost:5173). The first user to sign up c
 | `pnpm db:migrate` | Apply SQLite migrations |
 | `pnpm build` | Production build (adapter-node) |
 | `pnpm start` | Run production server |
+| `pnpm test` | Run Vitest suite |
+| `pnpm check` | Typecheck with svelte-check |
 
 ## Authentication
 
