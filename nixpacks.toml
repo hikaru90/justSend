@@ -1,5 +1,9 @@
 [variables]
 NIXPACKS_NODE_VERSION = "22"
+NIXPACKS_PKGS = "python3 gcc gnumake"
+
+[phases.setup]
+nixPkgs = ["python3", "gcc", "gnumake"]
 
 [phases.install]
 cmds = ["pnpm install --frozen-lockfile"]
