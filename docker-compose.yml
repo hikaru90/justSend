@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:./data/usesend.db
+      HOST_URL: ${HOST_URL:-http://localhost:3000}
+    volumes:
+      - usesend-data:/app/data
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ['pnpm', 'worker']
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:./data/usesend.db
+    volumes:
+      - usesend-data:/app/data
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  usesend-data:
