@@ -21,7 +21,7 @@
 		secondary: 'bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))]',
 		outline: 'border border-[hsl(var(--border))] text-[hsl(var(--foreground))]',
 		destructive: 'bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))]',
-		success: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+		success: 'bg-black text-emerald-400'
 	};
 </script>
 

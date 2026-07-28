@@ -85,6 +85,18 @@
 			{inferring ? 'Inferring…' : 'Infer design system'}
 		</Button>
 	</form>
+
+	{#if inferring}
+		<div class="mt-4 space-y-1.5" aria-live="polite">
+			<div class="h-1.5 w-full overflow-hidden rounded-full bg-[hsl(var(--secondary))]">
+				<div class="infer-progress-bar h-full w-1/3 rounded-full bg-[hsl(var(--primary))]"></div>
+			</div>
+			<p class="text-xs text-[hsl(var(--muted-foreground))]">
+				Fetching page and generating design system — this can take a few seconds…
+			</p>
+		</div>
+	{/if}
+
 	<p class="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
 		Requires OPENROUTER_API_KEY. Overwrites design.md and appends suggested components. Logos and
 		fonts still need manual upload.
@@ -170,7 +182,12 @@
 </Card>
 
 <Card title="Components" description="Reusable HTML snippets for the AI to follow">
-	<form method="POST" action="?/saveComponent" use:enhance class="mb-6 space-y-3">
+	<form
+		method="POST"
+		action="?/saveComponent"
+		use:enhance={() => async ({ update }) => update({ reset: false })}
+		class="mb-6 space-y-3"
+	>
 		<input type="hidden" name="id" value={editComponentId ?? ''} />
 		<Input
 			name="name"
@@ -219,9 +236,23 @@
 							</form>
 						</div>
 					</div>
-					<pre class="overflow-x-auto rounded bg-[hsl(var(--muted))] p-3 text-xs">{component.html}</pre>
-				</li>
-			{/each}
-		</ul>
+				<pre class="overflow-x-auto rounded bg-[hsl(var(--muted))] p-3 text-xs">{component.html}</pre>
+			</li>
+		{/each}
+	</ul>
 	{/if}
 </Card>
+
+<style>
+	@keyframes infer-progress {
+		0% {
+			transform: translateX(-100%);
+		}
+		100% {
+			transform: translateX(400%);
+		}
+	}
+	.infer-progress-bar {
+		animation: infer-progress 1.1s ease-in-out infinite;
+	}
+</style>
