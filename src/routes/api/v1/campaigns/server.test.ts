@@ -8,7 +8,7 @@ import {
 import { buildApiEvent, bearer, invokeHandler } from '../../../../tests/helpers/api';
 import { GET, POST } from './+server';
 
-const UNSUB_HTML = '<p>Hello</p><a href="{{justsend_unsubscribe_url}}">Unsubscribe</a>';
+const UNSUB_HTML = '<p>Hello</p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>';
 
 describe('GET /api/v1/campaigns', () => {
 	beforeEach(() => resetDb());

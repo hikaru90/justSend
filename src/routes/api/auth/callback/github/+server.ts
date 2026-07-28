@@ -47,7 +47,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	}
 
 	const userResponse = await fetch('https://api.github.com/user', {
-		headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'justSend' }
+		headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'Owlery' }
 	});
 	if (!userResponse.ok) {
 		throw error(400, 'Failed to fetch GitHub profile');
@@ -57,7 +57,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	let email = ghUser.email;
 	if (!email) {
 		const emailResponse = await fetch('https://api.github.com/user/emails', {
-			headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'justSend' }
+			headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'Owlery' }
 		});
 		if (emailResponse.ok) {
 			const emails = (await emailResponse.json()) as GitHubEmail[];

@@ -11,14 +11,14 @@ export const actions: Actions = {
 	create: async ({ request }) => {
 		const form = await request.formData();
 		const region = String(form.get('region') ?? '').trim();
-		const justsendUrl = String(form.get('justsendUrl') ?? '').trim();
+		const owleryUrl = String(form.get('owleryUrl') ?? '').trim();
 		const sendingRateLimit = Number(form.get('sendingRateLimit') ?? 1);
 		const transactionalQuota = Number(form.get('transactionalQuota') ?? 50);
 
-		if (!region || !justsendUrl) return fail(400, { error: 'Region and URL required' });
+		if (!region || !owleryUrl) return fail(400, { error: 'Region and URL required' });
 
 		try {
-			await createSesSetting({ region, justsendUrl, sendingRateLimit, transactionalQuota });
+			await createSesSetting({ region, owleryUrl, sendingRateLimit, transactionalQuota });
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Failed to create setting' });
 		}

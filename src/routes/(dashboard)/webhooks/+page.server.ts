@@ -1,17 +1,25 @@
 import { fail } from '@sveltejs/kit';
 import { listWebhooks, createWebhook } from '$lib/server/service/webhook-service';
 import { WebhookEvents } from '$lib/server/webhook-events';
-import { requireTeamId } from '$lib/server/dashboard';
+import { requireDomainId, requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const teamId = requireTeamId(locals.teamId);
-	return { webhooks: listWebhooks(teamId), eventTypes: WebhookEvents };
+	if (!locals.domainId) {
+		return { needsDomain: true as const, webhooks: [], eventTypes: WebhookEvents };
+	}
+	return {
+		needsDomain: false as const,
+		webhooks: listWebhooks(teamId, locals.domainId),
+		eventTypes: WebhookEvents
+	};
 };
 
 export const actions: Actions = {
 	create: async ({ request, locals }) => {
 		const teamId = requireTeamId(locals.teamId);
+		const domainId = requireDomainId(locals.domainId);
 		if (!locals.user) return fail(401, { error: 'Unauthorized' });
 		const form = await request.formData();
 		const url = String(form.get('url') ?? '').trim();
@@ -24,7 +32,8 @@ export const actions: Actions = {
 				userId: locals.user.id,
 				url,
 				description: description || undefined,
-				eventTypes
+				eventTypes,
+				domainIds: [domainId]
 			});
 			return { secret: webhook.secret };
 		} catch (e) {

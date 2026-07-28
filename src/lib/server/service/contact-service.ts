@@ -223,6 +223,23 @@ export async function addOrUpdateContact(
 
 	await emitContactEvent(saved, existing ? 'contact.updated' : 'contact.created', teamId);
 
+	if (!existing) {
+		try {
+			const { handleContactCreated } = await import('./flow-engine');
+			handleContactCreated({
+				id: saved.id,
+				email: saved.email,
+				contactBookId,
+				teamId: teamId ?? contactBook.teamId
+			});
+		} catch (error) {
+			console.error('[contact] Failed to enroll contact in automation flows', {
+				contactId: saved.id,
+				error
+			});
+		}
+	}
+
 	return saved;
 }
 

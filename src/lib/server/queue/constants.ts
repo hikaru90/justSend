@@ -6,7 +6,9 @@ export const QUEUES = {
 	CAMPAIGN_SCHEDULER: 'campaign-scheduler',
 	DOMAIN_VERIFICATION: 'domain-verification',
 	WEBHOOK_DISPATCH: 'webhook-dispatch',
-	WEBHOOK_CLEANUP: 'webhook-cleanup'
+	WEBHOOK_CLEANUP: 'webhook-cleanup',
+	FLOW_STEP: 'flow-step',
+	FLOW_WAIT: 'flow-wait'
 } as const;
 
 export function transactionalQueueName(region: string) {

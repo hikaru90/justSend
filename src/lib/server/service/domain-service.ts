@@ -40,7 +40,7 @@ function parseDomainStatus(status?: string | null): DomainStatus {
 export function getDnsRecords(domain: Domain): DomainDnsRecord[] {
 	const subdomainSuffix = domain.subdomain ? `.${domain.subdomain}` : '';
 	const mailDomain = `mail${subdomainSuffix}`;
-	const dkimSelector = domain.dkimSelector ?? 'justsend';
+	const dkimSelector = domain.dkimSelector ?? 'owlery';
 
 	const spfStatus = parseDomainStatus(domain.spfDetails);
 	const dkimStatus = parseDomainStatus(domain.dkimStatus);
@@ -167,7 +167,7 @@ export async function validateDomainFromEmail(email: string, teamId: number): Pr
 
 	if (!domain) {
 		throw new Error(
-			`Domain: ${fromDomain} of from email is wrong. Use the domain verified by justSend`
+			`Domain: ${fromDomain} of from email is wrong. Use the domain verified by Owlery`
 		);
 	}
 
@@ -218,7 +218,7 @@ export async function createDomain(
 	}
 
 	const subdomain = tldts.getSubdomain(name) || null;
-	const dkimSelector = 'justsend';
+	const dkimSelector = 'owlery';
 	const publicKey = await ses.addDomain(name, region, sesTenantId, dkimSelector);
 
 	const domain = db
@@ -240,6 +240,16 @@ export async function createDomain(
 	await emitDomainEvent(domain, 'domain.created');
 
 	return withDnsRecords(domain);
+}
+
+/** Lightweight sync list of a team's domains (no DNS records). Ordered by id ASC. */
+export function listTeamDomains(teamId: number): Domain[] {
+	return db
+		.select()
+		.from(domains)
+		.where(eq(domains.teamId, teamId))
+		.orderBy(domains.id)
+		.all();
 }
 
 export async function getDomains(

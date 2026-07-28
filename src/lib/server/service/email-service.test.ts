@@ -35,10 +35,10 @@ describe('email-service', () => {
 		it('replaces placeholders with provided values', () => {
 			const result = replaceVariables('Hello {{ name }}, welcome to {{company}}!', {
 				name: 'Ada',
-				company: 'justSend'
+				company: 'Owlery'
 			});
 
-			expect(result).toBe('Hello Ada, welcome to justSend!');
+			expect(result).toBe('Hello Ada, welcome to Owlery!');
 		});
 	});
 

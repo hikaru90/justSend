@@ -119,11 +119,16 @@ export async function deleteApiKey(id: number) {
 	db.delete(apiKeys).where(eq(apiKeys.id, id)).run();
 }
 
-export async function listApiKeys(teamId: number) {
-	return db
+export async function listApiKeys(teamId: number, domainId?: number) {
+	const rows = db
 		.select()
 		.from(apiKeys)
 		.where(eq(apiKeys.teamId, teamId))
 		.orderBy(desc(apiKeys.createdAt))
 		.all();
+
+	if (domainId === undefined) return rows;
+
+	// Null domainId means "all domains" — include in every domain view.
+	return rows.filter((key) => key.domainId === null || key.domainId === domainId);
 }

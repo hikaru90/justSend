@@ -30,7 +30,7 @@ const BUILT_IN_CONTACT_VARIABLES = ['email', 'firstName', 'lastName'] as const;
 
 const CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS = [
 	'unsend_unsubscribe_url',
-	'justsend_unsubscribe_url'
+	'owlery_unsubscribe_url'
 ] as const;
 
 const CAMPAIGN_UNSUB_PLACEHOLDER_REGEXES = CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS.map(
@@ -304,11 +304,15 @@ export async function createCampaignFromApi(input: {
 		.get();
 }
 
-export function getCampaign(campaignId: string, teamId: number): Campaign {
+export function getCampaign(campaignId: string, teamId: number, domainId?: number): Campaign {
+	const conditions = [eq(campaigns.id, campaignId), eq(campaigns.teamId, teamId)];
+	if (domainId !== undefined) {
+		conditions.push(eq(campaigns.domainId, domainId));
+	}
 	const campaign = db
 		.select()
 		.from(campaigns)
-		.where(and(eq(campaigns.id, campaignId), eq(campaigns.teamId, teamId)))
+		.where(and(...conditions))
 		.get();
 	if (!campaign) {
 		throw new Error('Campaign not found');
@@ -316,12 +320,18 @@ export function getCampaign(campaignId: string, teamId: number): Campaign {
 	return campaign;
 }
 
-export function listCampaigns(teamId: number, options?: { limit?: number; cursor?: string }): {
+export function listCampaigns(
+	teamId: number,
+	options?: { domainId?: number; limit?: number; cursor?: string }
+): {
 	items: Campaign[];
 	nextCursor: string | null;
 } {
 	const limit = options?.limit ?? 30;
 	const conditions = [eq(campaigns.teamId, teamId)];
+	if (options?.domainId !== undefined) {
+		conditions.push(eq(campaigns.domainId, options.domainId));
+	}
 	if (options?.cursor) {
 		conditions.push(lt(campaigns.id, options.cursor));
 	}

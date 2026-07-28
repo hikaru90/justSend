@@ -9,12 +9,14 @@ export type Suppression = typeof suppressionList.$inferSelect;
 export type AddSuppressionParams = {
 	email: string;
 	teamId: number;
+	domainId?: number | null;
 	reason: SuppressionReason;
 	source?: string;
 };
 
 export type GetSuppressionListParams = {
 	teamId: number;
+	domainId?: number;
 	page?: number;
 	limit?: number;
 	search?: string;
@@ -29,7 +31,7 @@ export type SuppressionListResult = {
 };
 
 export async function addSuppression(params: AddSuppressionParams): Promise<Suppression> {
-	const { teamId, reason, source } = params;
+	const { teamId, domainId, reason, source } = params;
 	const email = params.email.toLowerCase().trim();
 
 	return db
@@ -38,6 +40,7 @@ export async function addSuppression(params: AddSuppressionParams): Promise<Supp
 			id: cuid(),
 			email,
 			teamId,
+			domainId: domainId ?? null,
 			reason,
 			source: source ?? null
 		})
@@ -45,6 +48,7 @@ export async function addSuppression(params: AddSuppressionParams): Promise<Supp
 			target: [suppressionList.teamId, suppressionList.email],
 			set: {
 				reason,
+				...(domainId !== undefined ? { domainId: domainId ?? null } : {}),
 				source: source ?? null,
 				updatedAt: nowIso()
 			}
@@ -53,12 +57,23 @@ export async function addSuppression(params: AddSuppressionParams): Promise<Supp
 		.get();
 }
 
-export async function isEmailSuppressed(email: string, teamId: number): Promise<boolean> {
+export async function isEmailSuppressed(
+	email: string,
+	teamId: number,
+	domainId?: number
+): Promise<boolean> {
 	const normalizedEmail = email.toLowerCase().trim();
+	const conditions = [
+		eq(suppressionList.teamId, teamId),
+		eq(suppressionList.email, normalizedEmail)
+	];
+	if (domainId !== undefined) {
+		conditions.push(eq(suppressionList.domainId, domainId));
+	}
 	const suppression = db
 		.select({ id: suppressionList.id })
 		.from(suppressionList)
-		.where(and(eq(suppressionList.teamId, teamId), eq(suppressionList.email, normalizedEmail)))
+		.where(and(...conditions))
 		.get();
 
 	return Boolean(suppression);
@@ -121,6 +136,7 @@ export async function getSuppressionList(
 ): Promise<SuppressionListResult> {
 	const {
 		teamId,
+		domainId,
 		page = 1,
 		limit = 20,
 		search,
@@ -132,6 +148,9 @@ export async function getSuppressionList(
 	const offset = (page - 1) * limit;
 
 	const conditions = [eq(suppressionList.teamId, teamId)];
+	if (domainId !== undefined) {
+		conditions.push(eq(suppressionList.domainId, domainId));
+	}
 	if (search) {
 		conditions.push(like(suppressionList.email, `%${search}%`));
 	}
@@ -168,7 +187,8 @@ export async function getSuppressionList(
 export async function addMultipleSuppressions(
 	teamId: number,
 	emails: string[],
-	reason: SuppressionReason
+	reason: SuppressionReason,
+	domainId?: number
 ): Promise<void> {
 	const normalizedEmails = emails.map((email) => email.toLowerCase().trim());
 	const uniqueEmails = Array.from(new Set(normalizedEmails));
@@ -183,6 +203,7 @@ export async function addMultipleSuppressions(
 				batch.map((email) => ({
 					id: cuid(),
 					teamId,
+					domainId: domainId ?? null,
 					email,
 					reason
 				}))
@@ -195,12 +216,18 @@ export async function addMultipleSuppressions(
 }
 
 export async function getSuppressionStats(
-	teamId: number
+	teamId: number,
+	domainId?: number
 ): Promise<Record<SuppressionReason, number>> {
+	const conditions = [eq(suppressionList.teamId, teamId)];
+	if (domainId !== undefined) {
+		conditions.push(eq(suppressionList.domainId, domainId));
+	}
+
 	const rows = db
 		.select({ reason: suppressionList.reason, value: count() })
 		.from(suppressionList)
-		.where(eq(suppressionList.teamId, teamId))
+		.where(and(...conditions))
 		.groupBy(suppressionList.reason)
 		.all();
 

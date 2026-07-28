@@ -8,6 +8,7 @@ import { parseSesHook } from '../lib/server/service/ses-hook-parser';
 import { processWebhookCall } from '../lib/server/service/webhook-service';
 import { processCampaignBatch } from '../lib/server/service/campaign-service';
 import { processContactBulkAdd } from '../lib/server/service/contact-service';
+import { processFlowStep } from '../lib/server/service/flow-engine';
 import { processDomainVerification, queueDomainVerification } from '../lib/server/service/domain-verification-job';
 import {
 	beatWorkerHeartbeat,
@@ -39,6 +40,8 @@ start(QUEUES.SES_WEBHOOK, async (payload) => {
 start(QUEUES.WEBHOOK_DISPATCH, processWebhookCall, 3);
 start(QUEUES.CAMPAIGN_BATCH, processCampaignBatch, 1);
 start(QUEUES.CONTACT_BULK_ADD, processContactBulkAdd, 1);
+start(QUEUES.FLOW_STEP, processFlowStep, 1);
+start(QUEUES.FLOW_WAIT, processFlowStep, 1);
 start(QUEUES.DOMAIN_VERIFICATION, processDomainVerification, 1);
 
 start(QUEUES.CAMPAIGN_SCHEDULER, async () => {
@@ -141,7 +144,7 @@ tickHeartbeat();
 setInterval(tickHeartbeat, 5_000);
 setInterval(pollControl, 2_000);
 
-console.log('[worker] justSend worker running');
+console.log('[worker] Owlery worker running');
 
 function shutdown(code = 0) {
 	if (shuttingDown) return;

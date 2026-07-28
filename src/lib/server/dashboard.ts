@@ -6,3 +6,10 @@ export function requireTeamId(teamId: number | null): number {
 	}
 	return teamId;
 }
+
+export function requireDomainId(domainId: number | null): number {
+	if (!domainId) {
+		error(400, 'No domain selected');
+	}
+	return domainId;
+}

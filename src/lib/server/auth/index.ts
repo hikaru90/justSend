@@ -14,10 +14,10 @@ import {
 import { cuid, nowIso } from '$lib/utils';
 import { createTeam } from '../service/team-service';
 
-export const SESSION_COOKIE = 'justsend_session';
-export const OAUTH_STATE_COOKIE = 'justsend_oauth_state';
-export const OAUTH_VERIFIER_COOKIE = 'justsend_oauth_verifier';
-export const OAUTH_PROVIDER_COOKIE = 'justsend_oauth_provider';
+export const SESSION_COOKIE = 'owlery_session';
+export const OAUTH_STATE_COOKIE = 'owlery_oauth_state';
+export const OAUTH_VERIFIER_COOKIE = 'owlery_oauth_verifier';
+export const OAUTH_PROVIDER_COOKIE = 'owlery_oauth_provider';
 
 export type SessionUser = {
 	id: number;

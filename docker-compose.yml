@@ -6,10 +6,10 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: file:./data/justsend.db
+      DATABASE_URL: file:./data/owlery.db
       HOST_URL: ${HOST_URL:-http://localhost:3000}
     volumes:
-      - justsend-data:/app/data
+      - owlery-data:/app/data
     restart: unless-stopped
 
   # Optional dedicated worker (use when you want to scale workers separately).
@@ -21,12 +21,12 @@ services:
   #   env_file:
   #     - .env
   #   environment:
-  #     DATABASE_URL: file:./data/justsend.db
+  #     DATABASE_URL: file:./data/owlery.db
   #   volumes:
-  #     - justsend-data:/app/data
+  #     - owlery-data:/app/data
   #   depends_on:
   #     - app
   #   restart: unless-stopped
 
 volumes:
-  justsend-data:
+  owlery-data:

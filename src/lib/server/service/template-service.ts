@@ -5,20 +5,28 @@ import { templates } from '../db/schema';
 
 export type Template = typeof templates.$inferSelect;
 
-export function listTemplates(teamId: number): Template[] {
+export function listTemplates(teamId: number, domainId?: number): Template[] {
+	const conditions = [eq(templates.teamId, teamId)];
+	if (domainId !== undefined) {
+		conditions.push(eq(templates.domainId, domainId));
+	}
 	return db
 		.select()
 		.from(templates)
-		.where(eq(templates.teamId, teamId))
+		.where(and(...conditions))
 		.orderBy(desc(templates.createdAt))
 		.all();
 }
 
-export function getTemplate(templateId: string, teamId: number): Template {
+export function getTemplate(templateId: string, teamId: number, domainId?: number): Template {
+	const conditions = [eq(templates.id, templateId), eq(templates.teamId, teamId)];
+	if (domainId !== undefined) {
+		conditions.push(eq(templates.domainId, domainId));
+	}
 	const template = db
 		.select()
 		.from(templates)
-		.where(and(eq(templates.id, templateId), eq(templates.teamId, teamId)))
+		.where(and(...conditions))
 		.get();
 
 	if (!template) {
@@ -30,6 +38,7 @@ export function getTemplate(templateId: string, teamId: number): Template {
 
 export type CreateTemplateInput = {
 	teamId: number;
+	domainId?: number | null;
 	name: string;
 	subject: string;
 	html?: string | null;
@@ -42,6 +51,7 @@ export function createTemplate(input: CreateTemplateInput): Template {
 		.values({
 			id: cuid(),
 			teamId: input.teamId,
+			domainId: input.domainId ?? null,
 			name: input.name,
 			subject: input.subject,
 			html: input.html ?? null,
@@ -56,14 +66,17 @@ export type UpdateTemplateInput = {
 	subject?: string;
 	html?: string | null;
 	content?: string | null;
+	prompt?: string | null;
+	designSnapshot?: string | null;
 };
 
 export function updateTemplate(
 	templateId: string,
 	teamId: number,
-	data: UpdateTemplateInput
+	data: UpdateTemplateInput,
+	domainId?: number
 ): Template {
-	const template = getTemplate(templateId, teamId);
+	const template = getTemplate(templateId, teamId, domainId);
 
 	return db
 		.update(templates)
@@ -72,6 +85,8 @@ export function updateTemplate(
 			...(data.subject !== undefined ? { subject: data.subject } : {}),
 			...(data.html !== undefined ? { html: data.html } : {}),
 			...(data.content !== undefined ? { content: data.content } : {}),
+			...(data.prompt !== undefined ? { prompt: data.prompt } : {}),
+			...(data.designSnapshot !== undefined ? { designSnapshot: data.designSnapshot } : {}),
 			updatedAt: nowIso()
 		})
 		.where(eq(templates.id, template.id))
@@ -79,8 +94,8 @@ export function updateTemplate(
 		.get();
 }
 
-export function deleteTemplate(templateId: string, teamId: number): Template {
-	const template = getTemplate(templateId, teamId);
+export function deleteTemplate(templateId: string, teamId: number, domainId?: number): Template {
+	const template = getTemplate(templateId, teamId, domainId);
 	db.delete(templates).where(eq(templates.id, template.id)).run();
 	return template;
 }

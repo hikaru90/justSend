@@ -66,7 +66,7 @@ export async function addDomain(
 	domain: string,
 	region: string,
 	sesTenantId?: string,
-	dkimSelector = 'justsend'
+	dkimSelector = 'owlery'
 ): Promise<string> {
 	const sesClient = getSesClient(region);
 
@@ -182,7 +182,7 @@ const RESERVED_EMAIL_HEADERS = new Set([
 	'x-received'
 ]);
 
-const RESERVED_EMAIL_HEADER_PREFIXES = ['arc-', 'resent-', 'x-ses-', 'x-unsend-', 'x-justsend-'];
+const RESERVED_EMAIL_HEADER_PREFIXES = ['arc-', 'resent-', 'x-ses-', 'x-unsend-', 'x-owlery-'];
 
 const HEADER_INJECTION_PATTERN = /[\r\n]/;
 
@@ -379,7 +379,7 @@ export async function addWebhookConfiguration(
 	const response = await sesClient.send(
 		new CreateConfigurationSetEventDestinationCommand({
 			ConfigurationSetName: configName,
-			EventDestinationName: 'justsend_destination',
+			EventDestinationName: 'owlery_destination',
 			EventDestination: {
 				Enabled: true,
 				MatchingEventTypes: eventTypes,

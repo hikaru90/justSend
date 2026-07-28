@@ -291,11 +291,15 @@ export async function cancelEmail(emailId: string): Promise<void> {
 /**
  * Fetch a single email for a team, including its events.
  */
-export function getEmail(emailId: string, teamId: number) {
+export function getEmail(emailId: string, teamId: number, domainId?: number) {
+	const conditions = [eq(emails.id, emailId), eq(emails.teamId, teamId)];
+	if (domainId !== undefined) {
+		conditions.push(eq(emails.domainId, domainId));
+	}
 	const email = db
 		.select()
 		.from(emails)
-		.where(and(eq(emails.id, emailId), eq(emails.teamId, teamId)))
+		.where(and(...conditions))
 		.get();
 
 	if (!email) {
@@ -321,12 +325,13 @@ export function getEmail(emailId: string, teamId: number) {
 
 export type ListEmailsParams = {
 	teamId: number;
+	domainId?: number;
 	limit?: number;
 	cursor?: string;
 };
 
 /**
- * List emails for a team using id-based cursor pagination.
+ * List emails for a team (optionally scoped to a domain) using id-based cursor pagination.
  */
 export function listEmails(params: ListEmailsParams): {
 	items: Email[];
@@ -335,6 +340,9 @@ export function listEmails(params: ListEmailsParams): {
 	const limit = params.limit ?? 30;
 
 	const conditions = [eq(emails.teamId, params.teamId)];
+	if (params.domainId !== undefined) {
+		conditions.push(eq(emails.domainId, params.domainId));
+	}
 	if (params.cursor) {
 		conditions.push(lt(emails.id, params.cursor));
 	}

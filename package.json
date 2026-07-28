@@ -1,5 +1,5 @@
 {
-  "name": "justsend",
+  "name": "owlery",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -55,6 +55,7 @@
     "@aws-sdk/client-sts": "^3.1095.0",
     "@lucide/svelte": "^1.27.0",
     "@sveltejs/adapter-node": "^5.5.7",
+    "@xyflow/svelte": "^1.6.2",
     "arctic": "^3.7.0",
     "better-sqlite3": "^13.0.1",
     "bits-ui": "^2.18.1",

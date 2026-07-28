@@ -23,7 +23,7 @@ import {
 
 beforeEach(() => resetDb());
 
-const UNSUB_HTML = '<p>Hello</p><a href="{{justsend_unsubscribe_url}}">Unsubscribe</a>';
+const UNSUB_HTML = '<p>Hello</p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>';
 
 describe('campaign-service', () => {
 	function setup() {

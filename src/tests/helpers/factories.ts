@@ -79,7 +79,7 @@ export function createDomain(
 			status: overrides.status ?? 'SUCCESS',
 			region: overrides.region ?? 'us-east-1',
 			publicKey: 'test-public-key',
-			dkimSelector: 'justsend',
+			dkimSelector: 'owlery',
 			clickTracking: overrides.clickTracking ?? false,
 			openTracking: overrides.openTracking ?? false,
 			isVerifying: overrides.isVerifying ?? false
@@ -105,6 +105,7 @@ export function createContactBook(
 	teamId: number,
 	overrides: Partial<{
 		name: string;
+		domainId: number | null;
 		doubleOptInEnabled: boolean;
 		doubleOptInFrom: string | null;
 		doubleOptInSubject: string | null;
@@ -117,6 +118,7 @@ export function createContactBook(
 			id: cuid(),
 			name: overrides.name ?? `Book ${next()}`,
 			teamId,
+			domainId: overrides.domainId ?? null,
 			variables: '[]',
 			properties: '{}',
 			doubleOptInEnabled: overrides.doubleOptInEnabled ?? false,
@@ -181,7 +183,7 @@ export function createCampaign(
 			subject: overrides.subject ?? `Subject ${n}`,
 			html:
 				overrides.html ??
-				`<p>Hello</p><a href="{{justsend_unsubscribe_url}}">Unsubscribe</a>`,
+				`<p>Hello</p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>`,
 			status: overrides.status ?? 'DRAFT',
 			contactBookId: overrides.contactBookId ?? null,
 			scheduledAt: overrides.scheduledAt ?? null
@@ -192,7 +194,7 @@ export function createCampaign(
 
 export function createTemplate(
 	teamId: number,
-	overrides: Partial<{ name: string; subject: string; html: string }> = {}
+	overrides: Partial<{ name: string; subject: string; html: string; domainId: number | null }> = {}
 ) {
 	const n = next();
 	return db
@@ -200,6 +202,7 @@ export function createTemplate(
 		.values({
 			id: cuid(),
 			teamId,
+			domainId: overrides.domainId ?? null,
 			name: overrides.name ?? `Template ${n}`,
 			subject: overrides.subject ?? `Hello {{name}}`,
 			html: overrides.html ?? `<p>Hi {{name}}</p>`
@@ -310,13 +313,13 @@ export function createSesSetting(
 			id: cuid(),
 			region: overrides.region ?? 'us-east-1',
 			idPrefix: overrides.idPrefix ?? `us${n}`,
-			topic: overrides.topic ?? `justsend-${n}`,
-			topicArn: overrides.topicArn ?? `arn:aws:sns:us-east-1:123:justsend-${n}`,
+			topic: overrides.topic ?? `owlery-${n}`,
+			topicArn: overrides.topicArn ?? `arn:aws:sns:us-east-1:123:owlery-${n}`,
 			callbackUrl: overrides.callbackUrl ?? 'http://localhost:5173/api/ses_callback',
 			callbackSuccess: overrides.callbackSuccess ?? true,
-			configGeneral: overrides.configGeneral ?? 'justsend-general',
+			configGeneral: overrides.configGeneral ?? 'owlery-general',
 			configGeneralSuccess: overrides.configGeneralSuccess ?? true,
-			configFull: overrides.configFull ?? 'justsend-full',
+			configFull: overrides.configFull ?? 'owlery-full',
 			configFullSuccess: overrides.configFullSuccess ?? true,
 			sesEmailRateLimit: overrides.sesEmailRateLimit ?? 10,
 			transactionalQuota: overrides.transactionalQuota ?? 50

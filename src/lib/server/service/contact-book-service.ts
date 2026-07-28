@@ -33,10 +33,20 @@ function toView(book: ContactBook, contactCount: number): ContactBookView {
 	};
 }
 
-export function getContactBooks(teamId: number, search?: string): ContactBookView[] {
+export function getContactBooks(
+	teamId: number,
+	searchOrOptions?: string | { domainId?: number; search?: string }
+): ContactBookView[] {
+	const options =
+		typeof searchOrOptions === 'string'
+			? { search: searchOrOptions }
+			: (searchOrOptions ?? {});
 	const conditions = [eq(contactBooks.teamId, teamId)];
-	if (search) {
-		conditions.push(like(contactBooks.name, `%${search}%`));
+	if (options.domainId !== undefined) {
+		conditions.push(eq(contactBooks.domainId, options.domainId));
+	}
+	if (options.search) {
+		conditions.push(like(contactBooks.name, `%${options.search}%`));
 	}
 
 	const books = db
@@ -56,11 +66,20 @@ export function getContactBooks(teamId: number, search?: string): ContactBookVie
 	});
 }
 
-export function getContactBook(contactBookId: string, teamId: number): ContactBookView {
+export function getContactBook(
+	contactBookId: string,
+	teamId: number,
+	domainId?: number
+): ContactBookView {
+	const conditions = [eq(contactBooks.id, contactBookId), eq(contactBooks.teamId, teamId)];
+	if (domainId !== undefined) {
+		conditions.push(eq(contactBooks.domainId, domainId));
+	}
+
 	const book = db
 		.select()
 		.from(contactBooks)
-		.where(and(eq(contactBooks.id, contactBookId), eq(contactBooks.teamId, teamId)))
+		.where(and(...conditions))
 		.get();
 
 	if (!book) {
@@ -79,7 +98,8 @@ export function getContactBook(contactBookId: string, teamId: number): ContactBo
 export function createContactBook(
 	teamId: number,
 	name: string,
-	variables?: string[]
+	variables?: string[],
+	domainId?: number
 ): ContactBook {
 	return db
 		.insert(contactBooks)
@@ -87,6 +107,7 @@ export function createContactBook(
 			id: cuid(),
 			name,
 			teamId,
+			domainId: domainId ?? null,
 			variables: jsonArray(normalizeVariables(variables)),
 			properties: '{}',
 			doubleOptInEnabled: true,

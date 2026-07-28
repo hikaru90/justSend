@@ -15,7 +15,7 @@ const workerEntry = resolve(root, 'build/worker.js');
 const CONTROL_KEY = 'worker:control';
 
 function databasePath() {
-	const url = process.env.DATABASE_URL ?? 'file:./data/justsend.db';
+	const url = process.env.DATABASE_URL ?? 'file:./data/owlery.db';
 	if (url.startsWith('file:')) {
 		return resolve(root, url.slice('file:'.length));
 	}
@@ -144,4 +144,4 @@ function shutdown(signal) {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-console.log('[supervisor] justSend app + worker supervised');
+console.log('[supervisor] Owlery app + worker supervised');

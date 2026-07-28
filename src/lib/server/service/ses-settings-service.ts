@@ -136,12 +136,12 @@ async function registerConfigurationSet(setting: SesSetting): Promise<SesSetting
 
 export async function createSesSetting({
 	region,
-	justsendUrl,
+	owleryUrl,
 	sendingRateLimit,
 	transactionalQuota
 }: {
 	region: string;
-	justsendUrl: string;
+	owleryUrl: string;
 	sendingRateLimit: number;
 	transactionalQuota: number;
 }): Promise<SesSetting> {
@@ -150,14 +150,14 @@ export async function createSesSetting({
 		throw new Error(`SesSetting for region ${region} already exists`);
 	}
 
-	const parsedUrl = justsendUrl.endsWith('/')
-		? justsendUrl.substring(0, justsendUrl.length - 1)
-		: justsendUrl;
+	const parsedUrl = owleryUrl.endsWith('/')
+		? owleryUrl.substring(0, owleryUrl.length - 1)
+		: owleryUrl;
 
 	const validation = await isValidJustsendUrl(parsedUrl);
 	if (!validation.isValid) {
 		throw new Error(
-			`Callback URL: ${justsendUrl} is not valid, status: ${validation.code} message: ${validation.error}`
+			`Callback URL: ${owleryUrl} is not valid, status: ${validation.code} message: ${validation.error}`
 		);
 	}
 

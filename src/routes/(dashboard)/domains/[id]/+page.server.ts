@@ -74,9 +74,9 @@ export const actions: Actions = {
 				teamId,
 				from,
 				to,
-				subject: `justSend test — ${domain.name}`,
-				text: `This is a test email from justSend for ${domain.name} (${domain.region}).`,
-				html: `<p>This is a test email from justSend for <strong>${domain.name}</strong> (${domain.region}).</p>`
+				subject: `Owlery test — ${domain.name}`,
+				text: `This is a test email from Owlery for ${domain.name} (${domain.region}).`,
+				html: `<p>This is a test email from Owlery for <strong>${domain.name}</strong> (${domain.region}).</p>`
 			});
 
 			if (email.latestStatus === 'SUPPRESSED') {

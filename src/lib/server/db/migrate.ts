@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS domains (
   click_tracking INTEGER NOT NULL DEFAULT 0,
   open_tracking INTEGER NOT NULL DEFAULT 0,
   public_key TEXT NOT NULL,
-  dkim_selector TEXT DEFAULT 'justsend',
+  dkim_selector TEXT DEFAULT 'owlery',
   dkim_status TEXT,
   spf_details TEXT,
   dmarc_added INTEGER NOT NULL DEFAULT 0,
@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS contact_books (
   id TEXT PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  domain_id INTEGER REFERENCES domains(id) ON DELETE CASCADE,
   variables TEXT NOT NULL DEFAULT '[]',
   properties TEXT NOT NULL DEFAULT '{}',
   double_opt_in_enabled INTEGER NOT NULL DEFAULT 0,
@@ -232,17 +233,96 @@ CREATE TABLE IF NOT EXISTS campaigns (
 );
 CREATE INDEX IF NOT EXISTS campaigns_created_at_idx ON campaigns(created_at);
 CREATE INDEX IF NOT EXISTS campaigns_status_scheduled_idx ON campaigns(status, scheduled_at);
+CREATE TABLE IF NOT EXISTS automation_flows (
+  id TEXT PRIMARY KEY NOT NULL,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  domain_id INTEGER NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  trigger_type TEXT NOT NULL DEFAULT 'contact.created',
+  trigger_config TEXT NOT NULL DEFAULT '{}',
+  graph TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS automation_flows_team_status_idx ON automation_flows(team_id, status);
+CREATE TABLE IF NOT EXISTS automation_enrollments (
+  id TEXT PRIMARY KEY NOT NULL,
+  flow_id TEXT NOT NULL REFERENCES automation_flows(id) ON DELETE CASCADE,
+  contact_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  current_node_id TEXT,
+  wait_until TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS automation_enrollments_flow_status_idx ON automation_enrollments(flow_id, status);
+CREATE INDEX IF NOT EXISTS automation_enrollments_contact_idx ON automation_enrollments(contact_id);
+CREATE TABLE IF NOT EXISTS automation_execution_log (
+  id TEXT PRIMARY KEY NOT NULL,
+  flow_id TEXT NOT NULL,
+  enrollment_id TEXT NOT NULL,
+  node_id TEXT,
+  event TEXT NOT NULL,
+  detail TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS automation_execution_log_enrollment_idx ON automation_execution_log(enrollment_id);
 CREATE TABLE IF NOT EXISTS templates (
   id TEXT PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
   team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  domain_id INTEGER REFERENCES domains(id) ON DELETE CASCADE,
   subject TEXT NOT NULL,
   html TEXT,
   content TEXT,
+  prompt TEXT,
+  design_snapshot TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS templates_created_at_idx ON templates(created_at);
+CREATE TABLE IF NOT EXISTS design_systems (
+  id TEXT PRIMARY KEY NOT NULL,
+  team_id INTEGER NOT NULL UNIQUE REFERENCES teams(id) ON DELETE CASCADE,
+  design_md TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS design_systems_team_id_idx ON design_systems(team_id);
+CREATE TABLE IF NOT EXISTS design_assets (
+  id TEXT PRIMARY KEY NOT NULL,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  size INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS design_assets_team_id_idx ON design_assets(team_id);
+CREATE TABLE IF NOT EXISTS design_components (
+  id TEXT PRIMARY KEY NOT NULL,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  html TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS design_components_team_id_idx ON design_components(team_id);
+CREATE TABLE IF NOT EXISTS template_elements (
+  id TEXT PRIMARY KEY NOT NULL,
+  template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  label TEXT NOT NULL,
+  required INTEGER NOT NULL DEFAULT 1,
+  config TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS template_elements_template_id_idx ON template_elements(template_id);
 CREATE TABLE IF NOT EXISTS daily_email_usages (
   team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
@@ -271,6 +351,7 @@ CREATE TABLE IF NOT EXISTS suppression_list (
   id TEXT PRIMARY KEY NOT NULL,
   email TEXT NOT NULL,
   team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  domain_id INTEGER REFERENCES domains(id) ON DELETE CASCADE,
   reason TEXT NOT NULL,
   source TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -339,8 +420,55 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idempotency_team_key_idx ON idempotency_keys(team_id, key);
 `);
+
+	addColumnIfMissing('templates', 'domain_id', 'INTEGER REFERENCES domains(id) ON DELETE CASCADE');
+	addColumnIfMissing('templates', 'prompt', 'TEXT');
+	addColumnIfMissing('templates', 'design_snapshot', 'TEXT');
+	addColumnIfMissing(
+		'contact_books',
+		'domain_id',
+		'INTEGER REFERENCES domains(id) ON DELETE CASCADE'
+	);
+	addColumnIfMissing(
+		'suppression_list',
+		'domain_id',
+		'INTEGER REFERENCES domains(id) ON DELETE CASCADE'
+	);
+
+	rawDb.exec(`
+CREATE INDEX IF NOT EXISTS templates_team_domain_idx ON templates(team_id, domain_id);
+CREATE INDEX IF NOT EXISTS contact_books_team_domain_idx ON contact_books(team_id, domain_id);
+CREATE INDEX IF NOT EXISTS suppression_team_domain_idx ON suppression_list(team_id, domain_id);
+`);
+
+	backfillDomainIds('templates');
+	backfillDomainIds('contact_books');
+	backfillDomainIds('suppression_list');
+
 	db.run(sql`SELECT 1`);
 	console.log('Database migrated');
+}
+
+function addColumnIfMissing(table: string, column: string, definition: string) {
+	const columns = rawDb.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+	if (columns.some((c) => c.name === column)) return;
+	rawDb.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+function backfillDomainIds(table: string) {
+	rawDb.exec(`
+UPDATE ${table}
+SET domain_id = (
+  SELECT d.id FROM domains d
+  WHERE d.team_id = ${table}.team_id
+  ORDER BY d.id ASC
+  LIMIT 1
+)
+WHERE domain_id IS NULL
+  AND EXISTS (
+    SELECT 1 FROM domains d WHERE d.team_id = ${table}.team_id
+  )
+`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -4,7 +4,7 @@ import { config } from 'dotenv';
 config();
 
 const envSchema = z.object({
-	DATABASE_URL: z.string().default('file:./data/justsend.db'),
+	DATABASE_URL: z.string().default('file:./data/owlery.db'),
 	HOST_URL: z.string().url().default('http://localhost:5173'),
 	AUTH_SECRET: z.string().min(16).default('dev-auth-secret-change-me'),
 	ADMIN_EMAIL: z.string().email().optional(),
@@ -20,6 +20,9 @@ const envSchema = z.object({
 	AWS_SNS_ENDPOINT: z.string().optional(),
 	API_RATE_LIMIT: z.coerce.number().default(10),
 	AUTH_EMAIL_RATE_LIMIT: z.coerce.number().default(5),
+	OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
+	OPENROUTER_API_KEY: z.string().optional(),
+	OPENROUTER_MODEL: z.string().default('anthropic/claude-3.5-sonnet'),
 	DISCORD_WEBHOOK_URL: z.string().optional(),
 	EMAIL_CLEANUP_DAYS: z.coerce.number().optional(),
 	NODE_ENV: z.enum(['development', 'production', 'test']).default('development')

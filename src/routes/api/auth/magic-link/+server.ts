@@ -22,9 +22,9 @@ export const POST: RequestHandler = async ({ request }) => {
 			await sendRawEmail({
 				to: [email.toLowerCase()],
 				from: env.FROM_EMAIL,
-				subject: 'Your sign-in link for justSend',
-				html: `<p>Click the link below to sign in to justSend. This link expires in 15 minutes.</p><p><a href="${link}">Sign in to justSend</a></p>`,
-				text: `Sign in to justSend: ${link}`,
+				subject: 'Your sign-in link for Owlery',
+				html: `<p>Click the link below to sign in to Owlery. This link expires in 15 minutes.</p><p><a href="${link}">Sign in to Owlery</a></p>`,
+				text: `Sign in to Owlery: ${link}`,
 				region: setting.region,
 				configurationSetName: getConfigurationSetName(null, setting) ?? setting.configGeneral ?? ''
 			});

@@ -2,6 +2,8 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
+	import logo from '$lib/assets/owlery.svg';
+	import logoDark from '$lib/assets/owlery-dark.svg';
 
 	let { data } = $props();
 
@@ -30,8 +32,13 @@
 	}
 </script>
 
-<main class="flex min-h-screen items-center justify-center p-6">
-	<Card title="Sign in to justSend" description="Use a magic link or OAuth provider." class="w-full max-w-md">
+<main class="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
+	<a href="/" class="flex flex-col items-center gap-2">
+		<img src={logo} alt="" class="h-12 w-12 dark:hidden" />
+		<img src={logoDark} alt="" class="hidden h-12 w-12 dark:block" />
+		<span class="text-lg font-semibold tracking-tight">Owlery</span>
+	</a>
+	<Card title="Sign in to Owlery" description="Use a magic link or OAuth provider." class="w-full max-w-md">
 		{#if data.error === 'github_not_configured'}
 			<p class="mb-4 text-sm text-[hsl(var(--destructive))]">GitHub login is not configured.</p>
 		{/if}

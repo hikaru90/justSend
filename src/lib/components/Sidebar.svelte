@@ -6,7 +6,9 @@
 		Globe,
 		Users,
 		Megaphone,
+		Workflow,
 		FileText,
+		Palette,
 		Ban,
 		Webhook,
 		Settings,
@@ -14,16 +16,23 @@
 		Shield
 	} from '@lucide/svelte';
 	import { cn } from '$lib/utils';
+	import logo from '$lib/assets/owlery.svg';
+	import logoDark from '$lib/assets/owlery-dark.svg';
+	import DomainSwitcher from './DomainSwitcher.svelte';
 	import TeamSwitcher from './TeamSwitcher.svelte';
 
 	let {
 		user,
 		teams,
-		teamId
+		teamId,
+		domains,
+		domainId
 	}: {
 		user: { name: string | null; email: string | null; isAdmin: boolean };
 		teams: Array<{ id: number; name: string }>;
 		teamId: number | null;
+		domains: Array<{ id: number; name: string }>;
+		domainId: number | null;
 	} = $props();
 
 	const links = $derived([
@@ -32,7 +41,9 @@
 		{ href: '/domains', label: 'Domains', icon: Globe },
 		{ href: '/contacts', label: 'Contacts', icon: Users },
 		{ href: '/campaigns', label: 'Campaigns', icon: Megaphone },
+		{ href: '/flows', label: 'Flows', icon: Workflow },
 		{ href: '/templates', label: 'Templates', icon: FileText },
+		{ href: '/design-system', label: 'Design System', icon: Palette },
 		{ href: '/suppressions', label: 'Suppressions', icon: Ban },
 		{ href: '/webhooks', label: 'Webhooks', icon: Webhook },
 		{ href: '/settings', label: 'Settings', icon: Settings },
@@ -53,10 +64,21 @@
 	class="flex h-screen w-64 shrink-0 flex-col border-r border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))]"
 >
 	<div class="border-b border-[hsl(var(--sidebar-border))] p-4">
-		<a href="/dashboard" class="text-lg font-semibold tracking-tight">justSend</a>
+		<a href="/dashboard" class="flex items-center gap-2.5">
+			<img src={logo} alt="" class="h-8 w-8 dark:hidden" />
+			<img src={logoDark} alt="" class="hidden h-8 w-8 dark:block" />
+			<span class="text-lg font-semibold tracking-tight">Owlery</span>
+		</a>
 		<div class="mt-3">
-			<TeamSwitcher {teams} {teamId} />
+			<p class="mb-1.5 text-xs font-medium uppercase tracking-wide opacity-60">Project</p>
+			<DomainSwitcher {domains} {domainId} />
 		</div>
+		{#if teams.length > 1}
+			<div class="mt-3">
+				<p class="mb-1.5 text-xs font-medium uppercase tracking-wide opacity-60">Team</p>
+				<TeamSwitcher {teams} {teamId} />
+			</div>
+		{/if}
 	</div>
 
 	<nav class="flex-1 space-y-1 overflow-y-auto p-3">

@@ -126,13 +126,21 @@ export async function emit<TType extends WebhookEventType>(
 	}
 }
 
-export function listWebhooks(teamId: number): Webhook[] {
-	return db
+export function listWebhooks(teamId: number, domainId?: number): Webhook[] {
+	const rows = db
 		.select()
 		.from(webhooks)
 		.where(eq(webhooks.teamId, teamId))
 		.orderBy(desc(webhooks.createdAt))
 		.all();
+
+	if (domainId === undefined) return rows;
+
+	return rows.filter((webhook) => {
+		const ids = parseNumberArray(webhook.domainIds);
+		// Empty domainIds means "all domains" — include in every domain view.
+		return ids.length === 0 || ids.includes(domainId);
+	});
 }
 
 export function getWebhook(params: { id: string; teamId: number }): Webhook {
@@ -439,12 +447,12 @@ async function postWebhook(params: {
 
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
-		'User-Agent': 'JustSend-Webhook/1.0',
-		'X-JustSend-Event': params.type,
-		'X-JustSend-Call': params.callId,
-		'X-JustSend-Timestamp': timestamp,
-		'X-JustSend-Signature': signature,
-		'X-JustSend-Retry': params.body.attempt > 1 ? 'true' : 'false'
+		'User-Agent': 'Owlery-Webhook/1.0',
+		'X-Owlery-Event': params.type,
+		'X-Owlery-Call': params.callId,
+		'X-Owlery-Timestamp': timestamp,
+		'X-Owlery-Signature': signature,
+		'X-Owlery-Retry': params.body.attempt > 1 ? 'true' : 'false'
 	};
 
 	const start = Date.now();

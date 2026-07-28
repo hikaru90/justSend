@@ -433,6 +433,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 				await addSuppression({
 					email: recipientEmail,
 					teamId: email.teamId,
+					domainId: email.domainId,
 					reason: isHardBounced ? 'HARD_BOUNCE' : 'COMPLAINT',
 					source: email.id
 				});

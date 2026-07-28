@@ -26,6 +26,19 @@ declare global {
 				dailyEmailLimit: number;
 				isBlocked: boolean;
 			} | null;
+			domains: Array<{
+				id: number;
+				name: string;
+				status: string;
+				teamId: number;
+			}>;
+			domainId: number | null;
+			domain: {
+				id: number;
+				name: string;
+				status: string;
+				teamId: number;
+			} | null;
 		}
 	}
 }

@@ -33,13 +33,13 @@ describe('ses-settings-service', () => {
 			insertSesSetting({
 				region: 'us-east-1',
 				idPrefix: 'factory1',
-				configGeneral: 'justsend-general',
-				configFull: 'justsend-full'
+				configGeneral: 'owlery-general',
+				configFull: 'owlery-full'
 			});
 			insertSesSetting({
 				region: 'eu-west-1',
 				idPrefix: 'factory2',
-				configGeneral: 'justsend-general-eu'
+				configGeneral: 'owlery-general-eu'
 			});
 
 			const us = getSetting('us-east-1');
@@ -79,7 +79,7 @@ describe('ses-settings-service', () => {
 		it('creates a new SES setting when region is available', async () => {
 			const created = await createSesSetting({
 				region: 'us-west-2',
-				justsendUrl: 'http://localhost:5173',
+				owleryUrl: 'http://localhost:5173',
 				sendingRateLimit: 14,
 				transactionalQuota: 70
 			});
@@ -91,7 +91,7 @@ describe('ses-settings-service', () => {
 		it('rejects duplicate region', async () => {
 			await createSesSetting({
 				region: 'sa-east-1',
-				justsendUrl: 'http://localhost:5173',
+				owleryUrl: 'http://localhost:5173',
 				sendingRateLimit: 10,
 				transactionalQuota: 50
 			});
@@ -99,7 +99,7 @@ describe('ses-settings-service', () => {
 			await expect(
 				createSesSetting({
 					region: 'sa-east-1',
-					justsendUrl: 'http://localhost:5173',
+					owleryUrl: 'http://localhost:5173',
 					sendingRateLimit: 10,
 					transactionalQuota: 50
 				})
@@ -115,7 +115,7 @@ describe('ses-settings-service', () => {
 			await expect(
 				createSesSetting({
 					region: 'ap-northeast-1',
-					justsendUrl: 'http://localhost:9999',
+					owleryUrl: 'http://localhost:9999',
 					sendingRateLimit: 10,
 					transactionalQuota: 50
 				})

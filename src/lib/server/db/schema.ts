@@ -45,6 +45,21 @@ export type EmailStatus = (typeof emailStatuses)[number];
 export const campaignStatuses = ['DRAFT', 'SCHEDULED', 'RUNNING', 'PAUSED', 'SENT'] as const;
 export type CampaignStatus = (typeof campaignStatuses)[number];
 
+export const automationFlowStatuses = ['draft', 'active', 'paused'] as const;
+export type AutomationFlowStatus = (typeof automationFlowStatuses)[number];
+
+export const automationEnrollmentStatuses = ['active', 'completed', 'exited'] as const;
+export type AutomationEnrollmentStatus = (typeof automationEnrollmentStatuses)[number];
+
+export const automationExecutionEvents = [
+	'entered',
+	'email_queued',
+	'wait_scheduled',
+	'completed',
+	'error'
+] as const;
+export type AutomationExecutionEvent = (typeof automationExecutionEvents)[number];
+
 export const emailUsageTypes = ['TRANSACTIONAL', 'MARKETING'] as const;
 export type EmailUsageType = (typeof emailUsageTypes)[number];
 
@@ -68,6 +83,12 @@ export type WebhookCallStatus = (typeof webhookCallStatuses)[number];
 
 export const queueJobStatuses = ['pending', 'processing', 'completed', 'failed'] as const;
 export type QueueJobStatus = (typeof queueJobStatuses)[number];
+
+export const designAssetKinds = ['font', 'image', 'logo'] as const;
+export type DesignAssetKind = (typeof designAssetKinds)[number];
+
+export const templateElementTypes = ['logo', 'text', 'button', 'cta', 'link', 'image'] as const;
+export type TemplateElementType = (typeof templateElementTypes)[number];
 
 const timestamps = {
 	createdAt: text('created_at')
@@ -209,7 +230,7 @@ export const domains = sqliteTable('domains', {
 	clickTracking: integer('click_tracking', { mode: 'boolean' }).notNull().default(false),
 	openTracking: integer('open_tracking', { mode: 'boolean' }).notNull().default(false),
 	publicKey: text('public_key').notNull(),
-	dkimSelector: text('dkim_selector').default('justsend'),
+	dkimSelector: text('dkim_selector').default('owlery'),
 	dkimStatus: text('dkim_status'),
 	spfDetails: text('spf_details'),
 	dmarcAdded: integer('dmarc_added', { mode: 'boolean' }).notNull().default(false),
@@ -309,6 +330,7 @@ export const contactBooks = sqliteTable(
 		teamId: integer('team_id')
 			.notNull()
 			.references(() => teams.id, { onDelete: 'cascade' }),
+		domainId: integer('domain_id').references(() => domains.id, { onDelete: 'cascade' }),
 		variables: text('variables').notNull().default('[]'), // JSON array
 		properties: text('properties').notNull().default('{}'), // JSON
 		doubleOptInEnabled: integer('double_opt_in_enabled', { mode: 'boolean' })
@@ -320,7 +342,10 @@ export const contactBooks = sqliteTable(
 		emoji: text('emoji').notNull().default('📙'),
 		...timestamps
 	},
-	(t) => [index('contact_books_team_id_idx').on(t.teamId)]
+	(t) => [
+		index('contact_books_team_id_idx').on(t.teamId),
+		index('contact_books_team_domain_idx').on(t.teamId, t.domainId)
+	]
 );
 
 export const contacts = sqliteTable(
@@ -394,12 +419,135 @@ export const templates = sqliteTable(
 		teamId: integer('team_id')
 			.notNull()
 			.references(() => teams.id, { onDelete: 'cascade' }),
+		domainId: integer('domain_id').references(() => domains.id, { onDelete: 'cascade' }),
 		subject: text('subject').notNull(),
 		html: text('html'),
 		content: text('content'),
+		prompt: text('prompt'),
+		designSnapshot: text('design_snapshot'),
 		...timestamps
 	},
-	(t) => [index('templates_created_at_idx').on(t.createdAt)]
+	(t) => [
+		index('templates_created_at_idx').on(t.createdAt),
+		index('templates_team_domain_idx').on(t.teamId, t.domainId)
+	]
+);
+
+export const automationFlows = sqliteTable(
+	'automation_flows',
+	{
+		id: text('id').primaryKey(),
+		teamId: integer('team_id')
+			.notNull()
+			.references(() => teams.id, { onDelete: 'cascade' }),
+		domainId: integer('domain_id')
+			.notNull()
+			.references(() => domains.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		status: text('status', { enum: automationFlowStatuses }).notNull().default('draft'),
+		triggerType: text('trigger_type').notNull().default('contact.created'),
+		triggerConfig: text('trigger_config').notNull().default('{}'),
+		graph: text('graph').notNull().default('{"nodes":[],"edges":[]}'),
+		...timestamps
+	},
+	(t) => [index('automation_flows_team_status_idx').on(t.teamId, t.status)]
+);
+
+export const automationEnrollments = sqliteTable(
+	'automation_enrollments',
+	{
+		id: text('id').primaryKey(),
+		flowId: text('flow_id')
+			.notNull()
+			.references(() => automationFlows.id, { onDelete: 'cascade' }),
+		contactId: text('contact_id').notNull(),
+		status: text('status', { enum: automationEnrollmentStatuses }).notNull().default('active'),
+		currentNodeId: text('current_node_id'),
+		waitUntil: text('wait_until'),
+		...timestamps
+	},
+	(t) => [
+		index('automation_enrollments_flow_status_idx').on(t.flowId, t.status),
+		index('automation_enrollments_contact_idx').on(t.contactId)
+	]
+);
+
+export const automationExecutionLog = sqliteTable(
+	'automation_execution_log',
+	{
+		id: text('id').primaryKey(),
+		flowId: text('flow_id').notNull(),
+		enrollmentId: text('enrollment_id').notNull(),
+		nodeId: text('node_id'),
+		event: text('event', { enum: automationExecutionEvents }).notNull(),
+		detail: text('detail'),
+		createdAt: text('created_at')
+			.notNull()
+			.default(sql`(datetime('now'))`)
+	},
+	(t) => [index('automation_execution_log_enrollment_idx').on(t.enrollmentId)]
+);
+
+export const designSystems = sqliteTable(
+	'design_systems',
+	{
+		id: text('id').primaryKey(),
+		teamId: integer('team_id')
+			.notNull()
+			.unique()
+			.references(() => teams.id, { onDelete: 'cascade' }),
+		designMd: text('design_md'),
+		...timestamps
+	},
+	(t) => [uniqueIndex('design_systems_team_id_idx').on(t.teamId)]
+);
+
+export const designAssets = sqliteTable(
+	'design_assets',
+	{
+		id: text('id').primaryKey(),
+		teamId: integer('team_id')
+			.notNull()
+			.references(() => teams.id, { onDelete: 'cascade' }),
+		kind: text('kind', { enum: designAssetKinds }).notNull(),
+		name: text('name').notNull(),
+		filename: text('filename').notNull(),
+		mime: text('mime').notNull(),
+		size: integer('size').notNull(),
+		...timestamps
+	},
+	(t) => [index('design_assets_team_id_idx').on(t.teamId)]
+);
+
+export const designComponents = sqliteTable(
+	'design_components',
+	{
+		id: text('id').primaryKey(),
+		teamId: integer('team_id')
+			.notNull()
+			.references(() => teams.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		description: text('description'),
+		html: text('html').notNull().default(''),
+		...timestamps
+	},
+	(t) => [index('design_components_team_id_idx').on(t.teamId)]
+);
+
+export const templateElements = sqliteTable(
+	'template_elements',
+	{
+		id: text('id').primaryKey(),
+		templateId: text('template_id')
+			.notNull()
+			.references(() => templates.id, { onDelete: 'cascade' }),
+		type: text('type', { enum: templateElementTypes }).notNull(),
+		label: text('label').notNull(),
+		required: integer('required', { mode: 'boolean' }).notNull().default(true),
+		config: text('config').notNull().default('{}'),
+		...timestamps
+	},
+	(t) => [index('template_elements_template_id_idx').on(t.templateId)]
 );
 
 export const dailyEmailUsages = sqliteTable(
@@ -443,11 +591,15 @@ export const suppressionList = sqliteTable(
 		teamId: integer('team_id')
 			.notNull()
 			.references(() => teams.id, { onDelete: 'cascade' }),
+		domainId: integer('domain_id').references(() => domains.id, { onDelete: 'cascade' }),
 		reason: text('reason', { enum: suppressionReasons }).notNull(),
 		source: text('source'),
 		...timestamps
 	},
-	(t) => [uniqueIndex('suppression_team_email_idx').on(t.teamId, t.email)]
+	(t) => [
+		uniqueIndex('suppression_team_email_idx').on(t.teamId, t.email),
+		index('suppression_team_domain_idx').on(t.teamId, t.domainId)
+	]
 );
 
 export const webhooks = sqliteTable(

@@ -1,12 +1,13 @@
 import { error, fail } from '@sveltejs/kit';
 import { getContactBook, updateContactBook } from '$lib/server/service/contact-book-service';
-import { requireTeamId } from '$lib/server/dashboard';
+import { requireDomainId, requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const teamId = requireTeamId(locals.teamId);
+	const domainId = requireDomainId(locals.domainId);
 	try {
-		return { book: getContactBook(params.id, teamId) };
+		return { book: getContactBook(params.id, teamId, domainId) };
 	} catch {
 		error(404, 'Not found');
 	}
@@ -15,6 +16,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 export const actions: Actions = {
 	default: async ({ request, locals, params }) => {
 		const teamId = requireTeamId(locals.teamId);
+		requireDomainId(locals.domainId);
 		const form = await request.formData();
 		try {
 			await updateContactBook(params.id, teamId, {

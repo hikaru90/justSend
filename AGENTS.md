@@ -1,4 +1,4 @@
-# justSend — Agent Instructions
+# Owlery — Agent Instructions
 
 ## Models
 
