@@ -1,0 +1,16 @@
+node_modules
+.pnpm-store
+.svelte-kit
+build
+data
+.git
+.DS_Store
+.env
+.env.*
+!.env.example
+coverage
+**/*.test.ts
+useSend-legacy
+.vscode
+*.md
+!README.md
