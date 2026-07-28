@@ -57,6 +57,7 @@ function backoffSeconds(attempt: number) {
 
 export class QueueWorker {
 	private running = false;
+	private paused = false;
 	private timer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
@@ -72,18 +73,32 @@ export class QueueWorker {
 	start() {
 		if (this.running) return;
 		this.running = true;
+		this.paused = false;
 		void this.loop();
 		console.log(`[queue] worker started: ${this.queue}`);
 	}
 
+	pause() {
+		this.paused = true;
+	}
+
+	resume() {
+		this.paused = false;
+	}
+
 	stop() {
 		this.running = false;
+		this.paused = false;
 		if (this.timer) clearTimeout(this.timer);
 	}
 
 	private async loop() {
 		while (this.running) {
 			try {
+				if (this.paused) {
+					await this.sleep(this.opts.pollIntervalMs ?? 1000);
+					continue;
+				}
 				const concurrency = this.opts.concurrency ?? 1;
 				const jobs: (typeof queueJobs.$inferSelect)[] = [];
 				for (let i = 0; i < concurrency; i++) {

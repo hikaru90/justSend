@@ -3,28 +3,51 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import { parseJsonArray } from '$lib/utils';
+	import { enhance } from '$app/forms';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const worker = $derived(data.worker);
 	const lastBeatLabel = $derived(
-		worker.heartbeat
-			? new Date(worker.heartbeat.lastBeatAt).toLocaleString()
-			: 'Never'
+		worker.heartbeat ? new Date(worker.heartbeat.lastBeatAt).toLocaleString() : 'Never'
 	);
+
+	const statusLabel = $derived(
+		(
+			{
+				running: 'Running',
+				paused: 'Paused',
+				stopped: 'Stopped',
+				offline: 'Not running'
+			} as const
+		)[worker.status]
+	);
+
+	const statusVariant = $derived(
+		(
+			{
+				running: 'success',
+				paused: 'secondary',
+				stopped: 'destructive',
+				offline: 'destructive'
+			} as const
+		)[worker.status]
+	);
+
+	let pendingAction = $state<string | null>(null);
 </script>
 
 <div class="mb-6 flex items-center justify-between">
 	<h1 class="text-2xl font-semibold">Queue</h1>
 </div>
 
-<Card title="Worker status" class="mb-6" description="Background process that drains queued emails and jobs.">
+<Card
+	title="Worker status"
+	class="mb-6"
+	description="Background process that drains queued emails and jobs."
+>
 	<div class="flex flex-wrap items-center gap-3 text-sm">
-		{#if worker.alive}
-			<Badge variant="success">Running</Badge>
-		{:else}
-			<Badge variant="destructive">Not running</Badge>
-		{/if}
+		<Badge variant={statusVariant}>{statusLabel}</Badge>
 		<span class="text-[hsl(var(--muted-foreground))]">
 			Last heartbeat: {lastBeatLabel}
 			{#if worker.heartbeat}
@@ -33,14 +56,110 @@
 		</span>
 	</div>
 
-	{#if !worker.alive}
+	{#if worker.status === 'offline'}
 		<p class="mt-3 text-sm text-[hsl(var(--destructive))]">
-			Emails stay QUEUED until the worker is up. Start it with
+			Emails stay QUEUED until the worker is up. In production the container supervisor starts it
+			automatically — use Start below, or run
 			<code class="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-xs">pnpm worker</code>
-			(or
-			<code class="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-xs">pnpm dev:worker</code>
-			locally).
+			locally.
 		</p>
+	{:else if worker.status === 'paused'}
+		<p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">
+			Worker is paused — jobs stay pending until you resume.
+		</p>
+	{:else if worker.status === 'stopped'}
+		<p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">
+			Worker is stopped. Click Start to launch it again (requires the production supervisor or a
+			manual
+			<code class="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-xs">pnpm worker</code>).
+		</p>
+	{/if}
+
+	{#if data.canControlWorker}
+		<form
+			method="POST"
+			action="?/control"
+			class="mt-4 flex flex-wrap gap-2"
+			use:enhance={() => {
+				return async ({ result, update }) => {
+					pendingAction = null;
+					await update();
+					return result;
+				};
+			}}
+		>
+			{#if worker.status === 'running'}
+				<Button
+					type="submit"
+					name="action"
+					value="pause"
+					variant="outline"
+					size="sm"
+					disabled={pendingAction !== null}
+					onclick={() => (pendingAction = 'pause')}
+				>
+					{pendingAction === 'pause' ? 'Pausing…' : 'Pause'}
+				</Button>
+				<Button
+					type="submit"
+					name="action"
+					value="restart"
+					variant="outline"
+					size="sm"
+					disabled={pendingAction !== null}
+					onclick={() => (pendingAction = 'restart')}
+				>
+					{pendingAction === 'restart' ? 'Restarting…' : 'Restart'}
+				</Button>
+				<Button
+					type="submit"
+					name="action"
+					value="stop"
+					variant="destructive"
+					size="sm"
+					disabled={pendingAction !== null}
+					onclick={() => (pendingAction = 'stop')}
+				>
+					{pendingAction === 'stop' ? 'Stopping…' : 'Stop'}
+				</Button>
+			{:else if worker.status === 'paused'}
+				<Button
+					type="submit"
+					name="action"
+					value="start"
+					size="sm"
+					disabled={pendingAction !== null}
+					onclick={() => (pendingAction = 'start')}
+				>
+					{pendingAction === 'start' ? 'Resuming…' : 'Resume'}
+				</Button>
+				<Button
+					type="submit"
+					name="action"
+					value="stop"
+					variant="destructive"
+					size="sm"
+					disabled={pendingAction !== null}
+					onclick={() => (pendingAction = 'stop')}
+				>
+					{pendingAction === 'stop' ? 'Stopping…' : 'Stop'}
+				</Button>
+			{:else}
+				<Button
+					type="submit"
+					name="action"
+					value="start"
+					size="sm"
+					disabled={pendingAction !== null}
+					onclick={() => (pendingAction = 'start')}
+				>
+					{pendingAction === 'start' ? 'Starting…' : 'Start'}
+				</Button>
+			{/if}
+		</form>
+		{#if form?.error}
+			<p class="mt-2 text-sm text-[hsl(var(--destructive))]">{form.error}</p>
+		{/if}
 	{/if}
 
 	<dl class="mt-4 grid gap-3 sm:grid-cols-3">
@@ -107,7 +226,9 @@
 					<td class="p-3">{new Date(email.createdAt).toLocaleString()}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="4" class="p-6 text-center text-[hsl(var(--muted-foreground))]">No emails yet</td></tr>
+				<tr>
+					<td colspan="4" class="p-6 text-center text-[hsl(var(--muted-foreground))]">No emails yet</td>
+				</tr>
 			{/each}
 		</tbody>
 	</table>

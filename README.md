@@ -29,10 +29,12 @@ Open [http://localhost:5173](http://localhost:5173). The first user to sign up c
 | `pnpm dev` | SvelteKit dev server only |
 | `pnpm dev:worker` | Background queue worker only |
 | `pnpm dev:all` | App + worker concurrently |
-| `pnpm worker` | Run worker (production) |
+| `pnpm worker` | Run worker (dev / local via tsx) |
+| `pnpm worker:prod` | Run compiled worker (`build/worker.js`) |
 | `pnpm db:migrate` | Apply SQLite migrations |
-| `pnpm build` | Production build (adapter-node) |
-| `pnpm start` | Run production server |
+| `pnpm build` | Production build (adapter-node + worker bundle) |
+| `pnpm start` | Run production supervisor (web + worker) |
+| `pnpm start:web` | Run web server only |
 | `pnpm test` | Run Vitest suite |
 | `pnpm check` | Typecheck with svelte-check |
 
@@ -58,7 +60,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The app and worker share a `justsend-data` volume for `./data/justsend.db`.
+The container runs a supervisor that keeps both the web app and queue worker alive.
+Admins can pause / stop / restart the worker from **Queue** in the dashboard.
 
 ## API
 

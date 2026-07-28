@@ -9,13 +9,21 @@ import { processWebhookCall } from '../lib/server/service/webhook-service';
 import { processCampaignBatch } from '../lib/server/service/campaign-service';
 import { processContactBulkAdd } from '../lib/server/service/contact-service';
 import { processDomainVerification, queueDomainVerification } from '../lib/server/service/domain-verification-job';
-import { beatWorkerHeartbeat } from '../lib/server/service/worker-status-service';
+import {
+	beatWorkerHeartbeat,
+	getWorkerControl,
+	resetWorkerStartedAt
+} from '../lib/server/service/worker-status-service';
 
 migrate();
 recoverStaleJobs();
+resetWorkerStartedAt();
 
 const workers: QueueWorker[] = [];
 const activeQueues: string[] = [];
+let processingState: 'running' | 'paused' = 'running';
+let seenRestartNonce = getWorkerControl().restartNonce;
+let shuttingDown = false;
 
 function start(queue: string, handler: ConstructorParameters<typeof QueueWorker>[1], concurrency = 1) {
 	const worker = new QueueWorker(queue, handler, { concurrency, pollIntervalMs: 800 });
@@ -80,24 +88,68 @@ enqueue(
 
 // Re-queue periodic jobs
 setInterval(() => {
+	if (processingState !== 'running') return;
 	enqueue(QUEUES.CAMPAIGN_SCHEDULER, {}, { jobId: `campaign-scheduler-${Date.now()}` });
 }, 60_000);
 
 setInterval(() => {
+	if (processingState !== 'running') return;
 	queueDomainVerification();
 	recoverStaleJobs();
 }, 5 * 60_000);
 
-beatWorkerHeartbeat(activeQueues);
-setInterval(() => beatWorkerHeartbeat(activeQueues), 5_000);
+function applyDesiredState(desired: 'running' | 'paused' | 'stopped') {
+	if (desired === 'stopped') {
+		console.log('[worker] stop requested — exiting');
+		shutdown(0);
+		return;
+	}
+
+	if (desired === 'paused') {
+		if (processingState !== 'paused') {
+			console.log('[worker] paused — not claiming new jobs');
+			processingState = 'paused';
+			for (const w of workers) w.pause();
+		}
+		return;
+	}
+
+	if (processingState !== 'running') {
+		console.log('[worker] resumed — claiming jobs');
+		processingState = 'running';
+		for (const w of workers) w.resume();
+	}
+}
+
+function pollControl() {
+	if (shuttingDown) return;
+	const control = getWorkerControl();
+	if (control.restartNonce !== seenRestartNonce) {
+		console.log('[worker] restart requested — exiting for supervisor relaunch');
+		shutdown(0);
+		return;
+	}
+	applyDesiredState(control.desiredState);
+}
+
+function tickHeartbeat() {
+	beatWorkerHeartbeat(activeQueues, processingState);
+}
+
+applyDesiredState(getWorkerControl().desiredState);
+tickHeartbeat();
+setInterval(tickHeartbeat, 5_000);
+setInterval(pollControl, 2_000);
 
 console.log('[worker] justSend worker running');
 
-function shutdown() {
+function shutdown(code = 0) {
+	if (shuttingDown) return;
+	shuttingDown = true;
 	console.log('[worker] shutting down');
 	for (const w of workers) w.stop();
-	process.exit(0);
+	process.exit(code);
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', () => shutdown(0));
+process.on('SIGTERM', () => shutdown(0));

@@ -12,4 +12,4 @@ cmds = ["pnpm install --frozen-lockfile"]
 cmds = ["pnpm build"]
 
 [start]
-cmd = "node build"
+cmd = "node scripts/supervisor.mjs"

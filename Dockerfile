@@ -22,9 +22,11 @@ ENV NODE_ENV=production
 COPY package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
+COPY --from=builder /app/scripts/supervisor.mjs ./scripts/supervisor.mjs
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 EXPOSE 3000
 ENV PORT=3000
 ENV HOST=0.0.0.0
-CMD ["node", "build"]
+# Runs web + queue worker together; dashboard can pause/stop/restart the worker.
+CMD ["node", "scripts/supervisor.mjs"]

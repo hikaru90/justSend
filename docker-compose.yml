@@ -12,18 +12,21 @@ services:
       - justsend-data:/app/data
     restart: unless-stopped
 
-  worker:
-    build: .
-    command: ['pnpm', 'worker']
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: file:./data/justsend.db
-    volumes:
-      - justsend-data:/app/data
-    depends_on:
-      - app
-    restart: unless-stopped
+  # Optional dedicated worker (use when you want to scale workers separately).
+  # Default app image already runs a supervised worker via scripts/supervisor.mjs —
+  # leave this service commented out unless you switch app to `pnpm start:web`.
+  # worker:
+  #   build: .
+  #   command: ['node', 'build/worker.js']
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     DATABASE_URL: file:./data/justsend.db
+  #   volumes:
+  #     - justsend-data:/app/data
+  #   depends_on:
+  #     - app
+  #   restart: unless-stopped
 
 volumes:
   justsend-data:
