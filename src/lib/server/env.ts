@@ -23,6 +23,16 @@ const envSchema = z.object({
 	OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
 	OPENROUTER_API_KEY: z.string().optional(),
 	OPENROUTER_MODEL: z.string().default('anthropic/claude-3.5-sonnet'),
+	/** Explicit off-switch for Pi; when unset, Pi is enabled iff OPENROUTER_API_KEY is set. */
+	PI_ENABLED: z.preprocess((v) => {
+		if (v === undefined || v === '') return undefined;
+		if (v === true || v === 'true' || v === '1') return true;
+		if (v === false || v === 'false' || v === '0') return false;
+		return v;
+	}, z.boolean().optional()),
+	PI_AGENT_DIR: z.string().default('./data/pi/agent'),
+	/** OpenRouter model id for Pi sessions; falls back to OPENROUTER_MODEL. */
+	PI_MODEL: z.string().optional(),
 	DISCORD_WEBHOOK_URL: z.string().optional(),
 	EMAIL_CLEANUP_DAYS: z.coerce.number().optional(),
 	NODE_ENV: z.enum(['development', 'production', 'test']).default('development')

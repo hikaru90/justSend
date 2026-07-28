@@ -7,6 +7,9 @@ import { renderEmailHtml } from '$lib/email-editor/renderer';
 import { validateApiKeyDomainAccess, validateDomainFromEmail } from './domain-service';
 import { checkMultipleEmails } from './suppression-service';
 import { queueEmail } from './email-queue-service';
+import { hasTemplateComponents } from './template-component-service';
+import { renderTemplateHtml } from './template-render-service';
+import { env } from '../env';
 
 export type Email = typeof emails.$inferSelect;
 
@@ -29,6 +32,8 @@ export type SendEmailInput = {
 	inReplyToId?: string;
 	campaignId?: string;
 	contactId?: string;
+	/** Origin used to resolve design-asset URLs when rendering component templates */
+	assetBaseUrl?: string;
 };
 
 /**
@@ -112,7 +117,17 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 		const template = db.select().from(templates).where(eq(templates.id, templateId)).get();
 		if (template) {
 			subject = replaceVariables(template.subject ?? '', variables ?? {});
-			html = renderEmailHtml(template.content, template.html, variables);
+			if (hasTemplateComponents(template.id)) {
+				html = await renderTemplateHtml({
+					templateId: template.id,
+					teamId,
+					domainId: template.domainId ?? undefined,
+					assetBaseUrl: input.assetBaseUrl ?? env.HOST_URL,
+					extraProps: variables
+				});
+			} else {
+				html = renderEmailHtml(template.content, template.html, variables);
+			}
 		}
 	}
 

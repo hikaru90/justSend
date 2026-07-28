@@ -10,6 +10,7 @@ import {
 } from '$lib/server/service/design-system-service';
 import { inferDesignSystemFromUrl } from '$lib/server/service/design-infer-service';
 import { designAssetKinds, type DesignAssetKind } from '$lib/server/db/schema';
+import { editHtmlWithPi, isPiConfigured } from '$lib/server/service/pi-service';
 import type { Actions, PageServerLoad } from './$types';
 
 const KIND_SET = new Set<string>(designAssetKinds);
@@ -20,7 +21,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		designMd: bundle.system?.designMd ?? '',
 		assets: bundle.assets,
-		components: bundle.components
+		components: bundle.components,
+		piConfigured: isPiConfigured()
 	};
 };
 
@@ -36,7 +38,8 @@ export const actions: Actions = {
 			return {
 				success: true,
 				saved: 'infer' as const,
-				componentsCreated: result.componentsCreated
+				componentsCreated: result.componentsCreated,
+				assetsDownloaded: result.assetsDownloaded
 			};
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Inference failed' });
@@ -117,5 +120,43 @@ export const actions: Actions = {
 			return fail(400, { error: e instanceof Error ? e.message : 'Delete failed' });
 		}
 		return { success: true };
+	},
+
+	piEditComponent: async ({ request, locals }) => {
+		const teamId = requireTeamId(locals.teamId);
+		if (!isPiConfigured()) {
+			return fail(400, { error: 'Pi is not configured (OPENROUTER_API_KEY)' });
+		}
+
+		const form = await request.formData();
+		const html = String(form.get('html') ?? '');
+		const instruction = String(form.get('instruction') ?? '').trim();
+		const name = String(form.get('name') ?? '').trim();
+		const description = String(form.get('description') ?? '').trim() || null;
+
+		if (!instruction) return fail(400, { error: 'Describe the change for Pi' });
+
+		try {
+			const bundle = getDesignSystemBundle(teamId);
+			const edited = await editHtmlWithPi({
+				html,
+				instruction,
+				context: { kind: 'component', name, description },
+				design: {
+					designMd: bundle.system?.designMd ?? null,
+					// Other components as style reference (not the one being edited).
+					components: bundle.components
+						.filter((c) => c.name !== name)
+						.map((c) => ({
+							name: c.name,
+							description: c.description,
+							html: c.html
+						}))
+				}
+			});
+			return { success: true, saved: 'pi-component' as const, html: edited };
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Pi edit failed' });
+		}
 	}
 };

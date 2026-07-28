@@ -90,6 +90,9 @@ export type DesignAssetKind = (typeof designAssetKinds)[number];
 export const templateElementTypes = ['logo', 'text', 'button', 'cta', 'link', 'image'] as const;
 export type TemplateElementType = (typeof templateElementTypes)[number];
 
+export const templateComponentKinds = ['root', 'component'] as const;
+export type TemplateComponentKind = (typeof templateComponentKinds)[number];
+
 const timestamps = {
 	createdAt: text('created_at')
 		.notNull()
@@ -548,6 +551,22 @@ export const templateElements = sqliteTable(
 		...timestamps
 	},
 	(t) => [index('template_elements_template_id_idx').on(t.templateId)]
+);
+
+export const templateComponents = sqliteTable(
+	'template_components',
+	{
+		id: text('id').primaryKey(),
+		templateId: text('template_id')
+			.notNull()
+			.references(() => templates.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		kind: text('kind', { enum: templateComponentKinds }).notNull().default('component'),
+		source: text('source').notNull().default(''),
+		order: integer('order').notNull().default(0),
+		...timestamps
+	},
+	(t) => [index('template_components_template_id_idx').on(t.templateId)]
 );
 
 export const dailyEmailUsages = sqliteTable(

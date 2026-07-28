@@ -1,52 +1,17 @@
 import { env } from '../env';
-import { upsertComponent, upsertDesignMd, type DesignSystem } from './design-system-service';
+import { addAsset, upsertComponent, upsertDesignMd, type DesignSystem } from './design-system-service';
+import {
+	assertSafeUrl,
+	downloadAssetBytes,
+	extractFontCssUrls,
+	extractLogoUrl,
+	fetchCssText,
+	parseFontFaces,
+	uniqueFontsByFamily
+} from './design-asset-fetch-service';
 
 const MAX_PAGE_CHARS = 60_000;
 const FETCH_TIMEOUT_MS = 15_000;
-
-function assertSafeUrl(raw: string): URL {
-	let url: URL;
-	try {
-		url = new URL(raw);
-	} catch {
-		throw new Error('Invalid URL');
-	}
-
-	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-		throw new Error('URL must be http or https');
-	}
-
-	const host = url.hostname.toLowerCase();
-	if (
-		host === 'localhost' ||
-		host === '127.0.0.1' ||
-		host === '::1' ||
-		host === '0.0.0.0' ||
-		host.endsWith('.local') ||
-		host.endsWith('.internal') ||
-		host === 'metadata.google.internal'
-	) {
-		throw new Error('URL host is not allowed');
-	}
-
-	// Block obvious private / link-local IPv4 ranges (hostname as IP).
-	const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-	if (ipv4) {
-		const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
-		if (
-			a === 10 ||
-			a === 127 ||
-			a === 0 ||
-			(a === 172 && b >= 16 && b <= 31) ||
-			(a === 192 && b === 168) ||
-			(a === 169 && b === 254)
-		) {
-			throw new Error('URL host is not allowed');
-		}
-	}
-
-	return url;
-}
 
 function stripHtmlNoise(html: string): string {
 	return html
@@ -58,7 +23,7 @@ function stripHtmlNoise(html: string): string {
 		.trim();
 }
 
-async function fetchPageText(url: URL): Promise<string> {
+async function fetchPageHtml(url: URL): Promise<{ raw: string; text: string }> {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 	try {
@@ -87,7 +52,7 @@ async function fetchPageText(url: URL): Promise<string> {
 		if (!cleaned) {
 			throw new Error('Page content was empty after cleanup');
 		}
-		return cleaned.slice(0, MAX_PAGE_CHARS);
+		return { raw, text: cleaned.slice(0, MAX_PAGE_CHARS) };
 	} catch (e) {
 		if (e instanceof Error && e.name === 'AbortError') {
 			throw new Error('Timed out fetching URL');
@@ -160,12 +125,70 @@ async function chatCompletion(messages: Array<{ role: 'system' | 'user'; content
 	return content;
 }
 
+async function downloadLogoAndFonts(
+	teamId: number,
+	rawHtml: string,
+	pageUrl: URL
+): Promise<number> {
+	let assetsDownloaded = 0;
+
+	const logoUrl = extractLogoUrl(rawHtml, pageUrl);
+	if (logoUrl) {
+		try {
+			const asset = await downloadAssetBytes(logoUrl, { fallbackFilename: 'logo.png' });
+			await addAsset(teamId, {
+				kind: 'logo',
+				name: 'Logo',
+				filename: asset.filename,
+				mime: asset.mime,
+				bytes: asset.bytes
+			});
+			assetsDownloaded += 1;
+		} catch {
+			// Non-fatal: continue with fonts
+		}
+	}
+
+	const cssUrls = extractFontCssUrls(rawHtml, pageUrl);
+	const allFaces = [];
+	for (const cssUrl of cssUrls) {
+		try {
+			const css = await fetchCssText(cssUrl);
+			allFaces.push(...parseFontFaces(css, cssUrl));
+		} catch {
+			// Non-fatal: skip this stylesheet
+		}
+	}
+
+	const fonts = uniqueFontsByFamily(allFaces).slice(0, 6);
+	for (const face of fonts) {
+		try {
+			const asset = await downloadAssetBytes(face.url, {
+				fallbackFilename: `${face.family.replace(/\s+/g, '_')}.woff2`,
+				formatHint: face.format
+			});
+			await addAsset(teamId, {
+				kind: 'font',
+				name: face.family,
+				filename: asset.filename,
+				mime: asset.mime,
+				bytes: asset.bytes
+			});
+			assetsDownloaded += 1;
+		} catch {
+			// Non-fatal: skip this font
+		}
+	}
+
+	return assetsDownloaded;
+}
+
 export async function inferDesignSystemFromUrl(
 	teamId: number,
 	rawUrl: string
-): Promise<{ system: DesignSystem; componentsCreated: number }> {
+): Promise<{ system: DesignSystem; componentsCreated: number; assetsDownloaded: number }> {
 	const url = assertSafeUrl(rawUrl.trim());
-	const pageText = await fetchPageText(url);
+	const { raw, text: pageText } = await fetchPageHtml(url);
 
 	const systemPrompt = [
 		'You extract a brand design system suitable for email templates from a website page.',
@@ -183,12 +206,12 @@ export async function inferDesignSystemFromUrl(
 		pageText
 	].join('\n');
 
-	const raw = await chatCompletion([
+	const rawAi = await chatCompletion([
 		{ role: 'system', content: systemPrompt },
 		{ role: 'user', content: userPrompt }
 	]);
 
-	const payload = parseInferPayload(raw);
+	const payload = parseInferPayload(rawAi);
 	const system = upsertDesignMd(teamId, payload.designMd.trim());
 
 	let componentsCreated = 0;
@@ -204,5 +227,7 @@ export async function inferDesignSystemFromUrl(
 		componentsCreated += 1;
 	}
 
-	return { system, componentsCreated };
+	const assetsDownloaded = await downloadLogoAndFonts(teamId, raw, url);
+
+	return { system, componentsCreated, assetsDownloaded };
 }

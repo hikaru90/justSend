@@ -323,6 +323,17 @@ CREATE TABLE IF NOT EXISTS template_elements (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS template_elements_template_id_idx ON template_elements(template_id);
+CREATE TABLE IF NOT EXISTS template_components (
+  id TEXT PRIMARY KEY NOT NULL,
+  template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'component',
+  source TEXT NOT NULL DEFAULT '',
+  "order" INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS template_components_template_id_idx ON template_components(template_id);
 CREATE TABLE IF NOT EXISTS daily_email_usages (
   team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   date TEXT NOT NULL,
