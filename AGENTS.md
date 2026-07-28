@@ -1,4 +1,4 @@
-# useSend — Agent Instructions
+# justSend — Agent Instructions
 
 ## Models
 

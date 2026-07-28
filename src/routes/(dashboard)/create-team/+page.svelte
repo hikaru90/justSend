@@ -8,7 +8,7 @@
 </script>
 
 <main class="flex min-h-screen items-center justify-center p-6">
-	<Card title="Create your team" description="Self-hosted useSend uses a single team." class="w-full max-w-md">
+	<Card title="Create your team" description="Self-hosted justSend uses a single team." class="w-full max-w-md">
 		<form method="POST" use:enhance>
 			<label class="mb-1 block text-sm font-medium" for="name">Team name</label>
 			<Input id="name" name="name" required placeholder="My Team" />

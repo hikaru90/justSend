@@ -4,7 +4,7 @@ import { config } from 'dotenv';
 config();
 
 const envSchema = z.object({
-	DATABASE_URL: z.string().default('file:./data/usesend.db'),
+	DATABASE_URL: z.string().default('file:./data/justsend.db'),
 	HOST_URL: z.string().url().default('http://localhost:5173'),
 	AUTH_SECRET: z.string().min(16).default('dev-auth-secret-change-me'),
 	ADMIN_EMAIL: z.string().email().optional(),

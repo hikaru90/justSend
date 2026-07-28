@@ -30,7 +30,7 @@ const BUILT_IN_CONTACT_VARIABLES = ['email', 'firstName', 'lastName'] as const;
 
 const CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS = [
 	'unsend_unsubscribe_url',
-	'usesend_unsubscribe_url'
+	'justsend_unsubscribe_url'
 ] as const;
 
 const CAMPAIGN_UNSUB_PLACEHOLDER_REGEXES = CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS.map(

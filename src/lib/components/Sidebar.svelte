@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import {
 		LayoutDashboard,
-		Mail,
+		ListOrdered,
 		Globe,
 		Users,
 		Megaphone,
@@ -28,7 +28,7 @@
 
 	const links = $derived([
 		{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-		{ href: '/emails', label: 'Emails', icon: Mail },
+		{ href: '/emails', label: 'Queue', icon: ListOrdered },
 		{ href: '/domains', label: 'Domains', icon: Globe },
 		{ href: '/contacts', label: 'Contacts', icon: Users },
 		{ href: '/campaigns', label: 'Campaigns', icon: Megaphone },
@@ -53,7 +53,7 @@
 	class="flex h-screen w-64 shrink-0 flex-col border-r border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))]"
 >
 	<div class="border-b border-[hsl(var(--sidebar-border))] p-4">
-		<a href="/dashboard" class="text-lg font-semibold tracking-tight">useSend</a>
+		<a href="/dashboard" class="text-lg font-semibold tracking-tight">justSend</a>
 		<div class="mt-3">
 			<TeamSwitcher {teams} {teamId} />
 		</div>

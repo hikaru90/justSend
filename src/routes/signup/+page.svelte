@@ -31,7 +31,7 @@
 </script>
 
 <main class="flex min-h-screen items-center justify-center p-6">
-	<Card title="Sign up for useSend" class="w-full max-w-md">
+	<Card title="Sign up for justSend" class="w-full max-w-md">
 		<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
 			The first user creates the team. Additional users need a team invite before signing up.
 		</p>

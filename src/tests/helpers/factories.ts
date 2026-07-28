@@ -79,7 +79,7 @@ export function createDomain(
 			status: overrides.status ?? 'SUCCESS',
 			region: overrides.region ?? 'us-east-1',
 			publicKey: 'test-public-key',
-			dkimSelector: 'usesend',
+			dkimSelector: 'justsend',
 			clickTracking: overrides.clickTracking ?? false,
 			openTracking: overrides.openTracking ?? false,
 			isVerifying: overrides.isVerifying ?? false
@@ -181,7 +181,7 @@ export function createCampaign(
 			subject: overrides.subject ?? `Subject ${n}`,
 			html:
 				overrides.html ??
-				`<p>Hello</p><a href="{{usesend_unsubscribe_url}}">Unsubscribe</a>`,
+				`<p>Hello</p><a href="{{justsend_unsubscribe_url}}">Unsubscribe</a>`,
 			status: overrides.status ?? 'DRAFT',
 			contactBookId: overrides.contactBookId ?? null,
 			scheduledAt: overrides.scheduledAt ?? null
@@ -310,13 +310,13 @@ export function createSesSetting(
 			id: cuid(),
 			region: overrides.region ?? 'us-east-1',
 			idPrefix: overrides.idPrefix ?? `us${n}`,
-			topic: overrides.topic ?? `usesend-${n}`,
-			topicArn: overrides.topicArn ?? `arn:aws:sns:us-east-1:123:usesend-${n}`,
+			topic: overrides.topic ?? `justsend-${n}`,
+			topicArn: overrides.topicArn ?? `arn:aws:sns:us-east-1:123:justsend-${n}`,
 			callbackUrl: overrides.callbackUrl ?? 'http://localhost:5173/api/ses_callback',
 			callbackSuccess: overrides.callbackSuccess ?? true,
-			configGeneral: overrides.configGeneral ?? 'usesend-general',
+			configGeneral: overrides.configGeneral ?? 'justsend-general',
 			configGeneralSuccess: overrides.configGeneralSuccess ?? true,
-			configFull: overrides.configFull ?? 'usesend-full',
+			configFull: overrides.configFull ?? 'justsend-full',
 			configFullSuccess: overrides.configFullSuccess ?? true,
 			sesEmailRateLimit: overrides.sesEmailRateLimit ?? 10,
 			transactionalQuota: overrides.transactionalQuota ?? 50

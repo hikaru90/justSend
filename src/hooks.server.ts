@@ -24,7 +24,7 @@ const auth: Handle = async ({ event, resolve }) => {
 	const user = getSessionUser(token);
 	event.locals.user = user;
 
-	const teamCookie = event.cookies.get('usesend_team');
+	const teamCookie = event.cookies.get('justsend_team');
 	let teamId = teamCookie ? Number(teamCookie) : null;
 	if (user) {
 		const teams = getUserTeams(user.id);

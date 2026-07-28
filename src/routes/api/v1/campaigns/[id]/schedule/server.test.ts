@@ -9,7 +9,7 @@ import {
 import { buildApiEvent, bearer, invokeHandler } from '../../../../../../tests/helpers/api';
 import { POST } from './+server';
 
-const UNSUB_HTML = '<p>Hello</p><a href="{{usesend_unsubscribe_url}}">Unsubscribe</a>';
+const UNSUB_HTML = '<p>Hello</p><a href="{{justsend_unsubscribe_url}}">Unsubscribe</a>';
 
 describe('POST /api/v1/campaigns/[id]/schedule', () => {
 	beforeEach(() => resetDb());

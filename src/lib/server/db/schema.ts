@@ -209,7 +209,7 @@ export const domains = sqliteTable('domains', {
 	clickTracking: integer('click_tracking', { mode: 'boolean' }).notNull().default(false),
 	openTracking: integer('open_tracking', { mode: 'boolean' }).notNull().default(false),
 	publicKey: text('public_key').notNull(),
-	dkimSelector: text('dkim_selector').default('usesend'),
+	dkimSelector: text('dkim_selector').default('justsend'),
 	dkimStatus: text('dkim_status'),
 	spfDetails: text('spf_details'),
 	dmarcAdded: integer('dmarc_added', { mode: 'boolean' }).notNull().default(false),

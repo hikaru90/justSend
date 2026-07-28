@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS domains (
   click_tracking INTEGER NOT NULL DEFAULT 0,
   open_tracking INTEGER NOT NULL DEFAULT 0,
   public_key TEXT NOT NULL,
-  dkim_selector TEXT DEFAULT 'usesend',
+  dkim_selector TEXT DEFAULT 'justsend',
   dkim_status TEXT,
   spf_details TEXT,
   dmarc_added INTEGER NOT NULL DEFAULT 0,

@@ -31,7 +31,7 @@
 </script>
 
 <main class="flex min-h-screen items-center justify-center p-6">
-	<Card title="Sign in to useSend" description="Use a magic link or OAuth provider." class="w-full max-w-md">
+	<Card title="Sign in to justSend" description="Use a magic link or OAuth provider." class="w-full max-w-md">
 		{#if data.error === 'github_not_configured'}
 			<p class="mb-4 text-sm text-[hsl(var(--destructive))]">GitHub login is not configured.</p>
 		{/if}

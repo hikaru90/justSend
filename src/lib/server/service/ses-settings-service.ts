@@ -59,7 +59,7 @@ export function getTopicArns(): string[] {
 	return topicArns;
 }
 
-async function isValidUsesendUrl(url: string) {
+async function isValidJustsendUrl(url: string) {
 	try {
 		const response = await fetch(`${url}/api/ses_callback`, { method: 'GET' });
 		return {
@@ -136,12 +136,12 @@ async function registerConfigurationSet(setting: SesSetting): Promise<SesSetting
 
 export async function createSesSetting({
 	region,
-	usesendUrl,
+	justsendUrl,
 	sendingRateLimit,
 	transactionalQuota
 }: {
 	region: string;
-	usesendUrl: string;
+	justsendUrl: string;
 	sendingRateLimit: number;
 	transactionalQuota: number;
 }): Promise<SesSetting> {
@@ -150,14 +150,14 @@ export async function createSesSetting({
 		throw new Error(`SesSetting for region ${region} already exists`);
 	}
 
-	const parsedUrl = usesendUrl.endsWith('/')
-		? usesendUrl.substring(0, usesendUrl.length - 1)
-		: usesendUrl;
+	const parsedUrl = justsendUrl.endsWith('/')
+		? justsendUrl.substring(0, justsendUrl.length - 1)
+		: justsendUrl;
 
-	const validation = await isValidUsesendUrl(parsedUrl);
+	const validation = await isValidJustsendUrl(parsedUrl);
 	if (!validation.isValid) {
 		throw new Error(
-			`Callback URL: ${usesendUrl} is not valid, status: ${validation.code} message: ${validation.error}`
+			`Callback URL: ${justsendUrl} is not valid, status: ${validation.code} message: ${validation.error}`
 		);
 	}
 

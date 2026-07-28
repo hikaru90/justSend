@@ -8,7 +8,7 @@
 
 {#if !data.team}
 	<main class="flex min-h-screen items-center justify-center p-6">
-		<Card title="Create your team" description="Set up the first team for this useSend instance." class="w-full max-w-md">
+		<Card title="Create your team" description="Set up the first team for this justSend instance." class="w-full max-w-md">
 			<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
 				No team yet. Create one to continue, or check pending invites.
 			</p>

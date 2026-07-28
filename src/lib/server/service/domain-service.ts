@@ -40,7 +40,7 @@ function parseDomainStatus(status?: string | null): DomainStatus {
 export function getDnsRecords(domain: Domain): DomainDnsRecord[] {
 	const subdomainSuffix = domain.subdomain ? `.${domain.subdomain}` : '';
 	const mailDomain = `mail${subdomainSuffix}`;
-	const dkimSelector = domain.dkimSelector ?? 'usesend';
+	const dkimSelector = domain.dkimSelector ?? 'justsend';
 
 	const spfStatus = parseDomainStatus(domain.spfDetails);
 	const dkimStatus = parseDomainStatus(domain.dkimStatus);
@@ -167,7 +167,7 @@ export async function validateDomainFromEmail(email: string, teamId: number): Pr
 
 	if (!domain) {
 		throw new Error(
-			`Domain: ${fromDomain} of from email is wrong. Use the domain verified by useSend`
+			`Domain: ${fromDomain} of from email is wrong. Use the domain verified by justSend`
 		);
 	}
 
@@ -218,7 +218,7 @@ export async function createDomain(
 	}
 
 	const subdomain = tldts.getSubdomain(name) || null;
-	const dkimSelector = 'usesend';
+	const dkimSelector = 'justsend';
 	const publicKey = await ses.addDomain(name, region, sesTenantId, dkimSelector);
 
 	const domain = db

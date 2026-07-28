@@ -138,7 +138,7 @@ describe('ses-hook-parser', () => {
 		expect(events.some((e) => e.status === 'SENT')).toBe(true);
 	});
 
-	it('matches email by X-Usesend-Email-ID header when sesEmailId is missing', async () => {
+	it('matches email by X-Justsend-Email-ID header when sesEmailId is missing', async () => {
 		const team = createTeam();
 		const domain = createDomain(team.id);
 		const email = createEmail(team.id, {
@@ -152,7 +152,7 @@ describe('ses-hook-parser', () => {
 			mail: {
 				messageId: 'new-ses-id',
 				timestamp: new Date().toISOString(),
-				headers: [{ name: 'X-Usesend-Email-ID', value: email.id }]
+				headers: [{ name: 'X-Justsend-Email-ID', value: email.id }]
 			},
 			send: {}
 		});

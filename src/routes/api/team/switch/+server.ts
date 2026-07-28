@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 		return json({ error: 'Team not found' }, { status: 403 });
 	}
 
-	cookies.set('usesend_team', String(teamId), {
+	cookies.set('justsend_team', String(teamId), {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',

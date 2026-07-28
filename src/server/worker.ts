@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { migrate } from '../lib/server/db/migrate';
-import { QueueWorker, recoverStaleJobs } from '../lib/server/queue';
+import { QueueWorker, recoverStaleJobs, enqueue } from '../lib/server/queue';
 import { QUEUES, marketingQueueName, transactionalQueueName } from '../lib/server/queue/constants';
 import { getAllSettings } from '../lib/server/service/ses-settings-service';
 import { executeEmail } from '../lib/server/service/email-queue-service';
@@ -9,17 +9,19 @@ import { processWebhookCall } from '../lib/server/service/webhook-service';
 import { processCampaignBatch } from '../lib/server/service/campaign-service';
 import { processContactBulkAdd } from '../lib/server/service/contact-service';
 import { processDomainVerification, queueDomainVerification } from '../lib/server/service/domain-verification-job';
-import { enqueue } from '../lib/server/queue';
+import { beatWorkerHeartbeat } from '../lib/server/service/worker-status-service';
 
 migrate();
 recoverStaleJobs();
 
 const workers: QueueWorker[] = [];
+const activeQueues: string[] = [];
 
 function start(queue: string, handler: ConstructorParameters<typeof QueueWorker>[1], concurrency = 1) {
 	const worker = new QueueWorker(queue, handler, { concurrency, pollIntervalMs: 800 });
 	worker.start();
 	workers.push(worker);
+	activeQueues.push(queue);
 }
 
 start(QUEUES.SES_WEBHOOK, async (payload) => {
@@ -86,7 +88,10 @@ setInterval(() => {
 	recoverStaleJobs();
 }, 5 * 60_000);
 
-console.log('[worker] useSend worker running');
+beatWorkerHeartbeat(activeQueues);
+setInterval(() => beatWorkerHeartbeat(activeQueues), 5_000);
+
+console.log('[worker] justSend worker running');
 
 function shutdown() {
 	console.log('[worker] shutting down');

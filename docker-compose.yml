@@ -6,10 +6,10 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: file:./data/usesend.db
+      DATABASE_URL: file:./data/justsend.db
       HOST_URL: ${HOST_URL:-http://localhost:3000}
     volumes:
-      - usesend-data:/app/data
+      - justsend-data:/app/data
     restart: unless-stopped
 
   worker:
@@ -18,12 +18,12 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: file:./data/usesend.db
+      DATABASE_URL: file:./data/justsend.db
     volumes:
-      - usesend-data:/app/data
+      - justsend-data:/app/data
     depends_on:
       - app
     restart: unless-stopped
 
 volumes:
-  usesend-data:
+  justsend-data:

@@ -92,7 +92,7 @@ function renderNode(node: JSONContent): string {
 		case 'button': {
 			const text = typeof node.attrs?.text === 'string' ? node.attrs.text : 'Button';
 			const url = typeof node.attrs?.url === 'string' ? node.attrs.url : '#';
-			return `<a href="${escapeAttr(url)}" class="usesend-button">${escapeHtml(text)}</a>`;
+			return `<a href="${escapeAttr(url)}" class="justsend-button">${escapeHtml(text)}</a>`;
 		}
 		default:
 			return renderChildren(node);

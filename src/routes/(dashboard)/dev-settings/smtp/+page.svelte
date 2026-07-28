@@ -9,7 +9,7 @@
 <Card title="Connection notes">
 	<div class="space-y-3 text-sm text-[hsl(var(--muted-foreground))]">
 		<p>
-			useSend sends email through Amazon SES via the REST API and background worker — there is no
+			justSend sends email through Amazon SES via the REST API and background worker — there is no
 			built-in SMTP relay in this self-hosted build.
 		</p>
 		<p>

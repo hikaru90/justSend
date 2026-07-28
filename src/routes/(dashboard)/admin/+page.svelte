@@ -13,7 +13,7 @@
 <Card title="Add region" class="mb-6">
 	<form method="POST" action="?/create" use:enhance class="grid gap-3 sm:grid-cols-2">
 		<Input name="region" placeholder="us-east-1" required />
-		<Input name="usesendUrl" value={data.defaultUrl} required />
+		<Input name="justsendUrl" value={data.defaultUrl} required />
 		<Input name="sendingRateLimit" type="number" value="1" />
 		<Input name="transactionalQuota" type="number" value="50" />
 		<Button type="submit" class="sm:col-span-2">Create SES setting</Button>

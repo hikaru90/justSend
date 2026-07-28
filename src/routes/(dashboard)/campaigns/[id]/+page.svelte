@@ -7,7 +7,7 @@
 	import { enhance } from '$app/forms';
 
 	let { data, form } = $props();
-	let html = $state(data.campaign.html ?? '<p>Hello {{firstName}}</p><p><a href="{{usesend_unsubscribe_url}}">Unsubscribe</a></p>');
+	let html = $state(data.campaign.html ?? '<p>Hello {{firstName}}</p><p><a href="{{justsend_unsubscribe_url}}">Unsubscribe</a></p>');
 </script>
 
 <div class="mb-4 flex items-center gap-2">

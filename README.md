@@ -1,4 +1,4 @@
-# useSend
+# justSend
 
 Self-hosted email infrastructure for transactional and marketing email via Amazon SES. Built with SvelteKit, Drizzle ORM, and SQLite.
 
@@ -45,7 +45,7 @@ Open [http://localhost:5173](http://localhost:5173). The first user to sign up c
 ## SES setup
 
 1. Sign in as admin (`ADMIN_EMAIL` must match your account email).
-2. Go to **Admin → SES Settings** and add a region. useSend validates that `{HOST_URL}/api/ses_callback` is reachable.
+2. Go to **Admin → SES Settings** and add a region. justSend validates that `{HOST_URL}/api/ses_callback` is reachable.
 3. Add and verify sending domains under **Domains**.
 4. Create API keys under **Dev Settings → API Keys** for programmatic sending.
 
@@ -58,7 +58,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The app and worker share a `usesend-data` volume for `./data/usesend.db`.
+The app and worker share a `justsend-data` volume for `./data/justsend.db`.
 
 ## API
 
@@ -68,7 +68,7 @@ REST API lives at `/api/v1/*`. Authenticate with `Authorization: Bearer us_...` 
 
 See `.env.example` for the full list. Key variables:
 
-- `DATABASE_URL` — SQLite path (default `file:./data/usesend.db`)
+- `DATABASE_URL` — SQLite path (default `file:./data/justsend.db`)
 - `HOST_URL` — Public app URL (OAuth callbacks, unsubscribe links)
 - `AUTH_SECRET` — Session signing secret (min 16 chars)
 - `ADMIN_EMAIL` — Email that receives admin UI access

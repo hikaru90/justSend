@@ -439,12 +439,12 @@ async function postWebhook(params: {
 
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json',
-		'User-Agent': 'UseSend-Webhook/1.0',
-		'X-UseSend-Event': params.type,
-		'X-UseSend-Call': params.callId,
-		'X-UseSend-Timestamp': timestamp,
-		'X-UseSend-Signature': signature,
-		'X-UseSend-Retry': params.body.attempt > 1 ? 'true' : 'false'
+		'User-Agent': 'JustSend-Webhook/1.0',
+		'X-JustSend-Event': params.type,
+		'X-JustSend-Call': params.callId,
+		'X-JustSend-Timestamp': timestamp,
+		'X-JustSend-Signature': signature,
+		'X-JustSend-Retry': params.body.attempt > 1 ? 'true' : 'false'
 	};
 
 	const start = Date.now();
