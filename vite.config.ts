@@ -15,8 +15,7 @@ export default defineConfig({
 		})
 	],
 	ssr: {
-		external: ['better-sqlite3'],
-		noExternal: [/@usewaypoint\//]
+		external: ['better-sqlite3']
 	},
 	optimizeDeps: {
 		exclude: ['better-sqlite3']

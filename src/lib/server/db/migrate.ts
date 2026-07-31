@@ -483,6 +483,7 @@ CREATE INDEX IF NOT EXISTS suppression_team_domain_idx ON suppression_list(team_
 	backfillDomainIds('suppression_list');
 	backfillTemplateElementOrders();
 	migrateHeroImageOverlay();
+	clearHeroImageDefaultBlackBackground();
 
 	db.run(sql`SELECT 1`);
 	console.log('Database migrated');
@@ -608,7 +609,6 @@ function migrateHeroImageOverlay() {
 						backgroundSize: 'cover',
 						backgroundPosition: 'center',
 						backgroundRepeat: 'no-repeat',
-						backgroundColor: '#000000',
 						minHeight: 280,
 						padding: { top: 48, bottom: 48, left: 32, right: 32 }
 					},
@@ -648,6 +648,41 @@ function migrateHeroImageOverlay() {
 		];
 
 		update.run(JSON.stringify(nextDoc), JSON.stringify(nextSlots), row.id);
+	}
+}
+
+/** Remove migration-baked black fills so transparent PNGs stay transparent. */
+function clearHeroImageDefaultBlackBackground() {
+	const rows = rawDb
+		.prepare(
+			`SELECT id, document FROM design_components
+			 WHERE name = 'Hero Image' AND document IS NOT NULL AND document != ''`
+		)
+		.all() as Array<{ id: string; document: string }>;
+
+	const update = rawDb.prepare(
+		`UPDATE design_components SET document = ?, updated_at = datetime('now') WHERE id = ?`
+	);
+
+	for (const row of rows) {
+		let doc: Record<string, { type: string; data: Record<string, unknown> }>;
+		try {
+			doc = JSON.parse(row.document) as typeof doc;
+		} catch {
+			continue;
+		}
+		let changed = false;
+		for (const block of Object.values(doc)) {
+			if (block?.type !== 'Container') continue;
+			const style = block.data?.style as
+				| { backgroundImage?: string; backgroundColor?: string | null }
+				| undefined;
+			if (!style?.backgroundImage) continue;
+			if (style.backgroundColor !== '#000000') continue;
+			delete style.backgroundColor;
+			changed = true;
+		}
+		if (changed) update.run(JSON.stringify(doc), row.id);
 	}
 }
 

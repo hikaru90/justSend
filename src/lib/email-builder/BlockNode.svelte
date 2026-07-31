@@ -184,7 +184,7 @@
 {:else}
 	<BlockWrapper {blockId}>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- EmailBuilder leaf HTML from trusted document / renderToStaticMarkup -->
+		<!-- Leaf HTML from native table-based email renderer -->
 		{@html leafHtml}
 	</BlockWrapper>
 {/if}

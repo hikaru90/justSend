@@ -1,4 +1,4 @@
-/** EmailBuilder.js-compatible document model (ported to Svelte). */
+/** EmailBuilder document model (block tree → table-based HTML). */
 
 export type Padding = {
 	top?: number;

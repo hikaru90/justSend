@@ -1,5 +1,5 @@
-import { renderToStaticMarkup } from '@usewaypoint/email-builder';
 import { mergeSectionDocuments } from './component-document';
+import { renderBlock } from './render-html';
 import type { TEditorConfiguration, EmailBuilderContent } from './types';
 import { EMPTY_DOCUMENT } from './types';
 
@@ -10,9 +10,8 @@ export type ScaffoldSlots = {
 };
 
 /**
- * `@usewaypoint/block-text` only parses markdown when `props.markdown` is true.
- * Enable it for every Text block at render time so existing docs and slot-filled
- * copy get bold/links/lists without a data migration.
+ * Enable markdown for every Text block at render time so existing docs and
+ * slot-filled copy get bold/links/lists without a data migration.
  */
 export function enableTextBlockMarkdown(document: TEditorConfiguration): TEditorConfiguration {
 	const next = cloneDocument(document);
@@ -26,16 +25,14 @@ export function enableTextBlockMarkdown(document: TEditorConfiguration): TEditor
 
 /** Render EmailBuilder document to a full HTML email string. */
 export function renderEmailHtml(document: TEditorConfiguration): string {
-	return renderToStaticMarkup(enableTextBlockMarkdown(document) as never, { rootBlockId: 'root' });
+	return renderBlock(enableTextBlockMarkdown(document), 'root');
 }
 
-/** Strip outer html/body wrappers from a single-block render for canvas leaves. */
+/** Inner HTML for a single block (canvas leaves / previews). */
 export function renderBlockInnerHtml(document: TEditorConfiguration, blockId: string): string {
-	const full = renderToStaticMarkup(enableTextBlockMarkdown(document) as never, {
-		rootBlockId: blockId
-	});
-	const bodyMatch = full.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-	return (bodyMatch?.[1] ?? full).trim();
+	const html = renderBlock(enableTextBlockMarkdown(document), blockId);
+	const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+	return (bodyMatch?.[1] ?? html).trim();
 }
 
 export function parseEmailBuilderContent(raw: string | null | undefined): {
