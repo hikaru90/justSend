@@ -49,7 +49,7 @@ function elementLines(items: TemplateElement[], assetBaseUrl: string, input: Bui
 	const designComponentById = Object.fromEntries(
 		input.components.map((c) => [
 			c.id,
-			{ name: c.name, starterKey: c.starterKey, kind: c.kind }
+			{ name: c.name, starterKey: c.starterKey }
 		])
 	);
 
@@ -77,7 +77,7 @@ function designContextBlocks(input: BuildPromptInput): string {
 			: input.components
 					.map((c) => {
 						const props = parseComponentProps(c).join(', ') || '(none)';
-						return `### ${c.name}${c.description ? ` — ${c.description}` : ''}\nkind: ${c.kind}; role: ${c.role}; starterKey: ${c.starterKey ?? '(none)'}; slots: [${props}]`;
+						return `### ${c.name}${c.description ? ` — ${c.description}` : ''}\nrole: ${c.role}; slots: [${props}]`;
 					})
 					.join('\n\n');
 

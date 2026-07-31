@@ -863,9 +863,11 @@
 					</div>
 					<div class="border-t border-[hsl(var(--border))] px-3 py-2">
 						<p class="truncate text-sm font-medium">{component.name}</p>
-						<p class="text-xs text-[hsl(var(--muted-foreground))]">
-							{component.kind === 'starter' ? 'Starter' : 'Custom'}
-						</p>
+						{#if component.description}
+							<p class="truncate text-xs text-[hsl(var(--muted-foreground))]">
+								{component.description}
+							</p>
+						{/if}
 					</div>
 				</button>
 			{/each}

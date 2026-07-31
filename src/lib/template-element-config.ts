@@ -125,7 +125,7 @@ export function formatElementConfigForPrompt(
 		/** Optional lookup for library component elements */
 		designComponentById?: Record<
 			string,
-			{ name: string; starterKey?: string | null; kind?: string }
+			{ name: string; starterKey?: string | null }
 		>;
 	} = {}
 ): string {
@@ -140,7 +140,6 @@ export function formatElementConfigForPrompt(
 			parts.push(`library component "${lib.name}"`);
 			if (lib.starterKey) parts.push(`libraryRef=${lib.starterKey}`);
 			else parts.push(`libraryRef=${lib.name}`);
-			if (lib.kind) parts.push(`kind=${lib.kind}`);
 		} else if (config.designComponentId) {
 			parts.push(`designComponentId=${config.designComponentId}`);
 		} else {

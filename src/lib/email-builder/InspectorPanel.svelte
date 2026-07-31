@@ -36,15 +36,26 @@
 	const imageAlt = $derived(String((block?.data.props as { alt?: string })?.alt ?? ''));
 </script>
 
-{#snippet colorSwatches(value: string, onSelect: (color: string) => void)}
+{#snippet colorSwatches(value: string | null, onSelect: (color: string | null) => void)}
 	{#if designColors.length}
 		<div class="mt-1 flex flex-wrap gap-1">
+			<button
+				type="button"
+				title="Remove color"
+				aria-label="Remove color"
+				class="size-5 rounded border {value === null
+					? 'border-[hsl(var(--ring))] ring-2 ring-[hsl(var(--ring))]'
+					: 'border-[hsl(var(--border))]'} flex items-center justify-center bg-white text-[hsl(var(--muted-foreground))]"
+				onclick={() => onSelect(null)}
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+			</button>
 			{#each designColors as color (color)}
 				<button
 					type="button"
 					title={color}
 					aria-label={color}
-					class="size-5 rounded border {value.toLowerCase() === color.toLowerCase()
+					class="size-5 rounded border {value?.toLowerCase() === color.toLowerCase()
 						? 'border-[hsl(var(--ring))] ring-2 ring-[hsl(var(--ring))]'
 						: 'border-[hsl(var(--border))]'}"
 					style="background: {color}"
@@ -83,7 +94,7 @@
 					if (!root) return;
 					editor.updateBlock('root', {
 						...root,
-						data: { ...root.data, canvasColor: color }
+						data: { ...root.data, canvasColor: color ?? '' }
 					});
 				})}
 			</label>
@@ -107,7 +118,7 @@
 					if (!root) return;
 					editor.updateBlock('root', {
 						...root,
-						data: { ...root.data, backdropColor: color }
+						data: { ...root.data, backdropColor: color ?? '' }
 					});
 				})}
 			</label>
@@ -205,7 +216,7 @@
 					oninput={(e) => setLayoutField('canvasColor', e.currentTarget.value)}
 				/>
 				{@render colorSwatches(String(block.data.canvasColor ?? '#FFFFFF'), (color) =>
-					setLayoutField('canvasColor', color))}
+					setLayoutField('canvasColor', color ?? ''))}
 			</label>
 		{/if}
 	</div>

@@ -1,9 +1,7 @@
 import {
 	addAsset,
-	ensureStarterComponents,
 	getComponent,
 	getDesignSystem,
-	listComponents,
 	parseComponentProps,
 	upsertComponent,
 	upsertDesignMd,
@@ -11,11 +9,6 @@ import {
 	type DesignSystem
 } from './design-system-service';
 import { openRouterChat, openRouterModel } from './openrouter';
-import {
-	STARTER_DESIGN_COMPONENTS,
-	getStarterDesignComponentByKey,
-	getStarterDesignComponentByName
-} from './design-component-library';
 import {
 	assertSafeUrl,
 	downloadAssetBytes,
@@ -87,27 +80,20 @@ function stripMarkdownFences(text: string): string {
 
 type InferPayload = {
 	designMd: string;
-	components?: Array<{
-		name?: string;
-		starterKey?: string;
-		description?: string;
-		props?: string[];
-		html: string;
-	}>;
 };
 
 function parseInferPayload(raw: string): InferPayload {
 	const text = stripMarkdownFences(raw);
 	try {
-		const parsed = JSON.parse(text) as InferPayload;
-		if (!parsed.designMd || typeof parsed.designMd !== 'string') {
-			throw new Error('missing designMd');
+		const parsed = JSON.parse(text) as { designMd?: unknown };
+		if (typeof parsed.designMd === 'string' && parsed.designMd.trim()) {
+			return { designMd: parsed.designMd };
 		}
-		return parsed;
+		throw new Error('missing designMd');
 	} catch {
 		// Model sometimes returns bare markdown — treat whole response as design.md
 		if (text.includes('#') || text.length > 40) {
-			return { designMd: text, components: [] };
+			return { designMd: text };
 		}
 		throw new Error('AI returned an unreadable design system payload');
 	}
@@ -191,7 +177,7 @@ async function downloadLogoAndFonts(
 export async function inferDesignSystemFromUrl(
 	teamIdOrOpts: number | InferDesignOptions,
 	rawUrlMaybe?: string
-): Promise<{ system: DesignSystem; componentsCreated: number; assetsDownloaded: number }> {
+): Promise<{ system: DesignSystem; assetsDownloaded: number }> {
 	const opts: InferDesignOptions =
 		typeof teamIdOrOpts === 'number'
 			? { teamId: teamIdOrOpts, rawUrl: String(rawUrlMaybe ?? '') }
@@ -202,27 +188,17 @@ export async function inferDesignSystemFromUrl(
 	const url = assertSafeUrl(opts.rawUrl.trim());
 	emit({ stage: 'fetching', message: `Fetching ${url.toString()}…` });
 	const { raw, text: pageText } = await fetchPageHtml(url);
-	const starterList = STARTER_DESIGN_COMPONENTS.map(
-		(component) =>
-			`- ${component.starterKey} (${component.name}) props=[${component.props.join(', ')}]`
-	).join('\n');
 
 	const systemPrompt = [
 		'You extract a brand design system suitable for email templates from a website page.',
 		'Return ONLY valid JSON (no markdown fences) with this shape:',
-		'{ "designMd": string, "components": [ { "starterKey": string, "name": string, "description": string, "props"?: string[], "html": string } ] }',
+		'{ "designMd": string }',
 		'designMd must be a markdown document covering: brand voice, colors (hex), typography, spacing, buttons, links, logo usage, and email-friendly layout notes.',
-		'components must be styled versions of the provided starter email components, not an open-ended component set.',
-		'Keep component names and starterKey values aligned to the supplied starter kit.',
-		'Each component should be valid Svelte email component source with only a single $props() script block, inline CSS, and table-friendly markup.',
-		'Use the starter kit prop names for dynamic values.'
+		'Do not invent or return email components — components are managed separately.'
 	].join(' ');
 
 	const userPrompt = [
 		`Source URL: ${url.toString()}`,
-		'',
-		'Starter email component kit to brand and refine:',
-		starterList,
 		'',
 		'Page content (scripts/styles removed, truncated):',
 		pageText
@@ -257,52 +233,13 @@ export async function inferDesignSystemFromUrl(
 
 	const payload = parseInferPayload(rawAi);
 	const system = upsertDesignMd(opts.teamId, payload.designMd.trim());
-	ensureStarterComponents(opts.teamId);
-	const existingStarterByKey = new Map(
-		listComponents(opts.teamId)
-			.filter((component) => component.kind === 'starter' && component.starterKey)
-			.map((component) => [component.starterKey, component])
-	);
-
-	let componentsCreated = 0;
-	for (const component of payload.components ?? []) {
-		const starter =
-			(component.starterKey && getStarterDesignComponentByKey(component.starterKey)) ||
-			(component.name && getStarterDesignComponentByName(component.name)) ||
-			null;
-		if (!starter) continue;
-
-		const existing = existingStarterByKey.get(starter.starterKey) ?? null;
-		const html = component.html?.trim();
-		if (!html) continue;
-
-		const props =
-			Array.isArray(component.props) && component.props.length > 0
-				? component.props.map(String)
-				: existing
-					? parseComponentProps(existing)
-					: starter.props;
-
-		upsertComponent(opts.teamId, {
-			id: existing?.id,
-			name: starter.name,
-			kind: 'starter',
-			role: starter.role,
-			description: component.description?.trim() || starter.description,
-			props,
-			starterKey: starter.starterKey,
-			html
-		});
-		componentsCreated += 1;
-	}
-
 	const assetsDownloaded = await downloadLogoAndFonts(opts.teamId, raw, url);
 
 	emit({
 		stage: 'done',
-		message: `Saved design system (${componentsCreated} components, ${assetsDownloaded} assets).`
+		message: `Saved design.md (${assetsDownloaded} assets downloaded). Components were not changed.`
 	});
-	return { system, componentsCreated, assetsDownloaded };
+	return { system, assetsDownloaded };
 }
 
 export type ReapplyProgressEvent =
@@ -397,7 +334,7 @@ export async function reapplyDesignSystemToComponent(
 	const updated = upsertComponent(opts.teamId, {
 		id: component.id,
 		name: component.name,
-		kind: component.kind === 'starter' ? 'starter' : 'custom',
+		kind: 'custom',
 		role: component.role,
 		description: component.description,
 		props,

@@ -2,10 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { cuid, nowIso } from '$lib/utils';
-import {
-	STARTER_DESIGN_COMPONENTS,
-	getStarterDesignComponentByKey
-} from './design-component-library';
+import { STARTER_DESIGN_COMPONENTS } from './design-component-library';
 import { db } from '../db';
 import {
 	designAssets,
@@ -171,7 +168,6 @@ export async function deleteAsset(assetId: string, teamId: number): Promise<Desi
 }
 
 export function listComponents(teamId: number): DesignComponent[] {
-	ensureStarterComponents(teamId);
 	return db
 		.select()
 		.from(designComponents)
@@ -223,77 +219,14 @@ export function parseComponentProps(component: Pick<DesignComponent, 'props'>): 
 	}
 }
 
-export function ensureStarterComponents(teamId: number): DesignComponent[] {
-	const existing = db
-		.select()
-		.from(designComponents)
-		.where(eq(designComponents.teamId, teamId))
-		.all();
-
-	const byStarterKey = new Map(
-		existing.filter((component) => component.starterKey).map((component) => [component.starterKey, component])
-	);
-
-	for (const starter of STARTER_DESIGN_COMPONENTS) {
-		const row = byStarterKey.get(starter.starterKey);
-		if (row) {
-			const nextSerializedProps = serializeProps(starter.props);
-			// Migrate legacy Svelte starter sources to plain HTML with {{slot}} placeholders.
-			const looksLikeSvelte =
-				/\$props\s*\(/.test(row.html) || /<\/?script\b/i.test(row.html);
-			const needsMetaSync =
-				row.kind !== 'starter' ||
-				row.role !== starter.role ||
-				row.starterKey !== starter.starterKey ||
-				row.props !== nextSerializedProps;
-			if (needsMetaSync || looksLikeSvelte || !row.html.trim()) {
-				db.update(designComponents)
-					.set({
-						kind: 'starter',
-						role: starter.role,
-						props: nextSerializedProps,
-						starterKey: starter.starterKey,
-						...(looksLikeSvelte || !row.html.trim() ? { html: starter.html } : {}),
-						updatedAt: nowIso()
-					})
-					.where(eq(designComponents.id, row.id))
-					.run();
-			}
-			continue;
-		}
-
-		db.insert(designComponents)
-			.values({
-				id: cuid(),
-				teamId,
-				name: starter.name,
-				kind: 'starter',
-				role: starter.role,
-				description: starter.description,
-				props: serializeProps(starter.props),
-				starterKey: starter.starterKey,
-				html: starter.html
-			})
-			.run();
-	}
-
-	return db
-		.select()
-		.from(designComponents)
-		.where(eq(designComponents.teamId, teamId))
-		.orderBy(desc(designComponents.createdAt))
-		.all();
-}
-
 export function upsertComponent(teamId: number, input: UpsertComponentInput): DesignComponent {
-	ensureStarterComponents(teamId);
 	if (input.id) {
 		const existing = getComponent(input.id, teamId);
 		return db
 			.update(designComponents)
 			.set({
 				name: input.name,
-				kind: input.kind ?? existing.kind,
+				kind: 'custom',
 				role: input.role?.trim() || existing.role,
 				description: input.description ?? null,
 				props: serializeProps(input.props ?? parseComponentProps(existing)),
@@ -312,7 +245,7 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 			id: cuid(),
 			teamId,
 			name: input.name,
-			kind: input.kind ?? 'custom',
+			kind: 'custom',
 			role: input.role?.trim() || 'section',
 			description: input.description ?? null,
 			props: serializeProps(input.props),
@@ -323,31 +256,51 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 		.get();
 }
 
-export function deleteComponent(componentId: string, teamId: number): DesignComponent {
-	const component = getComponent(componentId, teamId);
-	if (component.kind === 'starter' && component.starterKey) {
-		const starter = getStarterDesignComponentByKey(component.starterKey);
-		if (!starter) return component;
-		return db
-			.update(designComponents)
-			.set({
+/**
+ * Deterministically append kit sections that aren't already present
+ * (matched by starterKey). Never updates or overwrites existing rows.
+ */
+export function appendStarterComponents(teamId: number): { added: number; skipped: number } {
+	const existingKeys = new Set(
+		listComponents(teamId)
+			.map((component) => component.starterKey)
+			.filter((key): key is string => Boolean(key))
+	);
+
+	let added = 0;
+	let skipped = 0;
+	for (const starter of STARTER_DESIGN_COMPONENTS) {
+		if (existingKeys.has(starter.starterKey)) {
+			skipped += 1;
+			continue;
+		}
+		db.insert(designComponents)
+			.values({
+				id: cuid(),
+				teamId,
 				name: starter.name,
+				kind: 'custom',
 				role: starter.role,
 				description: starter.description,
 				props: serializeProps(starter.props),
-				html: starter.html,
-				updatedAt: nowIso()
+				starterKey: starter.starterKey,
+				html: starter.html
 			})
-			.where(eq(designComponents.id, component.id))
-			.returning()
-			.get();
+			.run();
+		existingKeys.add(starter.starterKey);
+		added += 1;
 	}
+
+	return { added, skipped };
+}
+
+export function deleteComponent(componentId: string, teamId: number): DesignComponent {
+	const component = getComponent(componentId, teamId);
 	db.delete(designComponents).where(eq(designComponents.id, component.id)).run();
 	return component;
 }
 
 export function getDesignSystemBundle(teamId: number) {
-	ensureStarterComponents(teamId);
 	return {
 		system: getDesignSystem(teamId),
 		assets: listAssets(teamId),

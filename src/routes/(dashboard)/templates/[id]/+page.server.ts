@@ -170,9 +170,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			designSummary: {
 				hasMd: Boolean(bundle.system?.designMd?.trim()),
 				assetCount: bundle.assets.length,
-				componentCount: bundle.components.length,
-				starterSectionCount: bundle.components.filter((component) => component.kind === 'starter')
-					.length
+				componentCount: bundle.components.length
 			},
 			designComponents: bundle.components.map((c) => ({
 				id: c.id,

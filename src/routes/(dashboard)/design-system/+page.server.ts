@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import {
 	addAsset,
+	appendStarterComponents,
 	deleteAsset,
 	deleteComponent,
 	getDesignSystemBundle,
@@ -42,7 +43,6 @@ export const actions: Actions = {
 			return {
 				success: true,
 				saved: 'infer' as const,
-				componentsCreated: result.componentsCreated,
 				assetsDownloaded: result.assetsDownloaded
 			};
 		} catch (e) {
@@ -50,6 +50,16 @@ export const actions: Actions = {
 		}
 	},
 
+	appendStarters: async ({ locals }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const result = appendStarterComponents(teamId);
+		return {
+			success: true,
+			saved: 'starters' as const,
+			startersAdded: result.added,
+			startersSkipped: result.skipped
+		};
+	},
 	saveMd: async ({ request, locals }) => {
 		const teamId = requireTeamId(locals.teamId);
 		const form = await request.formData();

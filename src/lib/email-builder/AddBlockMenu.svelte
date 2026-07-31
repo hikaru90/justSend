@@ -142,9 +142,6 @@
 						</div>
 						<div class="border-t border-[hsl(var(--border))] px-2 py-1.5">
 							<p class="truncate text-xs font-medium">{component.name}</p>
-							<p class="truncate text-[10px] text-[hsl(var(--muted-foreground))]">
-								{component.kind}{component.starterKey ? ` · ${component.starterKey}` : ''}
-							</p>
 						</div>
 					</button>
 				{/each}

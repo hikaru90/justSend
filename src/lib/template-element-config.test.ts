@@ -63,7 +63,7 @@ describe('formatElementConfigForPrompt', () => {
 			},
 			{
 				designComponentById: {
-					dc_hero: { name: 'Hero', starterKey: 'hero', kind: 'starter' }
+					dc_hero: { name: 'Hero', starterKey: 'hero' }
 				}
 			}
 		);

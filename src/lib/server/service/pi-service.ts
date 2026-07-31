@@ -36,6 +36,9 @@ export type PiSessionHandle = {
 	id: string;
 	session: AgentSession;
 	createdAt: string;
+	/** Present for multi-turn HTML edit sessions kept alive between prompts. */
+	workDir?: string;
+	filename?: string;
 };
 
 export type SpawnPiSessionOptions = {
@@ -546,6 +549,9 @@ export function disposePiSession(id: string): boolean {
 	} catch {
 		// Session may already be disposed.
 	}
+	if (handle.workDir) {
+		void rm(handle.workDir, { recursive: true, force: true }).catch(() => undefined);
+	}
 	return true;
 }
 
@@ -577,6 +583,8 @@ export type PiEditStreamEvent =
 			type: 'done';
 			html: string;
 			message?: string;
+			/** Multi-turn HTML edit session id (when keepSession was used). */
+			sessionId?: string;
 			/** Present after whole-email tree edits. */
 			components?: PiTemplateTreeComponent[];
 	  }
@@ -732,10 +740,25 @@ export type EditHtmlWithPiInput = {
 		description?: string | null;
 		subject?: string;
 	};
+	/**
+	 * Continue an existing multi-turn edit session.
+	 * When set, skips workspace setup and reuses the Pi agent conversation.
+	 */
+	sessionId?: string;
+	/**
+	 * Keep the session and work directory alive after this prompt (for follow-up edits).
+	 * Default false — one-shot edits dispose when finished.
+	 */
+	keepSession?: boolean;
 	/** Abort signal (SSE client disconnect / Stop). */
 	signal?: AbortSignal;
 	/** Live progress for SSE clients. */
 	onEvent?: (event: PiEditStreamEvent) => void;
+};
+
+export type EditHtmlWithPiResult = {
+	html: string;
+	sessionId: string;
 };
 
 /**
@@ -745,8 +768,11 @@ export type EditHtmlWithPiInput = {
  * 3. Spawn Pi with read/edit/write/ls so it can fetch context itself
  * 4. Instruct Pi to change the target file (optionally streaming progress)
  * 5. Read the file back and return it for the UI/DB
+ *
+ * Pass `sessionId` + `keepSession: true` to continue the same agent conversation
+ * across multiple edits in one UI session.
  */
-export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string> {
+export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHtmlWithPiResult> {
 	const instruction = input.instruction.trim();
 	if (!instruction) {
 		throw new Error('Instruction is required');
@@ -766,61 +792,88 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string
 		throw err;
 	}
 
-	const workId = cuid();
-	const workDir = join(resolvePiWorkRoot(), workId);
-	const filename =
-		input.filename ??
-		(input.context?.kind === 'component' ? 'component.html' : 'email.html');
-	const filePath = join(workDir, filename);
-	const assetBaseUrl = (input.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
+	const keepSession = Boolean(input.keepSession);
+	let handle: PiSessionHandle;
+	let workDir: string;
+	let filename: string;
+	let filePath: string;
+	let continuing = false;
 
-	await mkdir(workDir, { recursive: true });
-	await writeFile(filePath, input.html.trim() ? input.html : '<!-- empty -->\n', 'utf8');
+	if (input.sessionId) {
+		const existing = getPiSession(input.sessionId);
+		if (!existing?.workDir || !existing.filename) {
+			throw new Error('Edit session expired. Start a new edit.');
+		}
+		handle = existing;
+		workDir = existing.workDir;
+		filename = existing.filename;
+		filePath = join(workDir, filename);
+		continuing = true;
+		await writeFile(filePath, input.html.trim() ? input.html : '<!-- empty -->\n', 'utf8');
+		emit({ type: 'step', message: 'Continuing Pi…' });
+	} else {
+		const workId = cuid();
+		workDir = join(resolvePiWorkRoot(), workId);
+		filename =
+			input.filename ??
+			(input.context?.kind === 'component' ? 'component.html' : 'email.html');
+		filePath = join(workDir, filename);
+		const assetBaseUrl = (input.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
 
-	const bundle = getDesignSystemBundle(input.teamId);
-	const design: PiDesignContext = {
-		designMd: bundle.system?.designMd ?? null,
-		components: bundle.components.map((c) => ({
-			name: c.name,
-			description: c.description,
-			html: c.html
-		})),
-		assets: bundle.assets.map((a) => ({
-			id: a.id,
-			kind: a.kind,
-			name: a.name,
-			filename: a.filename,
-			mime: a.mime,
-			size: a.size
-		})),
-		assetBaseUrl,
-		excludeComponentName: input.context?.name ?? null
-	};
+		await mkdir(workDir, { recursive: true });
+		await writeFile(filePath, input.html.trim() ? input.html : '<!-- empty -->\n', 'utf8');
 
-	const designFiles = buildPiDesignWorkspaceFiles(design);
-	for (const file of designFiles) {
-		const absolute = join(workDir, file.relativePath);
-		await mkdir(dirname(absolute), { recursive: true });
-		await writeFile(absolute, file.content, 'utf8');
+		const bundle = getDesignSystemBundle(input.teamId);
+		const design: PiDesignContext = {
+			designMd: bundle.system?.designMd ?? null,
+			components: bundle.components.map((c) => ({
+				name: c.name,
+				description: c.description,
+				html: c.html
+			})),
+			assets: bundle.assets.map((a) => ({
+				id: a.id,
+				kind: a.kind,
+				name: a.name,
+				filename: a.filename,
+				mime: a.mime,
+				size: a.size
+			})),
+			assetBaseUrl,
+			excludeComponentName: input.context?.name ?? null
+		};
+
+		const designFiles = buildPiDesignWorkspaceFiles(design);
+		for (const file of designFiles) {
+			const absolute = join(workDir, file.relativePath);
+			await mkdir(dirname(absolute), { recursive: true });
+			await writeFile(absolute, file.content, 'utf8');
+		}
+		await copyPiDesignAssetsToWorkDir(workDir, input.teamId, bundle.assets);
+
+		const metaLines = [
+			input.context?.kind ? `- kind: ${input.context.kind}` : null,
+			input.context?.name ? `- name: ${input.context.name}` : null,
+			input.context?.description ? `- description: ${input.context.description}` : null,
+			input.context?.subject ? `- subject: ${input.context.subject}` : null
+		].filter((line): line is string => Boolean(line));
+
+		await writeFile(
+			join(workDir, 'AGENTS.md'),
+			buildPiAgentsMd({ filename, metaLines, designFiles }),
+			'utf8'
+		);
+
+		emit({ type: 'step', message: 'Starting Pi…' });
+
+		handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
+		const entry = registry.get(handle.id);
+		if (entry) {
+			entry.workDir = workDir;
+			entry.filename = filename;
+		}
 	}
-	await copyPiDesignAssetsToWorkDir(workDir, input.teamId, bundle.assets);
 
-	const metaLines = [
-		input.context?.kind ? `- kind: ${input.context.kind}` : null,
-		input.context?.name ? `- name: ${input.context.name}` : null,
-		input.context?.description ? `- description: ${input.context.description}` : null,
-		input.context?.subject ? `- subject: ${input.context.subject}` : null
-	].filter((line): line is string => Boolean(line));
-
-	await writeFile(
-		join(workDir, 'AGENTS.md'),
-		buildPiAgentsMd({ filename, metaLines, designFiles }),
-		'utf8'
-	);
-
-	emit({ type: 'step', message: 'Starting Pi…' });
-
-	const handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
 	const onAbort = () => {
 		void handle.session.abort().catch(() => undefined);
 	};
@@ -838,19 +891,30 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string
 			throw err;
 		}
 
-		await handle.session.prompt(
-			[
-				`Open and edit \`${filename}\` in the current working directory.`,
-				`Absolute path: ${filePath}`,
-				'',
-				'## Instruction',
-				instruction,
-				'',
-				'Use your read/edit/write/ls tools to apply the change to that file.',
-				'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
-				'When done, the updated HTML must be saved in that file.'
-			].join('\n')
-		);
+		const prompt = continuing
+			? [
+					`Continue editing \`${filename}\` in the current working directory.`,
+					`Absolute path: ${filePath}`,
+					'',
+					'## Instruction',
+					instruction,
+					'',
+					'The file may have been updated since your last turn — re-read it if needed, then apply this change with your tools.',
+					'When done, the updated HTML must be saved in that file.'
+				].join('\n')
+			: [
+					`Open and edit \`${filename}\` in the current working directory.`,
+					`Absolute path: ${filePath}`,
+					'',
+					'## Instruction',
+					instruction,
+					'',
+					'Use your read/edit/write/ls tools to apply the change to that file.',
+					'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
+					'When done, the updated HTML must be saved in that file.'
+				].join('\n');
+
+		await handle.session.prompt(prompt);
 		await handle.session.agent.waitForIdle();
 
 		if (input.signal?.aborted) {
@@ -865,12 +929,13 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string
 				`Pi finished but \`${filename}\` does not look like markup. The file was not applied.`
 			);
 		}
-		return edited;
+		return { html: edited, sessionId: handle.id };
 	} finally {
 		input.signal?.removeEventListener('abort', onAbort);
 		unsubscribe();
-		disposePiSession(handle.id);
-		await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+		if (!keepSession) {
+			disposePiSession(handle.id);
+		}
 	}
 }
 
@@ -879,7 +944,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string
  */
 export async function editHtmlWithPiStream(
 	input: EditHtmlWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
-): Promise<string> {
+): Promise<EditHtmlWithPiResult> {
 	return editHtmlWithPi(input);
 }
 

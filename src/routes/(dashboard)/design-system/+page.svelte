@@ -37,9 +37,11 @@
 	let piStatus = $state('');
 	let piError = $state<string | null>(null);
 	let piAbort = $state<AbortController | null>(null);
+	/** Multi-turn Pi agent session for the open component edit modal. */
+	let piSessionId = $state<string | null>(null);
 	type PiFeedLine = {
 		id: number;
-		kind: 'step' | 'thinking' | 'text' | 'tool';
+		kind: 'user' | 'step' | 'thinking' | 'text' | 'tool';
 		label: string;
 		detail?: string;
 		pending?: boolean;
@@ -170,24 +172,21 @@
 		designMdDraft = removeHexColor(designMdDraft, hex);
 	}
 
-	function startEdit(component: {
-		id: string;
-		name: string;
-		description: string | null;
-		html: string;
-	}) {
-		editComponentId = component.id;
-		editName = component.name;
-		editDescription = component.description ?? '';
-		editHtml = component.html;
+	function endPiSession() {
+		const id = piSessionId;
+		piSessionId = null;
+		if (!id || !browser) return;
+		void fetch(resolve('/design-system/pi-edit'), {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ sessionId: id }),
+			keepalive: true
+		}).catch(() => undefined);
 	}
 
-	function cancelEdit() {
+	function resetPiChat() {
 		piAbort?.abort();
-		editComponentId = null;
-		editName = '';
-		editDescription = '';
-		editHtml = '';
+		endPiSession();
 		piInstruction = '';
 		piEditing = false;
 		piStatus = '';
@@ -195,6 +194,27 @@
 		piAbort = null;
 		piFeed = [];
 		piFeedId = 0;
+	}
+
+	function startEdit(component: {
+		id: string;
+		name: string;
+		description: string | null;
+		html: string;
+	}) {
+		resetPiChat();
+		editComponentId = component.id;
+		editName = component.name;
+		editDescription = component.description ?? '';
+		editHtml = component.html;
+	}
+
+	function cancelEdit() {
+		resetPiChat();
+		editComponentId = null;
+		editName = '';
+		editDescription = '';
+		editHtml = '';
 	}
 
 	function startEditAsset(asset: { id: string; name: string }) {
@@ -377,9 +397,8 @@
 
 		piError = null;
 		piEditing = true;
-		piStatus = 'Starting Pi…';
-		piFeed = [];
-		piFeedId = 0;
+		piStatus = piSessionId ? 'Continuing Pi…' : 'Starting Pi…';
+		appendPiFeed({ kind: 'user', label: instruction });
 
 		const controller = new AbortController();
 		piAbort = controller;
@@ -395,7 +414,8 @@
 					instruction,
 					html: editHtml,
 					name: editName,
-					description: editDescription
+					description: editDescription,
+					sessionId: piSessionId ?? undefined
 				}),
 				signal: controller.signal
 			});
@@ -430,6 +450,7 @@
 						detail?: string;
 						isError?: boolean;
 						html?: string;
+						sessionId?: string;
 					};
 					try {
 						event = JSON.parse(line.slice(5).trim()) as typeof event;
@@ -493,6 +514,9 @@
 						case 'error':
 							piError = event.message ?? 'Pi edit failed';
 							piStatus = '';
+							if (piError.toLowerCase().includes('session expired')) {
+								piSessionId = null;
+							}
 							break;
 						case 'cancelled':
 							piStatus = event.message ?? 'Edit cancelled.';
@@ -500,6 +524,9 @@
 						case 'done':
 							piStatus = event.message ?? 'Edit complete.';
 							piInstruction = '';
+							if (typeof event.sessionId === 'string' && event.sessionId) {
+								piSessionId = event.sessionId;
+							}
 							if (typeof event.html === 'string') {
 								editHtml = event.html;
 							}
@@ -551,10 +578,6 @@
 		return luminance > 0.55 ? '#111' : '#fff';
 	}
 
-	function isStarterComponent(component: { starterKey?: string | null }): boolean {
-		return Boolean(component.starterKey);
-	}
-
 	function formatComponentProps(props: unknown): string | null {
 		if (!props) return null;
 		if (typeof props === 'string') return props;
@@ -577,8 +600,8 @@
 
 <h1 class="mb-2 text-2xl font-semibold">Design System</h1>
 <p class="mb-6 text-sm text-[hsl(var(--muted-foreground))]">
-	Team-wide baseline for AI-generated email templates: design.md, fonts, assets, starter-kit
-	sections that are always present, and any extra custom components layered on top.
+	Team-wide baseline for AI-generated email templates: design.md, fonts, assets, and reusable
+	components you add yourself.
 </p>
 
 {#if form?.error}
@@ -586,16 +609,23 @@
 {/if}
 {#if form?.success && form.saved === 'infer'}
 	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
-		Inferred design system from URL
-		{#if form.componentsCreated}
-			· updated/branded {form.componentsCreated} starter section{form.componentsCreated === 1
-				? ''
-				: 's'}
-		{/if}
+		Inferred design.md from URL
 		{#if form.assetsDownloaded}
 			· downloaded {form.assetsDownloaded} asset{form.assetsDownloaded === 1 ? '' : 's'}
 		{/if}
-		. Review and edit below.
+		. Components were not changed.
+	</p>
+{:else if form?.success && form.saved === 'starters'}
+	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
+		{#if form.startersAdded}
+			Added {form.startersAdded} component{form.startersAdded === 1 ? '' : 's'}
+			{#if form.startersSkipped}
+				· skipped {form.startersSkipped} already present
+			{/if}
+			.
+		{:else}
+			All kit components already present — nothing changed.
+		{/if}
 	</p>
 {:else if form?.success && form.saved === 'reapply'}
 	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
@@ -607,7 +637,7 @@
 
 <Card
 	title="Infer from URL"
-	description="Fetch a public site and ask AI to brand the reusable starter sections, refine design.md, and suggest extra custom components"
+	description="Fetch a public site and ask AI to draft design.md (and download logo/fonts). Does not touch components."
 	class="mb-6"
 >
 	<div class="flex flex-wrap items-end gap-3">
@@ -645,9 +675,8 @@
 	{/if}
 
 	<p class="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
-		Requires OPENROUTER_API_KEY. Streams the model response live. Overwrites design.md, keeps the
-		reusable starter sections in place while branding/refining them from the URL, may append extra
-		custom components, and attempts to download the logo and web fonts from the site.
+		Requires OPENROUTER_API_KEY. Streams the model response live. Overwrites design.md only —
+		never creates or changes components. Attempts to download the logo and web fonts from the site.
 	</p>
 </Card>
 
@@ -974,26 +1003,35 @@
 
 <Card
 	title="Components"
-	description="Starter-kit sections stay available as the reusable baseline; add custom snippets only when you need something extra"
+	description="Reusable email sections for templates. All components are equal — add, edit, or delete freely."
 >
+	<form method="POST" action="?/appendStarters" use:enhance class="mb-4">
+		<div class="flex flex-wrap items-center gap-3">
+			<Button type="submit" variant="outline">Add kit components</Button>
+			<p class="text-xs text-[hsl(var(--muted-foreground))]">
+				Appends any missing kit sections (header, hero, content, CTA, footer, …). Never
+				overwrites existing ones.
+			</p>
+		</div>
+	</form>
+
 	<form method="POST" action="?/saveComponent" use:enhance class="mb-6 space-y-3">
 		<p class="text-xs text-[hsl(var(--muted-foreground))]">
-			Add extra custom components here. The starter kit remains the primary framework and starter
-			sections reset to their defaults instead of being deleted.
+			Add a component. Always creates a new row — never overwrites existing ones.
 		</p>
 		<Input
 			name="name"
-			placeholder="Custom component name (e.g. Promo Footer)"
+			placeholder="Component name (e.g. Promo Footer)"
 			required
 		/>
-		<Input name="description" placeholder="Optional description for this extra component" />
+		<Input name="description" placeholder="Optional description" />
 		<textarea
 			name="html"
 			rows="6"
 			class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
 			placeholder={'<a href="{{cta_url}}" style="...">{{cta_label}}</a>'}
 		></textarea>
-		<Button type="submit">Add custom component</Button>
+		<Button type="submit">Add component</Button>
 	</form>
 
 	{#if data.components.length === 0}
@@ -1004,32 +1042,9 @@
 				<li class="rounded-md border border-[hsl(var(--border))] p-4">
 					<div class="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 						<div class="min-w-0">
-							<div class="flex flex-wrap items-center gap-2">
-								<p class="font-medium">{component.name}</p>
-								<span
-									class={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-										isStarterComponent(component)
-											? 'bg-[hsl(var(--secondary))] text-[hsl(var(--foreground))]'
-											: 'bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]'
-									}`}
-								>
-									{isStarterComponent(component) ? 'Starter' : 'Custom'}
-								</span>
-							</div>
+							<p class="font-medium">{component.name}</p>
 							{#if component.description}
 								<p class="text-xs text-[hsl(var(--muted-foreground))]">{component.description}</p>
-							{/if}
-							<p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-								{#if isStarterComponent(component)}
-									Starter sections are always present and reset instead of being deleted.
-								{:else}
-									Custom components extend the starter kit when you need something brand-specific.
-								{/if}
-							</p>
-							{#if component.starterKey}
-								<p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-									starterKey: <span class="font-mono">{component.starterKey}</span>
-								</p>
 							{/if}
 							{#if formatComponentProps(component.props)}
 								<div class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
@@ -1147,7 +1162,11 @@
 									</p>
 								{/if}
 								{#each piFeed as line (line.id)}
-									{#if line.kind === 'step'}
+									{#if line.kind === 'user'}
+										<p class="whitespace-pre-wrap font-sans text-[hsl(var(--foreground))]">
+											<span class="opacity-70">you </span>{line.label}
+										</p>
+									{:else if line.kind === 'step'}
 										<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
 									{:else if line.kind === 'thinking'}
 										<p class="whitespace-pre-wrap text-[hsl(var(--muted-foreground))] italic">
@@ -1195,7 +1214,7 @@
 						busy={piEditing}
 						disabled={piEditing}
 						placeholder="e.g. Make the button larger and use brand primary color"
-						hint="Pi updates the HTML draft below — click Update component to save. Thinking and tool calls stream above."
+						hint="Follow-ups keep this chat and Pi’s context until you close the modal. Click Update component to save."
 					/>
 				</form>
 			{:else}
