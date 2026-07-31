@@ -8,7 +8,9 @@ useSend-legacy/
 .wrangler
 /.svelte-kit
 /build
-/data
+/data/*
+!/data/justsend.db
+!/data/design/
 
 # OS
 .DS_Store
