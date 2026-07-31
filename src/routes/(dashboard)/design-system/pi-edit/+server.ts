@@ -1,19 +1,21 @@
 import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
+import { getDesignSystem } from '$lib/server/service/design-system-service';
 import {
 	disposePiSession,
-	editHtmlWithPiStream,
-	getPiSession,
+	editComponentTreeWithPiStream,
 	isPiConfigured,
 	type PiEditStreamEvent
 } from '$lib/server/service/pi-service';
+import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
+import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
 import type { RequestHandler } from './$types';
 
 function sse(data: Record<string, unknown>): string {
 	return `data: ${JSON.stringify(data)}\n\n`;
 }
 
-export const POST: RequestHandler = async ({ request, locals, url }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	const teamId = requireTeamId(locals.teamId);
 
 	if (!isPiConfigured()) {
@@ -22,10 +24,10 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 	let body: {
 		instruction?: string;
-		html?: string;
+		document?: TEditorConfiguration;
+		slots?: ComponentSlot[];
 		name?: string;
 		description?: string;
-		sessionId?: string;
 	};
 	try {
 		body = (await request.json()) as typeof body;
@@ -38,17 +40,14 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		error(400, 'Describe the change for Pi');
 	}
 
-	const html = String(body.html ?? '');
+	const document =
+		body.document && typeof body.document === 'object' && body.document.root
+			? body.document
+			: EMPTY_DOCUMENT;
+	const slots = Array.isArray(body.slots) ? body.slots : [];
 	const name = String(body.name ?? '').trim();
 	const description = String(body.description ?? '').trim() || null;
-	const sessionId = String(body.sessionId ?? '').trim() || undefined;
-
-	if (sessionId) {
-		const existing = getPiSession(sessionId);
-		if (!existing?.workDir || !existing.filename) {
-			error(400, 'Edit session expired. Start a new edit.');
-		}
-	}
+	const designMd = getDesignSystem(teamId)?.designMd ?? '';
 
 	const encoder = new TextEncoder();
 
@@ -59,22 +58,21 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 			};
 
 			try {
-				const edited = await editHtmlWithPiStream({
-					html,
+				const edited = await editComponentTreeWithPiStream({
 					instruction,
-					teamId,
-					assetBaseUrl: url.origin,
-					context: { kind: 'component', name, description },
-					sessionId,
-					keepSession: true,
+					document,
+					slots,
+					name,
+					description,
+					designMd,
 					signal: request.signal,
 					onEvent: send
 				});
 
 				send({
 					type: 'done',
-					html: edited.html,
-					sessionId: edited.sessionId,
+					document: edited.document,
+					slots: edited.slots,
 					message: 'Edit complete.'
 				});
 			} catch (e) {
@@ -104,7 +102,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	});
 };
 
-/** End a multi-turn Pi edit session (modal close / cancel). */
+/** End a multi-turn Pi edit session (modal close / cancel). Legacy no-op-safe cleanup. */
 export const DELETE: RequestHandler = async ({ request, locals }) => {
 	requireTeamId(locals.teamId);
 
@@ -120,10 +118,6 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const sessionId = String(body.sessionId ?? '').trim();
-	if (!sessionId) {
-		error(400, 'sessionId is required');
-	}
-
-	disposePiSession(sessionId);
+	if (sessionId) disposePiSession(sessionId);
 	return new Response(null, { status: 204 });
 };

@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from '@usewaypoint/email-builder';
+import { mergeSectionDocuments } from './component-document';
 import type { TEditorConfiguration, EmailBuilderContent } from './types';
 import { EMPTY_DOCUMENT } from './types';
 
@@ -8,14 +9,31 @@ export type ScaffoldSlots = {
 	slots: Record<string, string>;
 };
 
+/**
+ * `@usewaypoint/block-text` only parses markdown when `props.markdown` is true.
+ * Enable it for every Text block at render time so existing docs and slot-filled
+ * copy get bold/links/lists without a data migration.
+ */
+export function enableTextBlockMarkdown(document: TEditorConfiguration): TEditorConfiguration {
+	const next = cloneDocument(document);
+	for (const block of Object.values(next)) {
+		if (block?.type !== 'Text') continue;
+		const props = (block.data.props ?? {}) as Record<string, unknown>;
+		block.data.props = { ...props, markdown: true };
+	}
+	return next;
+}
+
 /** Render EmailBuilder document to a full HTML email string. */
 export function renderEmailHtml(document: TEditorConfiguration): string {
-	return renderToStaticMarkup(document as never, { rootBlockId: 'root' });
+	return renderToStaticMarkup(enableTextBlockMarkdown(document) as never, { rootBlockId: 'root' });
 }
 
 /** Strip outer html/body wrappers from a single-block render for canvas leaves. */
 export function renderBlockInnerHtml(document: TEditorConfiguration, blockId: string): string {
-	const full = renderToStaticMarkup(document as never, { rootBlockId: blockId });
+	const full = renderToStaticMarkup(enableTextBlockMarkdown(document) as never, {
+		rootBlockId: blockId
+	});
 	const bodyMatch = full.match(/<body[^>]*>([\s\S]*)<\/body>/i);
 	return (bodyMatch?.[1] ?? full).trim();
 }
@@ -116,8 +134,76 @@ export function documentFromComposedHtml(html: string): TEditorConfiguration {
 	};
 }
 
+/** Merge composed sections into one email-builder document (block trees preferred). */
+export function documentFromComposedSections(
+	sections: Array<{
+		html: string;
+		tree?: { blocks: TEditorConfiguration; childrenIds: string[] };
+		componentId?: string;
+		componentName?: string;
+		slots?: Record<string, string>;
+	}>
+): TEditorConfiguration {
+	const trees = sections.filter((s) => s.tree).map((s) => s.tree!);
+	if (trees.length === sections.length && trees.length > 0) {
+		return mergeSectionDocuments(trees);
+	}
+
+	// Mixed or legacy HTML sections → one Html block per section.
+	const childrenIds: string[] = [];
+	const document: TEditorConfiguration = {
+		root: {
+			type: 'EmailLayout',
+			data: {
+				backdropColor: '#F5F5F5',
+				canvasColor: '#FFFFFF',
+				textColor: '#262626',
+				fontFamily: 'MODERN_SANS',
+				childrenIds
+			}
+		}
+	};
+
+	sections.forEach((section, index) => {
+		if (section.tree) {
+			Object.assign(document, section.tree.blocks);
+			childrenIds.push(...section.tree.childrenIds);
+			return;
+		}
+		const id = `section-${index + 1}`;
+		childrenIds.push(id);
+		document[id] = {
+			type: 'Html',
+			data: {
+				props: { contents: section.html },
+				style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
+			}
+		};
+	});
+
+	if (childrenIds.length === 0) {
+		return EMPTY_DOCUMENT;
+	}
+
+	return document;
+}
+
 export function cloneDocument(doc: TEditorConfiguration): TEditorConfiguration {
-	return structuredClone(doc);
+	// structuredClone throws DataCloneError on Svelte 5 reactive ($state) proxies,
+	// so deep-clone manually. Email documents are plain JSON, so this is equivalent.
+	if (doc === null || typeof doc !== 'object') return doc;
+	if (Array.isArray(doc)) {
+		const arr: unknown[] = [];
+		for (let i = 0; i < doc.length; i++) arr[i] = cloneDocument(doc[i] as TEditorConfiguration);
+		return arr as TEditorConfiguration;
+	}
+	const obj: Record<string, unknown> = {};
+	for (const key in doc) {
+		if (Object.prototype.hasOwnProperty.call(doc, key)) {
+			obj[key] = cloneDocument((doc as Record<string, unknown>)[key] as TEditorConfiguration);
+		}
+	}
+	return obj as TEditorConfiguration;
 }
 
 export { EMPTY_DOCUMENT };

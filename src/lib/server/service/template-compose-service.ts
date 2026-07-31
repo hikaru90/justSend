@@ -1,12 +1,23 @@
 import { pickEmailLogos } from '$lib/design/extractTokens';
+import { applySlotTemplate } from '$lib/email/slot-template';
+import { materializeComponentDocument } from '$lib/email-builder/component-document';
+import type { TEditorConfiguration } from '$lib/email-builder/types';
 import {
 	elementSlug,
 	parseElementConfig,
 	type TemplateElementType
 } from '$lib/template-element-config';
-import { parseComponentProps, type DesignAsset, type DesignComponent } from './design-system-service';
+import {
+	parseComponentDocument,
+	parseComponentProps,
+	parseComponentSlots,
+	type DesignAsset,
+	type DesignComponent
+} from './design-system-service';
 import type { TemplateElement } from './template-element-service';
 import type { Template } from './template-service';
+
+export { applySlotTemplate } from '$lib/email/slot-template';
 
 export type ScaffoldContent = {
 	subject?: string;
@@ -78,32 +89,6 @@ export function serializeScaffoldContent(content: ScaffoldContent): string {
 		...(content.preheader !== undefined ? { preheader: content.preheader } : {}),
 		slots: content.slots
 	});
-}
-
-/**
- * Apply {{slot}} substitution and strip <!--owl-if:slot-->…<!--/owl-if--> when empty.
- * Nested if-blocks are processed from the inside out.
- */
-export function applySlotTemplate(html: string, slots: Record<string, string>): string {
-	let out = html;
-
-	const innermostIf =
-		/<!--owl-if:([a-zA-Z0-9_]+)-->((?:(?!<!--owl-if:)[\s\S])*?)<!--\/owl-if-->/g;
-	let previous = '';
-	while (out !== previous) {
-		previous = out;
-		out = out.replace(innermostIf, (_full, slot: string, body: string) => {
-			const value = slots[slot]?.trim() ?? '';
-			return value ? body : '';
-		});
-	}
-
-	out = out.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_full, key: string) => {
-		const value = slots[key] ?? '';
-		return value;
-	});
-
-	return out;
 }
 
 function assetUrl(assetBaseUrl: string, assetId: string): string {
@@ -357,9 +342,21 @@ export function collectExpectedSlots(
 }
 
 /**
- * Deterministic email HTML from ordered elements + design components + scaffold slots.
+ * Per-section output for the email builder.
+ * Prefer `tree` when the component has a block-tree document; otherwise `html`.
  */
-export function composeEmailHtml(input: ComposeEmailInput): string {
+export type ComposedSection = {
+	html: string;
+	tree?: { blocks: TEditorConfiguration; childrenIds: string[] };
+	componentId?: string;
+	componentName?: string;
+	slots: Record<string, string>;
+};
+
+function buildComposeSlots(input: ComposeEmailInput): {
+	scaffold: ScaffoldContent;
+	slots: Record<string, string>;
+} {
 	const scaffold = parseScaffoldContent(input.template.content);
 	const logoSlots = buildLogoSlots(input.assets, input.assetBaseUrl);
 	const slots: Record<string, string> = {
@@ -368,13 +365,18 @@ export function composeEmailHtml(input: ComposeEmailInput): string {
 		...(input.extraSlots ?? {})
 	};
 
-	// Defaults for common empty slots
 	if (!slots.unsubscribe_label) slots.unsubscribe_label = 'Unsubscribe';
 	if (!slots.unsubscribe_url) slots.unsubscribe_url = '{{unsubscribe_url}}';
 	if (!slots.header_url) slots.header_url = '#';
 
+	return { scaffold, slots };
+}
+
+/** Build ordered section HTML / trees + slot metadata for the visual editor. */
+export function composeEmailSections(input: ComposeEmailInput): ComposedSection[] {
+	const { slots } = buildComposeSlots(input);
 	const byId = new Map(input.components.map((c) => [c.id, c]));
-	const sections: string[] = [];
+	const sections: ComposedSection[] = [];
 
 	for (const el of input.elements) {
 		const fromConfig = elementConfigSlots(el, input.assetBaseUrl);
@@ -384,21 +386,63 @@ export function composeEmailHtml(input: ComposeEmailInput): string {
 			const config = parseElementConfig(el.config);
 			const lib = config.designComponentId ? byId.get(config.designComponentId) : undefined;
 			if (!lib) continue;
+
+			const propNames = parseComponentProps(lib);
+			const sectionSlots: Record<string, string> = {};
+			for (const prop of propNames) {
+				sectionSlots[prop] = merged[prop] ?? '';
+			}
+
+			const doc = parseComponentDocument(lib);
+			if (doc) {
+				const tree = materializeComponentDocument({
+					document: doc,
+					slots: parseComponentSlots(lib),
+					slotValues: merged,
+					idPrefix: `${el.id}-`
+				});
+				sections.push({
+					html: '',
+					tree,
+					componentId: lib.id,
+					componentName: lib.name,
+					slots: sectionSlots
+				});
+				continue;
+			}
+
+			// Legacy HTML components
 			const html = applySlotTemplate(lib.html, merged).trim();
-			if (html) sections.push(html);
+			if (!html) continue;
+			sections.push({
+				html,
+				componentId: lib.id,
+				componentName: lib.name,
+				slots: sectionSlots
+			});
 			continue;
 		}
 
 		const html = fixedSectionHtml(el.type, merged).trim();
-		if (html) sections.push(html);
+		if (html) sections.push({ html, slots: fromConfig });
 	}
 
+	return sections;
+}
+
+/**
+ * Deterministic email HTML from ordered elements + design components + scaffold slots.
+ */
+export function composeEmailHtml(input: ComposeEmailInput): string {
+	const { scaffold } = buildComposeSlots(input);
+	const sections = composeEmailSections(input);
 	const subject = scaffold.subject?.trim() || input.template.subject || 'Email';
 	const preheader = scaffold.preheader?.trim() || subject;
 
+	const htmlParts = sections.map((s) => s.html).filter(Boolean);
 	return wrapRoot({
 		subject,
 		preheader,
-		sectionsHtml: sections.join('\n')
+		sectionsHtml: htmlParts.join('\n')
 	});
 }

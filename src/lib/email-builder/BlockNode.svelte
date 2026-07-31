@@ -4,13 +4,25 @@
 	import type { EmailEditorState } from './editor-state.svelte';
 	import { getBlockChildrenIds } from './editor-state.svelte';
 	import { renderBlockInnerHtml } from './render';
+	import { substitutePreviewPlaceholders } from '$lib/design/extractTokens';
+	import { LIBRARY_KEY, EmailBuilderLibrary } from './library-context.svelte';
 	import BlockChildren from './BlockChildren.svelte';
 	import BlockWrapper from './BlockWrapper.svelte';
 
 	let { blockId }: { blockId: string } = $props();
 
 	const editor = getContext<EmailEditorState>(EDITOR_KEY);
+	const library = getContext<EmailBuilderLibrary>(LIBRARY_KEY);
 	const block = $derived(editor.document[blockId]);
+
+	const leafHtml = $derived(
+		block && block.type !== 'EmailLayout' && block.type !== 'Container' && block.type !== 'ColumnsContainer'
+			? substitutePreviewPlaceholders(
+					renderBlockInnerHtml(editor.document, blockId),
+					library.previewOverrides
+				)
+			: ''
+	);
 
 	function fontFamily(name: string | undefined): string {
 		switch (name) {
@@ -24,6 +36,62 @@
 				return '"Helvetica Neue", "Arial Nova", Arial, sans-serif';
 		}
 	}
+
+	type BlockStyle = {
+		backgroundColor?: string | null;
+		borderColor?: string | null;
+		borderRadius?: number | null;
+		padding?: { top?: number; bottom?: number; left?: number; right?: number } | null;
+		backgroundImage?: string | null;
+		backgroundSize?: 'cover' | 'contain' | null;
+		backgroundPosition?: string | null;
+		backgroundRepeat?: 'no-repeat' | 'repeat' | null;
+		minHeight?: number | null;
+		overlayColor?: string | null;
+	};
+
+	function containerCss(style: BlockStyle | undefined): string {
+		if (!style) return '';
+		const parts: string[] = [];
+		if (style.backgroundColor) parts.push(`background-color:${style.backgroundColor}`);
+		if (style.backgroundImage) {
+			const url = style.backgroundImage.replace(/["'\\]/g, '');
+			parts.push(`background-image:url("${url}")`);
+			parts.push(`background-size:${style.backgroundSize ?? 'cover'}`);
+			parts.push(`background-position:${style.backgroundPosition ?? 'center'}`);
+			parts.push(`background-repeat:${style.backgroundRepeat ?? 'no-repeat'}`);
+		}
+		if (style.minHeight != null) parts.push(`min-height:${style.minHeight}px`);
+		if (style.borderColor) parts.push(`border:1px solid ${style.borderColor}`);
+		if (style.borderRadius != null) parts.push(`border-radius:${style.borderRadius}px`);
+		const p = style.padding;
+		if (p) {
+			parts.push(
+				`padding:${p.top ?? 0}px ${p.right ?? 0}px ${p.bottom ?? 0}px ${p.left ?? 0}px`
+			);
+		}
+		return parts.join(';');
+	}
+
+	const style = $derived((block?.data.style as BlockStyle | undefined) ?? {});
+	const columnsProps = $derived(
+		(block?.data.props as {
+			columns?: Array<{ childrenIds: string[] }>;
+			columnsCount?: number;
+			columnsGap?: number;
+			contentAlignment?: string;
+		}) ?? {}
+	);
+	const cols = $derived(columnsProps.columns ?? []);
+	const colCount = $derived(Math.max(cols.length, 1));
+	const colGap = $derived(columnsProps.columnsGap ?? 16);
+	const alignItems = $derived(
+		columnsProps.contentAlignment === 'middle'
+			? 'center'
+			: columnsProps.contentAlignment === 'bottom'
+				? 'end'
+				: 'start'
+	);
 </script>
 
 {#if !block}
@@ -58,18 +126,28 @@
 	</div>
 {:else if block.type === 'Container'}
 	<BlockWrapper {blockId}>
-		<div style="padding:{(block.data.style as { padding?: { top?: number } })?.padding?.top ?? 0}px 0">
-			<BlockChildren
-				parentId={blockId}
-				childrenIds={getBlockChildrenIds(block)}
-			/>
+		<div style={containerCss(style)}>
+			{#if style.overlayColor}
+				<div style="background-color:{style.overlayColor};height:100%;width:100%">
+					<BlockChildren
+						parentId={blockId}
+						childrenIds={getBlockChildrenIds(block)}
+					/>
+				</div>
+			{:else}
+				<BlockChildren
+					parentId={blockId}
+					childrenIds={getBlockChildrenIds(block)}
+				/>
+			{/if}
 		</div>
 	</BlockWrapper>
 {:else if block.type === 'ColumnsContainer'}
-	{@const cols =
-		(block.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns ?? []}
 	<BlockWrapper {blockId}>
-		<div class="grid gap-4" style="grid-template-columns: repeat({Math.max(cols.length, 1)}, 1fr); padding: 16px 24px">
+		<div
+			class="grid"
+			style="{containerCss(style)};grid-template-columns:repeat({colCount},1fr);gap:{colGap}px;align-items:{alignItems}"
+		>
 			{#each cols as col, colIndex (colIndex)}
 				<div>
 					<BlockChildren parentId={blockId} childrenIds={col.childrenIds} columnIndex={colIndex} />
@@ -81,6 +159,6 @@
 	<BlockWrapper {blockId}>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- EmailBuilder leaf HTML from trusted document / renderToStaticMarkup -->
-		{@html renderBlockInnerHtml(editor.document, blockId)}
+		{@html leafHtml}
 	</BlockWrapper>
 {/if}

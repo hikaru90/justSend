@@ -1,7 +1,7 @@
 import { BLOCK_FACTORIES, EMPTY_DOCUMENT, newBlockId, type TEditorBlock, type TEditorConfiguration } from './types';
 import { cloneDocument } from './render';
 
-export type EditorTab = 'editor' | 'preview' | 'html' | 'json';
+export type EditorTab = 'editor' | 'preview' | 'html' | 'json' | 'ai';
 
 function getChildrenIds(block: TEditorBlock | undefined): string[] {
 	if (!block) return [];
@@ -180,6 +180,74 @@ export class EmailEditorState {
 			};
 		}
 		this.selectedBlockId = blockId;
+	}
+
+	/**
+	 * Insert a design-system component tree: merge named blocks into the document
+	 * and splice their root childrenIds into the parent at `index`.
+	 */
+	insertComponentTree(
+		parentId: string,
+		childrenIds: string[],
+		index: number,
+		blocks: TEditorConfiguration,
+		treeChildrenIds: string[],
+		columnIndex?: number
+	) {
+		const parent = this.document[parentId];
+		if (!parent || treeChildrenIds.length === 0) return;
+
+		const kids = [...childrenIds];
+		kids.splice(index, 0, ...treeChildrenIds);
+
+		let nextDoc: TEditorConfiguration = { ...this.document, ...blocks };
+
+		if (columnIndex != null && parent.type === 'ColumnsContainer') {
+			const cols = [
+				...((parent.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns ?? [])
+			];
+			const col = cols[columnIndex];
+			if (!col) return;
+			const colKids = [...col.childrenIds];
+			colKids.splice(index, 0, ...treeChildrenIds);
+			cols[columnIndex] = { childrenIds: colKids };
+			nextDoc = {
+				...nextDoc,
+				[parentId]: {
+					...parent,
+					data: {
+						...parent.data,
+						props: { ...(parent.data.props as object), columns: cols }
+					}
+				}
+			};
+		} else if (parent.type === 'ColumnsContainer') {
+			const propsCols = (parent.data.props as { columns?: Array<{ childrenIds: string[] }> })
+				?.columns;
+			const mapped =
+				propsCols?.map((c) => {
+					if (c.childrenIds === childrenIds) return { childrenIds: kids };
+					return c;
+				}) ?? propsCols;
+			nextDoc = {
+				...nextDoc,
+				[parentId]: {
+					...parent,
+					data: {
+						...parent.data,
+						props: { ...(parent.data.props as object), columns: mapped }
+					}
+				}
+			};
+		} else {
+			nextDoc = {
+				...nextDoc,
+				[parentId]: setChildrenIds(parent, kids)
+			};
+		}
+
+		this.document = nextDoc;
+		this.selectedBlockId = treeChildrenIds[0] ?? null;
 	}
 
 	deleteBlock(blockId: string) {

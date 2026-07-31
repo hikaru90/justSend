@@ -6,7 +6,8 @@ import {
 	getAsset,
 	getComponent,
 	getDesignSystemBundle,
-	parseComponentProps
+	parseComponentProps,
+	parseComponentSlots
 } from '$lib/server/service/design-system-service';
 import { getDomain } from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
@@ -23,12 +24,13 @@ import {
 	updateElement
 } from '$lib/server/service/template-element-service';
 import {
-	composeEmailHtml,
+	composeEmailSections,
 	parseScaffoldContent,
 	serializeScaffoldContent
 } from '$lib/server/service/template-compose-service';
 import {
 	documentFromComposedHtml,
+	documentFromComposedSections,
 	parseEmailBuilderContent,
 	renderEmailHtml,
 	serializeEmailBuilderContent,
@@ -180,7 +182,9 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 				description: c.description,
 				starterKey: c.starterKey,
 				html: c.html,
-				props: parseComponentProps(c)
+				document: c.document ?? '',
+				props: parseComponentProps(c),
+				parsedSlots: parseComponentSlots(c)
 			})),
 			logoAssets: visualAssets.filter((a) => a.kind === 'logo'),
 			imageAssets: visualAssets.filter((a) => a.kind === 'image'),
@@ -443,17 +447,17 @@ export const actions: Actions = {
 				return fail(400, { error: 'Add at least one section before composing' });
 			}
 
-			const html = composeEmailHtml({
+			const composeInput = {
 				template,
 				elements,
 				components: bundle.components,
 				assets: bundle.assets,
 				assetBaseUrl: url.origin,
 				extraSlots: logoExtraProps(teamId, url.origin)
-			});
-
+			};
+			const sections = composeEmailSections(composeInput);
 			const existing = parseEmailBuilderContent(template.content);
-			const document = documentFromComposedHtml(html);
+			const document = documentFromComposedSections(sections);
 			const content = serializeEmailBuilderContent(document, existing.scaffold);
 			const rendered = renderEmailHtml(document);
 
@@ -515,6 +519,10 @@ export const actions: Actions = {
 
 			const origin = url.origin;
 			const variables = logoExtraProps(teamId, origin);
+			for (const key of ['email', 'firstName', 'lastName'] as const) {
+				const value = String(form.get(key) ?? '').trim();
+				if (value) variables[key] = value;
+			}
 
 			const email = await sendEmail({
 				teamId,
@@ -536,6 +544,34 @@ export const actions: Actions = {
 			return { success: true, saved: 'preview' as const, emailId: email.id };
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Send failed' });
+		}
+	},
+
+	uploadAsset: async ({ request, locals }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const form = await request.formData();
+		const file = form.get('file');
+		const nameRaw = String(form.get('name') ?? '').trim();
+
+		if (!(file instanceof File) || file.size === 0) {
+			return fail(400, { error: 'File is required' });
+		}
+		const name = nameRaw || file.name || 'image';
+		try {
+			const asset = await addAsset(teamId, {
+				kind: 'image',
+				name,
+				filename: file.name || name,
+				mime: file.type || 'application/octet-stream',
+				bytes: new Uint8Array(await file.arrayBuffer())
+			});
+			return {
+				success: true,
+				saved: 'asset' as const,
+				asset: { id: asset.id, name: asset.name, kind: asset.kind }
+			};
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Upload failed' });
 		}
 	}
 };

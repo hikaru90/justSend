@@ -1,8 +1,9 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
+import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
 import { cuid, nowIso } from '$lib/utils';
-import { STARTER_DESIGN_COMPONENTS } from './design-component-library';
 import { db } from '../db';
 import {
 	designAssets,
@@ -63,11 +64,7 @@ export function getAsset(assetId: string, teamId: number): DesignAsset {
 		.from(designAssets)
 		.where(and(eq(designAssets.id, assetId), eq(designAssets.teamId, teamId)))
 		.get();
-
-	if (!asset) {
-		throw new Error('Asset not found');
-	}
-
+	if (!asset) throw new Error('Asset not found');
 	return asset;
 }
 
@@ -182,11 +179,7 @@ export function getComponent(componentId: string, teamId: number): DesignCompone
 		.from(designComponents)
 		.where(and(eq(designComponents.id, componentId), eq(designComponents.teamId, teamId)))
 		.get();
-
-	if (!component) {
-		throw new Error('Component not found');
-	}
-
+	if (!component) throw new Error('Component not found');
 	return component;
 }
 
@@ -195,31 +188,115 @@ export type UpsertComponentInput = {
 	name: string;
 	description?: string | null;
 	role?: string | null;
-	props?: string[];
-	starterKey?: string | null;
 	kind?: 'starter' | 'custom';
-	html: string;
+	/** Legacy HTML; kept for preview fallback / migration. */
+	html?: string;
+	/** Email-builder block tree JSON string or object. */
+	document?: string | TEditorConfiguration;
+	slots?: ComponentSlot[];
 };
 
-function normalizeProps(props?: string[]): string[] {
-	return [...new Set((props ?? []).map((value) => value.trim()).filter(Boolean))];
+const SLOT_TYPES = new Set(['text', 'url', 'asset', 'color']);
+
+export function normalizeSlots(slots?: ComponentSlot[]): ComponentSlot[] {
+	if (!slots?.length) return [];
+	const out: ComponentSlot[] = [];
+	const seen = new Set<string>();
+	for (const slot of slots) {
+		const name = String(slot.name ?? '')
+			.trim()
+			.replace(/\s+/g, '_');
+		const blockId = String(slot.blockId ?? '').trim();
+		const prop = String(slot.prop ?? '').trim();
+		const type = SLOT_TYPES.has(slot.type) ? slot.type : 'text';
+		if (!name || !blockId || !prop || seen.has(name)) continue;
+		seen.add(name);
+		out.push({
+			name,
+			blockId,
+			prop,
+			type,
+			...(slot.label?.trim() ? { label: slot.label.trim() } : {})
+		});
+	}
+	return out;
 }
 
-function serializeProps(props?: string[]): string {
-	return JSON.stringify(normalizeProps(props));
+export function serializeSlots(slots?: ComponentSlot[]): string {
+	return JSON.stringify(normalizeSlots(slots));
 }
 
-export function parseComponentProps(component: Pick<DesignComponent, 'props'>): string[] {
+export function parseComponentSlots(
+	component: Pick<DesignComponent, 'props'> & { slots?: string | null }
+): ComponentSlot[] {
 	try {
-		const parsed = JSON.parse(component.props);
+		const parsed = JSON.parse(component.slots || '[]');
+		if (Array.isArray(parsed) && parsed.length > 0) {
+			return normalizeSlots(parsed as ComponentSlot[]);
+		}
+	} catch {
+		/* fall through to legacy props */
+	}
+	// Legacy: props was a string[] of slot names without block pointers.
+	try {
+		const legacy = JSON.parse(component.props || '[]');
+		if (Array.isArray(legacy)) {
+			return normalizeSlots(
+				legacy.map((name) => ({
+					name: String(name),
+					blockId: '',
+					prop: 'props.text',
+					type: 'text' as const
+				})).filter((s) => s.name && s.blockId === '')
+			);
+		}
+	} catch {
+		/* ignore */
+	}
+	return [];
+}
+
+/** Slot names only (for AI prompts / expected-slot lists). */
+export function parseComponentProps(
+	component: Pick<DesignComponent, 'props'> & { slots?: string | null }
+): string[] {
+	const slots = parseComponentSlots(component);
+	if (slots.length > 0) return slots.map((s) => s.name);
+	try {
+		const parsed = JSON.parse(component.props || '[]');
 		if (!Array.isArray(parsed)) return [];
-		return normalizeProps(parsed.map(String));
+		return [...new Set(parsed.map(String).map((v) => v.trim()).filter(Boolean))];
 	} catch {
 		return [];
 	}
 }
 
+export function parseComponentDocument(
+	component: Pick<DesignComponent, 'document'>
+): TEditorConfiguration | null {
+	const raw = component.document?.trim();
+	if (!raw) return null;
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+		const doc = parsed as TEditorConfiguration;
+		if (!doc.root || doc.root.type !== 'EmailLayout') return null;
+		return doc;
+	} catch {
+		return null;
+	}
+}
+
+function serializeDocument(document?: string | TEditorConfiguration): string {
+	if (document == null) return '';
+	if (typeof document === 'string') return document;
+	return JSON.stringify(document);
+}
+
 export function upsertComponent(teamId: number, input: UpsertComponentInput): DesignComponent {
+	const documentJson = serializeDocument(input.document);
+	const slotsJson = input.slots !== undefined ? serializeSlots(input.slots) : undefined;
+
 	if (input.id) {
 		const existing = getComponent(input.id, teamId);
 		return db
@@ -229,9 +306,13 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 				kind: 'custom',
 				role: input.role?.trim() || existing.role,
 				description: input.description ?? null,
-				props: serializeProps(input.props ?? parseComponentProps(existing)),
-				starterKey: input.starterKey ?? existing.starterKey,
-				html: input.html,
+				props: JSON.stringify(parseComponentProps({
+					slots: slotsJson ?? existing.slots,
+					props: existing.props
+				})),
+				html: input.html ?? existing.html,
+				document: documentJson || existing.document,
+				slots: slotsJson ?? existing.slots,
 				updatedAt: nowIso()
 			})
 			.where(eq(designComponents.id, existing.id))
@@ -239,6 +320,7 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 			.get();
 	}
 
+	const slots = normalizeSlots(input.slots);
 	return db
 		.insert(designComponents)
 		.values({
@@ -248,50 +330,14 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 			kind: 'custom',
 			role: input.role?.trim() || 'section',
 			description: input.description ?? null,
-			props: serializeProps(input.props),
-			starterKey: input.starterKey ?? null,
-			html: input.html
+			props: JSON.stringify(slots.map((s) => s.name)),
+			starterKey: null,
+			html: input.html ?? '',
+			document: documentJson || JSON.stringify(EMPTY_DOCUMENT),
+			slots: serializeSlots(slots)
 		})
 		.returning()
 		.get();
-}
-
-/**
- * Deterministically append kit sections that aren't already present
- * (matched by starterKey). Never updates or overwrites existing rows.
- */
-export function appendStarterComponents(teamId: number): { added: number; skipped: number } {
-	const existingKeys = new Set(
-		listComponents(teamId)
-			.map((component) => component.starterKey)
-			.filter((key): key is string => Boolean(key))
-	);
-
-	let added = 0;
-	let skipped = 0;
-	for (const starter of STARTER_DESIGN_COMPONENTS) {
-		if (existingKeys.has(starter.starterKey)) {
-			skipped += 1;
-			continue;
-		}
-		db.insert(designComponents)
-			.values({
-				id: cuid(),
-				teamId,
-				name: starter.name,
-				kind: 'custom',
-				role: starter.role,
-				description: starter.description,
-				props: serializeProps(starter.props),
-				starterKey: starter.starterKey,
-				html: starter.html
-			})
-			.run();
-		existingKeys.add(starter.starterKey);
-		added += 1;
-	}
-
-	return { added, skipped };
 }
 
 export function deleteComponent(componentId: string, teamId: number): DesignComponent {

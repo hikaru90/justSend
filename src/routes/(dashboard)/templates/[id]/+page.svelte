@@ -5,7 +5,7 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EmailBuilder from '$lib/email-builder/EmailBuilder.svelte';
 	import type { TEditorConfiguration } from '$lib/email-builder/types';
-	import { enhance } from '$app/forms';
+	import { deserialize, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { GripVertical } from '@lucide/svelte';
@@ -28,7 +28,9 @@
 		description: string | null;
 		starterKey: string | null;
 		html: string;
+		document?: string;
 		props: string[];
+		parsedSlots?: import('$lib/email-builder/types').ComponentSlot[];
 	};
 
 	type ElementRow = {
@@ -54,6 +56,16 @@
 	let editorHtml = $state('');
 	let assistOpen = $state(false);
 
+	let testEmail = $state('alex@example.com');
+	let testFirstName = $state('Alex');
+	let testLastName = $state('River');
+
+	const testVariables = $derived({
+		email: testEmail,
+		firstName: testFirstName,
+		lastName: testLastName
+	});
+
 	$effect(() => {
 		prompt = data.template.prompt ?? '';
 	});
@@ -77,7 +89,7 @@
 		(data.emailDocument ?? null) as TEditorConfiguration | null
 	);
 	const builderPreviewOverrides = $derived.by((): Record<string, string> => {
-		const overrides: Record<string, string> = {};
+		const overrides: Record<string, string> = { ...testVariables };
 		const pair = pickEmailLogos(data.logoAssets ?? []);
 		if (pair) {
 			const light = resolve(`/api/design-asset/${pair.light.id}`);
@@ -90,6 +102,10 @@
 		}
 		return overrides;
 	});
+
+	const subjectPreview = $derived(
+		substitutePreviewPlaceholders(data.template.subject ?? '', testVariables)
+	);
 
 	$effect(() => {
 		editorHtml = data.previewHtml ?? '';
@@ -411,6 +427,36 @@
 			savingHtml = false;
 		}
 	}
+
+	async function uploadBuilderAsset(
+		file: File
+	): Promise<{ id: string; name: string; kind: string } | null> {
+		const body = new FormData();
+		body.append('file', file);
+		body.append('name', file.name || 'image');
+		const res = await fetch('?/uploadAsset', {
+			method: 'POST',
+			body,
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true'
+			}
+		});
+		if (!res.ok) return null;
+		const result = deserialize(await res.text());
+		if (result.type !== 'success' || !result.data || typeof result.data !== 'object') return null;
+		const asset = (result.data as { asset?: { id: string; name: string; kind: string } }).asset;
+		if (asset?.id) await invalidateAll();
+		return asset ?? null;
+	}
+
+	const builderDesignAssets = $derived(
+		(data.visualAssets ?? []).map((a: VisualAsset) => ({
+			id: a.id,
+			name: a.name,
+			kind: a.kind
+		}))
+	);
 </script>
 
 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -476,8 +522,11 @@
 	<form
 		method="POST"
 		action="?/sendPreview"
-		use:enhance={() => {
+		use:enhance={({ formData }) => {
 			sending = true;
+			formData.set('email', testEmail);
+			formData.set('firstName', testFirstName);
+			formData.set('lastName', testLastName);
 			return async ({ update }) => {
 				await update();
 				sending = false;
@@ -501,12 +550,51 @@
 	</form>
 </div>
 
+<div class="mb-4 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3">
+	<div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+		<div>
+			<p class="text-sm font-medium">Test variables</p>
+			<p class="text-xs text-[hsl(var(--muted-foreground))]">
+				Standard contact fields used as <code class="text-[0.7rem]">{"{{…}}"}</code> in the email.
+				Values apply to Preview and Send preview.
+			</p>
+		</div>
+		{#if subjectPreview !== (data.template.subject ?? '')}
+			<p class="text-xs text-[hsl(var(--muted-foreground))]">
+				Subject preview: <span class="text-[hsl(var(--foreground))]">{subjectPreview}</span>
+			</p>
+		{/if}
+	</div>
+	<div class="grid gap-3 sm:grid-cols-3">
+		<div class="space-y-1">
+			<label class="font-mono text-xs text-[hsl(var(--muted-foreground))]" for="test-var-email">
+				{'{{email}}'}
+			</label>
+			<Input id="test-var-email" type="email" bind:value={testEmail} placeholder="alex@example.com" />
+		</div>
+		<div class="space-y-1">
+			<label class="font-mono text-xs text-[hsl(var(--muted-foreground))]" for="test-var-firstName">
+				{'{{firstName}}'}
+			</label>
+			<Input id="test-var-firstName" bind:value={testFirstName} placeholder="Alex" />
+		</div>
+		<div class="space-y-1">
+			<label class="font-mono text-xs text-[hsl(var(--muted-foreground))]" for="test-var-lastName">
+				{'{{lastName}}'}
+			</label>
+			<Input id="test-var-lastName" bind:value={testLastName} placeholder="River" />
+		</div>
+	</div>
+</div>
+
 <div class="mb-6">
 	<EmailBuilder
 		document={emailDocument}
 		designComponents={designComponents}
 		designColors={data.designColors}
+		designAssets={builderDesignAssets}
 		previewOverrides={builderPreviewOverrides}
+		onUploadAsset={uploadBuilderAsset}
 		saving={savingHtml}
 		onSave={saveEmailBuilder}
 	/>

@@ -194,7 +194,13 @@ export function createCampaign(
 
 export function createTemplate(
 	teamId: number,
-	overrides: Partial<{ name: string; subject: string; html: string; domainId: number | null }> = {}
+	overrides: Partial<{
+		name: string;
+		subject: string;
+		html: string;
+		domainId: number | null;
+		tags: string[];
+	}> = {}
 ) {
 	const n = next();
 	return db
@@ -205,7 +211,8 @@ export function createTemplate(
 			domainId: overrides.domainId ?? null,
 			name: overrides.name ?? `Template ${n}`,
 			subject: overrides.subject ?? `Hello {{name}}`,
-			html: overrides.html ?? `<p>Hi {{name}}</p>`
+			html: overrides.html ?? `<p>Hi {{name}}</p>`,
+			tags: jsonArray(overrides.tags ?? [])
 		})
 		.returning()
 		.get();

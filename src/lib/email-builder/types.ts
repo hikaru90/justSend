@@ -25,6 +25,21 @@ export type TEditorBlock = {
 
 export type TEditorConfiguration = Record<string, TEditorBlock>;
 
+/** A typed pointer from a design-system component into a block prop. */
+export type ComponentSlot = {
+	name: string;
+	blockId: string;
+	prop: string;
+	type: 'text' | 'url' | 'asset' | 'color';
+	label?: string;
+};
+
+/** Persisted shape of a design-system component authored as a block tree. */
+export type ComponentDocument = {
+	document: TEditorConfiguration;
+	slots: ComponentSlot[];
+};
+
 export type EmailBuilderContent = {
 	format: 'email-builder';
 	document: TEditorConfiguration;
@@ -75,7 +90,7 @@ export const BLOCK_FACTORIES: Array<{
 		create: () => ({
 			type: 'Text',
 			data: {
-				props: { text: 'My new text block' },
+				props: { text: 'My new text block', markdown: true },
 				style: {
 					padding: { top: 16, bottom: 16, left: 24, right: 24 },
 					fontWeight: 'normal'

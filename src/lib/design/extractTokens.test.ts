@@ -78,6 +78,18 @@ describe('substitutePreviewPlaceholders', () => {
 			})
 		).toBe('<img src="/api/design-asset/abc" alt="/api/design-asset/abc" />');
 	});
+
+	it('replaces contact variables', () => {
+		const html = 'Hi {{firstName}} {{lastName}} &lt;{{email}}&gt;';
+		expect(substitutePreviewPlaceholders(html)).toBe(
+			'Hi Alex River &lt;alex@example.com&gt;'
+		);
+	});
+
+	it('uses contact variable overrides', () => {
+		const html = 'Hi {{firstName}}';
+		expect(substitutePreviewPlaceholders(html, { firstName: 'Ada' })).toBe('Hi Ada');
+	});
 });
 
 describe('renderSvelteComponentPreview', () => {

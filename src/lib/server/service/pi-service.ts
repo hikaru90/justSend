@@ -23,9 +23,13 @@ import {
 	type AgentSessionEvent
 } from '@earendil-works/pi-coding-agent';
 import { cuid } from '$lib/utils';
+import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
+import { BLOCK_FACTORIES } from '$lib/email-builder/types';
+import { validateComponentTree } from '$lib/email-builder/validate-component-tree';
 import type { DesignAssetKind, TemplateComponentKind } from '../db/schema';
 import { EMAIL_FORMATTING_RULES } from '../email-formatting-rules';
 import { env } from '../env';
+import { openRouterChat, openRouterModel } from './openrouter';
 import {
 	assetDiskPath,
 	getDesignSystemBundle,
@@ -581,12 +585,15 @@ export type PiEditStreamEvent =
 	| { type: 'tool_end'; toolName: string; isError?: boolean; detail?: string }
 	| {
 			type: 'done';
-			html: string;
+			html?: string;
 			message?: string;
 			/** Multi-turn HTML edit session id (when keepSession was used). */
 			sessionId?: string;
 			/** Present after whole-email tree edits. */
 			components?: PiTemplateTreeComponent[];
+			/** Present after component-tree JSON edits. */
+			document?: import('$lib/email-builder/types').TEditorConfiguration;
+			slots?: import('$lib/email-builder/types').ComponentSlot[];
 	  }
 	| { type: 'error'; message: string }
 	| { type: 'cancelled'; message: string };
@@ -1135,4 +1142,112 @@ export async function editTemplateTreeWithPiStream(
 	input: EditTemplateTreeWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
 ): Promise<PiTemplateTreeComponent[]> {
 	return editTemplateTreeWithPi(input);
+}
+
+export type EditComponentTreeWithPiInput = {
+	instruction: string;
+	document: TEditorConfiguration;
+	slots: ComponentSlot[];
+	name?: string;
+	description?: string | null;
+	designMd?: string;
+	signal?: AbortSignal;
+	onEvent?: (event: PiEditStreamEvent) => void;
+};
+
+export type EditComponentTreeWithPiResult = {
+	document: TEditorConfiguration;
+	slots: ComponentSlot[];
+};
+
+const COMPONENT_TREE_SYSTEM = [
+	'You author reusable email design-system components as email-builder JSON documents.',
+	'Return ONLY valid JSON (no markdown fences) with this exact shape:',
+	'{ "document": <TEditorConfiguration>, "slots": <ComponentSlot[]> }',
+	'',
+	'TEditorConfiguration is a map of blockId -> { type, data }.',
+	'It MUST include a "root" block with type "EmailLayout" and data.childrenIds.',
+	`Allowed block types: EmailLayout, ${BLOCK_FACTORIES.map((f) => f.type).join(', ')}.`,
+	'',
+	'Block data shapes:',
+	'- EmailLayout data: { backdropColor, canvasColor, textColor, fontFamily, childrenIds: string[] }',
+	'- Heading data: { props: { text, level? }, style?: { padding } }',
+	'- Text data: { props: { text, markdown: true }, style?: { padding, fontWeight } } — text supports Markdown (**bold**, *italic*, links, lists)',
+	'- Button data: { props: { text, url }, style?: { padding } }',
+	'- Image data: { props: { url, alt, contentAlignment?, linkHref? }, style?: { padding } }',
+	'- Divider data: { props: { lineColor }, style?: { padding } }',
+	'- Spacer data: { props: { height } }',
+	'- Html data: { props: { contents }, style?: { padding } }',
+	'- Container data: { props: { childrenIds }, style?: { padding, backgroundColor, borderColor, borderRadius } }',
+	'- ColumnsContainer data: { props: { columnsCount, columnsGap, columns: [{ childrenIds }] }, style?: { padding } }',
+	'',
+	'ComponentSlot: { name, blockId, prop, type: "text"|"url"|"asset"|"color", label? }',
+	'prop is a path under block.data, e.g. "props.text", "props.url", "style.backgroundColor".',
+	'Every slot.blockId must exist in document. Prefer marking copy/image fields as slots.',
+	'Preserve existing block ids when editing unless the instruction asks to rebuild.',
+	'Follow email-safe layout: ~600px canvas, clear hierarchy, one primary CTA when relevant.'
+].join('\n');
+
+/**
+ * Edit a design-system component block tree via OpenRouter JSON mode
+ * (no file workdir — returns validated document + slots).
+ */
+export async function editComponentTreeWithPi(
+	input: EditComponentTreeWithPiInput
+): Promise<EditComponentTreeWithPiResult> {
+	const emit = (event: PiEditStreamEvent) => input.onEvent?.(event);
+	emit({ type: 'step', message: `Calling ${openRouterModel()} (JSON mode)…` });
+
+	const userPrompt = [
+		input.name ? `Component name: ${input.name}` : null,
+		input.description ? `Description: ${input.description}` : null,
+		'',
+		'## Instruction',
+		input.instruction,
+		'',
+		input.designMd?.trim()
+			? `## design.md\n${input.designMd.trim()}\n`
+			: null,
+		'## Current document',
+		JSON.stringify(input.document, null, 2),
+		'',
+		'## Current slots',
+		JSON.stringify(input.slots, null, 2)
+	]
+		.filter((line): line is string => line != null)
+		.join('\n');
+
+	const raw = await openRouterChat(
+		[
+			{ role: 'system', content: COMPONENT_TREE_SYSTEM },
+			{ role: 'user', content: userPrompt }
+		],
+		{
+			signal: input.signal,
+			stream: true,
+			jsonObject: true,
+			onDelta: (delta) => emit({ type: 'text', delta })
+		}
+	);
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		throw new Error('Pi returned invalid JSON for the component tree');
+	}
+
+	const validated = validateComponentTree(parsed);
+	if (!validated.ok) {
+		throw new Error(`Invalid component tree: ${validated.error}`);
+	}
+
+	emit({ type: 'step', message: 'Validated document and slots.' });
+	return { document: validated.document, slots: validated.slots };
+}
+
+export async function editComponentTreeWithPiStream(
+	input: EditComponentTreeWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
+): Promise<EditComponentTreeWithPiResult> {
+	return editComponentTreeWithPi(input);
 }

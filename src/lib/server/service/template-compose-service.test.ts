@@ -7,7 +7,6 @@ import {
 	collectExpectedSlots
 } from './template-compose-service';
 import { buildScaffoldMessages, parseScaffoldJson } from './ai-template-service';
-import { STARTER_DESIGN_COMPONENTS } from './design-component-library';
 import type { Template } from './template-service';
 import type { TemplateElement } from './template-element-service';
 import type { DesignComponent, DesignAsset } from './design-system-service';
@@ -23,6 +22,7 @@ function fakeTemplate(overrides: Partial<Template> = {}): Template {
 		content: null,
 		prompt: null,
 		designSnapshot: null,
+		tags: '[]',
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
 		...overrides
@@ -44,24 +44,31 @@ function fakeElement(overrides: Partial<TemplateElement> = {}): TemplateElement 
 	};
 }
 
-function asDesignComponent(
-	starter: (typeof STARTER_DESIGN_COMPONENTS)[number],
-	id: string
-): DesignComponent {
+function fakeHtmlComponent(overrides: {
+	id: string;
+	name: string;
+	html: string;
+	props: string[];
+}): DesignComponent {
 	return {
-		id,
+		id: overrides.id,
 		teamId: 1,
-		name: starter.name,
-		kind: 'starter',
-		role: starter.role,
-		description: starter.description,
-		props: JSON.stringify(starter.props),
-		starterKey: starter.starterKey,
-		html: starter.html,
+		name: overrides.name,
+		kind: 'custom',
+		role: 'section',
+		description: null,
+		props: JSON.stringify(overrides.props),
+		starterKey: null,
+		html: overrides.html,
+		document: '',
+		slots: '[]',
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z'
 	};
 }
+
+const HERO_HTML = `<table data-owl-section="hero"><tbody><tr><td><h1>{{headline}}</h1><p>{{body}}</p></td></tr></tbody></table>`;
+const CTA_HTML = `<table data-owl-section="cta"><tbody><tr><td><a href="{{primary_cta_url}}">{{primary_cta_label}}</a></td></tr></tbody></table>`;
 
 describe('applySlotTemplate', () => {
 	it('substitutes slots and strips empty owl-if blocks', () => {
@@ -105,9 +112,20 @@ describe('parseScaffoldContent / serializeScaffoldContent', () => {
 
 describe('composeEmailHtml', () => {
 	it('is deterministic and respects element order', () => {
-		const hero = STARTER_DESIGN_COMPONENTS.find((c) => c.starterKey === 'hero')!;
-		const cta = STARTER_DESIGN_COMPONENTS.find((c) => c.starterKey === 'cta')!;
-		const components = [asDesignComponent(hero, 'dc_hero'), asDesignComponent(cta, 'dc_cta')];
+		const components = [
+			fakeHtmlComponent({
+				id: 'dc_hero',
+				name: 'Hero',
+				html: HERO_HTML,
+				props: ['headline', 'body']
+			}),
+			fakeHtmlComponent({
+				id: 'dc_cta',
+				name: 'CTA',
+				html: CTA_HTML,
+				props: ['primary_cta_label', 'primary_cta_url']
+			})
+		];
 
 		const elements = [
 			fakeElement({
@@ -130,9 +148,7 @@ describe('composeEmailHtml', () => {
 				headline: 'Hello there',
 				body: 'Thanks for joining.',
 				primary_cta_label: 'Get started',
-				primary_cta_url: 'https://example.com',
-				title: 'Ready?',
-				eyebrow: 'Welcome'
+				primary_cta_url: 'https://example.com'
 			}
 		});
 
@@ -189,7 +205,6 @@ describe('composeEmailHtml', () => {
 	});
 
 	it('falls back to empty for missing slots without throwing', () => {
-		const hero = STARTER_DESIGN_COMPONENTS.find((c) => c.starterKey === 'hero')!;
 		const html = composeEmailHtml({
 			template: fakeTemplate({ content: null }),
 			elements: [
@@ -197,7 +212,14 @@ describe('composeEmailHtml', () => {
 					config: JSON.stringify({ designComponentId: 'dc_hero' })
 				})
 			],
-			components: [asDesignComponent(hero, 'dc_hero')],
+			components: [
+				fakeHtmlComponent({
+					id: 'dc_hero',
+					name: 'Hero',
+					html: HERO_HTML,
+					props: ['headline', 'body']
+				})
+			],
 			assets: [],
 			assetBaseUrl: 'http://localhost:5173'
 		});
@@ -208,14 +230,20 @@ describe('composeEmailHtml', () => {
 
 describe('collectExpectedSlots', () => {
 	it('includes library component props', () => {
-		const hero = STARTER_DESIGN_COMPONENTS.find((c) => c.starterKey === 'hero')!;
 		const slots = collectExpectedSlots(
 			[
 				fakeElement({
 					config: JSON.stringify({ designComponentId: 'dc_hero' })
 				})
 			],
-			[asDesignComponent(hero, 'dc_hero')]
+			[
+				fakeHtmlComponent({
+					id: 'dc_hero',
+					name: 'Hero',
+					html: HERO_HTML,
+					props: ['headline', 'body', 'primary_cta_label']
+				})
+			]
 		);
 		expect(slots).toContain('headline');
 		expect(slots).toContain('primary_cta_label');
@@ -248,20 +276,21 @@ describe('parseScaffoldJson', () => {
 
 describe('buildScaffoldMessages', () => {
 	it('asks for JSON slot values only', () => {
-		const hero = STARTER_DESIGN_COMPONENTS.find((c) => c.starterKey === 'hero')!;
 		const messages = buildScaffoldMessages({
 			template: fakeTemplate(),
 			designMd: '# Brand',
 			components: [
 				{
 					id: 'dc_hero',
-					name: hero.name,
-					description: hero.description,
-					html: hero.html,
-					kind: 'starter',
-					role: hero.role,
-					props: JSON.stringify(hero.props),
-					starterKey: hero.starterKey
+					name: 'Hero',
+					description: null,
+					html: HERO_HTML,
+					kind: 'custom',
+					role: 'section',
+					props: JSON.stringify(['headline', 'body']),
+					starterKey: null,
+					document: '',
+					slots: '[]'
 				}
 			],
 			assets: [],

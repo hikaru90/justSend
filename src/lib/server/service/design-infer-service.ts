@@ -2,7 +2,8 @@ import {
 	addAsset,
 	getComponent,
 	getDesignSystem,
-	parseComponentProps,
+	parseComponentDocument,
+	parseComponentSlots,
 	upsertComponent,
 	upsertDesignMd,
 	type DesignComponent,
@@ -259,8 +260,8 @@ export type ReapplyDesignOptions = {
 };
 
 /**
- * Restyle one library component so its visuals match the current design.md,
- * while preserving structure, props, and email-safe markup.
+ * Restyle one library component's block-tree document so visuals match design.md,
+ * while preserving structure and slot pointers.
  */
 export async function reapplyDesignSystemToComponent(
 	teamIdOrOpts: number | ReapplyDesignOptions,
@@ -280,26 +281,31 @@ export async function reapplyDesignSystemToComponent(
 		throw new Error('Save design.md before reapplying the design system');
 	}
 
-	const props = parseComponentProps(component);
+	const document = parseComponentDocument(component);
+	if (!document) {
+		throw new Error('Component has no block-tree document to restyle');
+	}
+	const slots = parseComponentSlots(component);
+
 	const systemPrompt = [
-		'You restyle a single reusable email component so it matches a brand design system.',
-		'Return ONLY the full updated Svelte email component source — no markdown fences, no explanation.',
-		'Keep a single $props() script block, inline CSS, and table-friendly markup.',
-		'Preserve prop names and defaults. Update colors, typography, spacing, radii, buttons, links, and other visual tokens to match design.md.',
-		'Always wrap <tr> inside <tbody>/<thead>/<tfoot>.'
+		'You restyle a reusable email component so it matches a brand design system.',
+		'The component is an email-builder JSON document (TEditorConfiguration).',
+		'Return ONLY valid JSON (no markdown fences) with this shape:',
+		'{ "document": <TEditorConfiguration> }',
+		'Preserve every block id, type, childrenIds, and prop keys. Update colors, typography, spacing, and other visual style fields to match design.md.',
+		'Do not invent new blocks or rename ids.'
 	].join(' ');
 
 	const userPrompt = [
 		`Component name: ${component.name}`,
 		component.description ? `Description: ${component.description}` : null,
-		component.starterKey ? `starterKey: ${component.starterKey}` : null,
-		props.length > 0 ? `props: [${props.join(', ')}]` : null,
+		slots.length > 0 ? `slots: ${JSON.stringify(slots)}` : null,
 		'',
 		'## design.md',
 		designMd,
 		'',
-		'## Current component source',
-		component.html
+		'## Current document',
+		JSON.stringify(document, null, 2)
 	]
 		.filter((line): line is string => line != null)
 		.join('\n');
@@ -326,9 +332,19 @@ export async function reapplyDesignSystemToComponent(
 	);
 
 	emit({ stage: 'saving', message: 'Saving updated component…' });
-	const html = stripMarkdownFences(rawAi).trim();
-	if (!html) {
-		throw new Error('AI returned empty component HTML');
+	const stripped = stripMarkdownFences(rawAi).trim();
+	let nextDocument = document;
+	try {
+		const parsed = JSON.parse(stripped) as { document?: typeof document };
+		if (parsed?.document && typeof parsed.document === 'object' && parsed.document.root) {
+			nextDocument = parsed.document;
+		} else if ((parsed as typeof document).root) {
+			nextDocument = parsed as typeof document;
+		} else {
+			throw new Error('missing document');
+		}
+	} catch {
+		throw new Error('AI returned invalid component document JSON');
 	}
 
 	const updated = upsertComponent(opts.teamId, {
@@ -337,9 +353,8 @@ export async function reapplyDesignSystemToComponent(
 		kind: 'custom',
 		role: component.role,
 		description: component.description,
-		props,
-		starterKey: component.starterKey,
-		html
+		document: nextDocument,
+		slots
 	});
 	emit({ stage: 'done', message: 'Component updated.' });
 	return updated;

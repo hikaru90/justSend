@@ -87,6 +87,23 @@ describe('template-service', () => {
 		expect(updated.html).toBe('<p>New</p>');
 	});
 
+	it('normalizes and updates tags', () => {
+		const team = createTeam();
+		const created = createTemplate({
+			teamId: team.id,
+			name: 'Tagged',
+			subject: 'Subject'
+		});
+
+		const updated = updateTemplate(created.id, team.id, {
+			tags: [' Welcome ', 'welcome', 'Onboarding', '']
+		});
+
+		expect(updated.tags).toBe(JSON.stringify(['welcome', 'onboarding']));
+		const listed = listTemplates(team.id);
+		expect(listed[0].tagList).toEqual(['welcome', 'onboarding']);
+	});
+
 	it('deletes a template', () => {
 		const team = createTeam();
 		const created = createTemplate({

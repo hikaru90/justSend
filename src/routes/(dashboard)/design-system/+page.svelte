@@ -4,10 +4,16 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import CodeBlock from '$lib/components/CodeBlock.svelte';
-	import PiEditField from '$lib/components/PiEditField.svelte';
+	import EmailBuilder from '$lib/email-builder/EmailBuilder.svelte';
+	import { cloneDocument, renderEmailHtml } from '$lib/email-builder/render';
+	import {
+		EMPTY_DOCUMENT,
+		type ComponentSlot,
+		type TEditorConfiguration
+	} from '$lib/email-builder/types';
 	import { copyablePre } from '$lib/actions/copyablePre';
 	import { Check, Copy } from '@lucide/svelte';
-	import { enhance } from '$app/forms';
+	import { deserialize, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
@@ -26,29 +32,23 @@
 
 	let { data, form } = $props();
 
+	let newName = $state('');
+	let newDescription = $state('');
+	let newSlots = $state<ComponentSlot[]>([]);
+	let newBuilderKey = $state(0);
+	let savingNewComponent = $state(false);
+	let newSaveError = $state<string | null>(null);
+
 	let editComponentId = $state<string | null>(null);
 	let editName = $state('');
 	let editDescription = $state('');
-	let editHtml = $state('');
+	let editDocument = $state<TEditorConfiguration>(cloneDocument(EMPTY_DOCUMENT));
+	let editSlots = $state<ComponentSlot[]>([]);
+	let editBuilderKey = $state(0);
+	let savingEditComponent = $state(false);
+	let editSaveError = $state<string | null>(null);
 	let editAssetId = $state<string | null>(null);
 	let editAssetName = $state('');
-	let piInstruction = $state('');
-	let piEditing = $state(false);
-	let piStatus = $state('');
-	let piError = $state<string | null>(null);
-	let piAbort = $state<AbortController | null>(null);
-	/** Multi-turn Pi agent session for the open component edit modal. */
-	let piSessionId = $state<string | null>(null);
-	type PiFeedLine = {
-		id: number;
-		kind: 'user' | 'step' | 'thinking' | 'text' | 'tool';
-		label: string;
-		detail?: string;
-		pending?: boolean;
-		error?: boolean;
-	};
-	let piFeed = $state<PiFeedLine[]>([]);
-	let piFeedId = 0;
 	let inferring = $state(false);
 	let inferUrl = $state('');
 	let inferStatus = $state('');
@@ -68,6 +68,21 @@
 	let designMdDraft = $derived(data.designMd);
 
 	const tokens = $derived(extractDesignTokens(designMdDraft));
+	const designColors = $derived(tokens.colors.map(hexForColorInput));
+	const designComponents = $derived(
+		data.components.map((c) => ({
+			id: c.id,
+			name: c.name,
+			kind: c.kind,
+			role: c.role,
+			description: c.description,
+			starterKey: c.starterKey,
+			html: c.html,
+			document: c.document ?? '',
+			props: (c.parsedSlots ?? []).map((s) => s.name),
+			parsedSlots: c.parsedSlots ?? []
+		}))
+	);
 	const renderedMd = $derived(
 		DOMPurify.sanitize(marked.parse(designMdDraft || '_No design.md yet._', { async: false }) as string)
 	);
@@ -172,49 +187,183 @@
 		designMdDraft = removeHexColor(designMdDraft, hex);
 	}
 
-	function endPiSession() {
-		const id = piSessionId;
-		piSessionId = null;
-		if (!id || !browser) return;
-		void fetch(resolve('/design-system/pi-edit'), {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ sessionId: id }),
-			keepalive: true
-		}).catch(() => undefined);
+	function parseComponentDocumentField(component: {
+		document?: string | null;
+	}): TEditorConfiguration {
+		const raw = component.document?.trim();
+		if (!raw) return cloneDocument(EMPTY_DOCUMENT);
+		try {
+			const parsed = JSON.parse(raw) as TEditorConfiguration;
+			if (parsed?.root?.type === 'EmailLayout') return parsed;
+		} catch {
+			/* fall through */
+		}
+		return cloneDocument(EMPTY_DOCUMENT);
 	}
 
-	function resetPiChat() {
-		piAbort?.abort();
-		endPiSession();
-		piInstruction = '';
-		piEditing = false;
-		piStatus = '';
-		piError = null;
-		piAbort = null;
-		piFeed = [];
-		piFeedId = 0;
+	function hasComponentDocument(component: { document?: string | null }): boolean {
+		const raw = component.document?.trim();
+		if (!raw) return false;
+		try {
+			const parsed = JSON.parse(raw) as TEditorConfiguration;
+			return parsed?.root?.type === 'EmailLayout';
+		} catch {
+			return false;
+		}
+	}
+
+	function componentCode(component: { document?: string | null; html: string }): string {
+		if (hasComponentDocument(component)) {
+			return renderEmailHtml(parseComponentDocumentField(component));
+		}
+		return component.html;
+	}
+
+	function addSlot(target: 'new' | 'edit') {
+		const slot: ComponentSlot = { name: '', blockId: '', prop: 'props.text', type: 'text' };
+		if (target === 'new') newSlots = [...newSlots, slot];
+		else editSlots = [...editSlots, slot];
+	}
+
+	function removeSlot(target: 'new' | 'edit', index: number) {
+		if (target === 'new') newSlots = newSlots.filter((_, i) => i !== index);
+		else editSlots = editSlots.filter((_, i) => i !== index);
+	}
+
+	async function saveComponentFetch(input: {
+		id?: string;
+		name: string;
+		description: string;
+		document: TEditorConfiguration;
+		slots: ComponentSlot[];
+	}): Promise<void> {
+		const body = new FormData();
+		if (input.id) body.append('id', input.id);
+		body.append('name', input.name.trim());
+		body.append('description', input.description.trim());
+		body.append('document', JSON.stringify(input.document));
+		body.append('slots', JSON.stringify(input.slots.filter((s) => s.name.trim())));
+		const res = await fetch('?/saveComponent', {
+			method: 'POST',
+			body,
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true'
+			}
+		});
+		if (!res.ok) {
+			const err = await res.json().catch(() => null);
+			const message =
+				err && typeof err === 'object' && 'error' in err && typeof err.error === 'string'
+					? err.error
+					: 'Save failed';
+			throw new Error(message);
+		}
+		await invalidateAll();
+	}
+
+	async function uploadBuilderAsset(
+		file: File
+	): Promise<{ id: string; name: string; kind: string } | null> {
+		const body = new FormData();
+		body.append('file', file);
+		body.append('name', file.name || 'image');
+		body.append('kind', 'image');
+		const res = await fetch('?/uploadAsset', {
+			method: 'POST',
+			body,
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true'
+			}
+		});
+		if (!res.ok) return null;
+		const result = deserialize(await res.text());
+		if (result.type !== 'success' || !result.data || typeof result.data !== 'object') return null;
+		const asset = (result.data as { asset?: { id: string; name: string; kind: string } }).asset;
+		if (asset?.id) await invalidateAll();
+		return asset ?? null;
+	}
+
+	const builderDesignAssets = $derived(
+		[...logoAssets, ...imageAssets].map((a) => ({
+			id: a.id,
+			name: a.name,
+			kind: a.kind
+		}))
+	);
+
+	async function saveNewComponent(payload: { document: TEditorConfiguration; html: string }) {
+		if (!newName.trim()) {
+			newSaveError = 'Component name is required';
+			return;
+		}
+		newSaveError = null;
+		savingNewComponent = true;
+		try {
+			await saveComponentFetch({
+				name: newName,
+				description: newDescription,
+				document: payload.document,
+				slots: newSlots
+			});
+			newName = '';
+			newDescription = '';
+			newSlots = [];
+			newBuilderKey += 1;
+		} catch (e) {
+			newSaveError = e instanceof Error ? e.message : 'Save failed';
+		} finally {
+			savingNewComponent = false;
+		}
+	}
+
+	async function saveEditComponent(payload: { document: TEditorConfiguration; html: string }) {
+		if (!editComponentId || !editName.trim()) {
+			editSaveError = 'Component name is required';
+			return;
+		}
+		editSaveError = null;
+		savingEditComponent = true;
+		try {
+			await saveComponentFetch({
+				id: editComponentId,
+				name: editName,
+				description: editDescription,
+				document: payload.document,
+				slots: editSlots
+			});
+			cancelEdit();
+		} catch (e) {
+			editSaveError = e instanceof Error ? e.message : 'Save failed';
+		} finally {
+			savingEditComponent = false;
+		}
 	}
 
 	function startEdit(component: {
 		id: string;
 		name: string;
 		description: string | null;
-		html: string;
+		document?: string | null;
+		parsedSlots?: ComponentSlot[];
 	}) {
-		resetPiChat();
+		editSaveError = null;
 		editComponentId = component.id;
 		editName = component.name;
 		editDescription = component.description ?? '';
-		editHtml = component.html;
+		editDocument = parseComponentDocumentField(component);
+		editSlots = [...(component.parsedSlots ?? [])];
+		editBuilderKey += 1;
 	}
 
 	function cancelEdit() {
-		resetPiChat();
 		editComponentId = null;
 		editName = '';
 		editDescription = '';
-		editHtml = '';
+		editDocument = cloneDocument(EMPTY_DOCUMENT);
+		editSlots = [];
+		editSaveError = null;
 	}
 
 	function startEditAsset(asset: { id: string; name: string }) {
@@ -366,185 +515,109 @@
 		reapplyStatus = 'Stopping…';
 	}
 
-	function stopPiEdit() {
-		piAbort?.abort();
-		piStatus = 'Stopping…';
-	}
+	async function runComponentAiEdit(args: {
+		instruction: string;
+		document: TEditorConfiguration;
+		slots: ComponentSlot[];
+		name?: string;
+		description?: string | null;
+		signal: AbortSignal;
+		onEvent: (event: {
+			type: string;
+			message?: string;
+			delta?: string;
+			tool?: string;
+			toolCallId?: string;
+			isError?: boolean;
+			document?: TEditorConfiguration;
+			slots?: ComponentSlot[];
+		}) => void;
+	}): Promise<{ document: TEditorConfiguration; slots: ComponentSlot[] } | null> {
+		const res = await fetch(resolve('/design-system/pi-edit'), {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+			body: JSON.stringify({
+				instruction: args.instruction,
+				document: args.document,
+				slots: args.slots,
+				name: args.name,
+				description: args.description
+			}),
+			signal: args.signal
+		});
 
-	function appendPiFeed(line: Omit<PiFeedLine, 'id'>): number {
-		const id = ++piFeedId;
-		piFeed = [...piFeed, { ...line, id }];
-		return id;
-	}
-
-	function patchPiFeed(id: number, patch: Partial<PiFeedLine>) {
-		piFeed = piFeed.map((line) => (line.id === id ? { ...line, ...patch } : line));
-	}
-
-	function appendPiDelta(kind: 'thinking' | 'text', delta: string) {
-		const last = piFeed[piFeed.length - 1];
-		if (last && last.kind === kind) {
-			patchPiFeed(last.id, { label: last.label + delta });
-			return;
+		if (!res.ok || !res.body) {
+			const text = await res.text().catch(() => '');
+			throw new Error(text || `Pi edit request failed (${res.status})`);
 		}
-		appendPiFeed({ kind, label: delta });
-	}
 
-	async function startPiEdit() {
-		if (piEditing) return;
-		const instruction = piInstruction.trim();
-		if (!instruction) return;
+		const reader = res.body.getReader();
+		const decoder = new TextDecoder();
+		let buffer = '';
+		let result: { document: TEditorConfiguration; slots: ComponentSlot[] } | null = null;
 
-		piError = null;
-		piEditing = true;
-		piStatus = piSessionId ? 'Continuing Pi…' : 'Starting Pi…';
-		appendPiFeed({ kind: 'user', label: instruction });
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			const chunks = buffer.split('\n\n');
+			buffer = chunks.pop() ?? '';
 
-		const controller = new AbortController();
-		piAbort = controller;
-
-		/** Tracks open tool_start lines by tool name (last open wins). */
-		const openTools: Record<string, number> = {};
-
-		try {
-			const res = await fetch(resolve('/design-system/pi-edit'), {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-				body: JSON.stringify({
-					instruction,
-					html: editHtml,
-					name: editName,
-					description: editDescription,
-					sessionId: piSessionId ?? undefined
-				}),
-				signal: controller.signal
-			});
-
-			if (!res.ok || !res.body) {
-				const text = await res.text().catch(() => '');
-				throw new Error(text || `Pi edit request failed (${res.status})`);
-			}
-
-			const reader = res.body.getReader();
-			const decoder = new TextDecoder();
-			let buffer = '';
-
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				buffer += decoder.decode(value, { stream: true });
-				const chunks = buffer.split('\n\n');
-				buffer = chunks.pop() ?? '';
-
-				for (const chunk of chunks) {
-					const line = chunk
-						.split('\n')
-						.map((l) => l.trim())
-						.find((l) => l.startsWith('data:'));
-					if (!line) continue;
-					let event: {
-						type?: string;
-						message?: string;
-						delta?: string;
-						toolName?: string;
-						detail?: string;
-						isError?: boolean;
-						html?: string;
-						sessionId?: string;
-					};
-					try {
-						event = JSON.parse(line.slice(5).trim()) as typeof event;
-					} catch {
-						continue;
-					}
-
-					switch (event.type) {
-						case 'step':
-							if (event.message) {
-								piStatus = event.message;
-								appendPiFeed({ kind: 'step', label: event.message });
-							}
-							break;
-						case 'thinking':
-							if (event.delta) {
-								piStatus = 'Thinking…';
-								appendPiDelta('thinking', event.delta);
-							}
-							break;
-						case 'text':
-							if (event.delta) {
-								piStatus = 'Responding…';
-								appendPiDelta('text', event.delta);
-							}
-							break;
-						case 'tool_start': {
-							const name = event.toolName ?? 'tool';
-							piStatus = `Running ${name}…`;
-							const id = appendPiFeed({
-								kind: 'tool',
-								label: name,
-								detail: event.detail,
-								pending: true
-							});
-							openTools[name] = id;
-							break;
-						}
-						case 'tool_end': {
-							const name = event.toolName ?? 'tool';
-							const id = openTools[name];
-							delete openTools[name];
-							if (id != null) {
-								patchPiFeed(id, {
-									pending: false,
-									error: Boolean(event.isError),
-									detail: event.detail ?? piFeed.find((l) => l.id === id)?.detail
-								});
-							} else {
-								appendPiFeed({
-									kind: 'tool',
-									label: name,
-									detail: event.detail,
-									pending: false,
-									error: Boolean(event.isError)
-								});
-							}
-							piStatus = event.isError ? `${name} failed` : `${name} done`;
-							break;
-						}
-						case 'error':
-							piError = event.message ?? 'Pi edit failed';
-							piStatus = '';
-							if (piError.toLowerCase().includes('session expired')) {
-								piSessionId = null;
-							}
-							break;
-						case 'cancelled':
-							piStatus = event.message ?? 'Edit cancelled.';
-							break;
-						case 'done':
-							piStatus = event.message ?? 'Edit complete.';
-							piInstruction = '';
-							if (typeof event.sessionId === 'string' && event.sessionId) {
-								piSessionId = event.sessionId;
-							}
-							if (typeof event.html === 'string') {
-								editHtml = event.html;
-							}
-							break;
-					}
+			for (const chunk of chunks) {
+				const line = chunk
+					.split('\n')
+					.map((l) => l.trim())
+					.find((l) => l.startsWith('data:'));
+				if (!line) continue;
+				let event: {
+					type?: string;
+					message?: string;
+					delta?: string;
+					toolName?: string;
+					tool?: string;
+					toolCallId?: string;
+					detail?: string;
+					isError?: boolean;
+					document?: TEditorConfiguration;
+					slots?: ComponentSlot[];
+				};
+				try {
+					event = JSON.parse(line.slice(5).trim()) as typeof event;
+				} catch {
+					continue;
 				}
+
+				const type = event.type ?? '';
+				if (type === 'done') {
+					if (event.document?.root?.type === 'EmailLayout') {
+						result = {
+							document: cloneDocument(event.document),
+							slots: Array.isArray(event.slots) ? event.slots : args.slots
+						};
+					}
+					args.onEvent({
+						type: 'done',
+						message: event.message,
+						document: result?.document,
+						slots: result?.slots
+					});
+					continue;
+				}
+
+				args.onEvent({
+					type,
+					message: event.message ?? event.detail,
+					delta: event.delta,
+					tool: event.tool ?? event.toolName,
+					toolCallId: event.toolCallId,
+					isError: event.isError,
+					document: event.document,
+					slots: event.slots
+				});
 			}
-		} catch (e) {
-			if (e instanceof Error && e.name === 'AbortError') {
-				piStatus = 'Edit cancelled.';
-			} else {
-				piError = e instanceof Error ? e.message : 'Pi edit failed';
-				piStatus = '';
-			}
-		} finally {
-			piEditing = false;
-			piAbort = null;
 		}
+
+		return result;
 	}
 
 	function looksLikeSvelte(code: string): boolean {
@@ -615,22 +688,12 @@
 		{/if}
 		. Components were not changed.
 	</p>
-{:else if form?.success && form.saved === 'starters'}
-	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
-		{#if form.startersAdded}
-			Added {form.startersAdded} component{form.startersAdded === 1 ? '' : 's'}
-			{#if form.startersSkipped}
-				· skipped {form.startersSkipped} already present
-			{/if}
-			.
-		{:else}
-			All kit components already present — nothing changed.
-		{/if}
-	</p>
 {:else if form?.success && form.saved === 'reapply'}
 	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
 		Reapplied design system to component.
 	</p>
+{:else if form?.success && form.saved === 'component'}
+	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">Component saved.</p>
 {:else if form?.success}
 	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">Saved.</p>
 {/if}
@@ -1005,34 +1068,78 @@
 	title="Components"
 	description="Reusable email sections for templates. All components are equal — add, edit, or delete freely."
 >
-	<form method="POST" action="?/appendStarters" use:enhance class="mb-4">
-		<div class="flex flex-wrap items-center gap-3">
-			<Button type="submit" variant="outline">Add kit components</Button>
-			<p class="text-xs text-[hsl(var(--muted-foreground))]">
-				Appends any missing kit sections (header, hero, content, CTA, footer, …). Never
-				overwrites existing ones.
-			</p>
-		</div>
-	</form>
-
-	<form method="POST" action="?/saveComponent" use:enhance class="mb-6 space-y-3">
+	<div class="mb-6 space-y-3">
 		<p class="text-xs text-[hsl(var(--muted-foreground))]">
 			Add a component. Always creates a new row — never overwrites existing ones.
 		</p>
-		<Input
-			name="name"
-			placeholder="Component name (e.g. Promo Footer)"
-			required
-		/>
-		<Input name="description" placeholder="Optional description" />
-		<textarea
-			name="html"
-			rows="6"
-			class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
-			placeholder={'<a href="{{cta_url}}" style="...">{{cta_label}}</a>'}
-		></textarea>
-		<Button type="submit">Add component</Button>
-	</form>
+		<Input bind:value={newName} placeholder="Component name (e.g. Promo Footer)" required />
+		<Input bind:value={newDescription} placeholder="Optional description" />
+		<div class="space-y-2 rounded-md border border-[hsl(var(--border))] p-3">
+			<p class="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+				Slots
+			</p>
+			<p class="text-xs text-[hsl(var(--muted-foreground))]">
+				Map template variables to block properties.
+			</p>
+			{#each newSlots as slot, i (i)}
+				<div class="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto] sm:items-center">
+					<Input bind:value={slot.name} placeholder="Slot name" aria-label="Slot name" />
+					<Input bind:value={slot.blockId} placeholder="Block ID" aria-label="Block ID" />
+					<Input bind:value={slot.prop} placeholder="Prop (e.g. props.text)" aria-label="Prop path" />
+					<select
+						bind:value={slot.type}
+						class="h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 text-sm"
+						aria-label="Slot type"
+					>
+						<option value="text">text</option>
+						<option value="url">url</option>
+						<option value="asset">asset</option>
+						<option value="color">color</option>
+					</select>
+					<Button type="button" size="sm" variant="ghost" onclick={() => removeSlot('new', i)}>
+						Remove
+					</Button>
+				</div>
+			{/each}
+			<Button type="button" size="sm" variant="outline" onclick={() => addSlot('new')}>
+				Add slot
+			</Button>
+		</div>
+		{#if newSaveError}
+			<p class="text-sm text-[hsl(var(--destructive))]">{newSaveError}</p>
+		{/if}
+		{#if data.piConfigured}
+			<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
+				Open the <span class="font-medium text-[hsl(var(--foreground))]">AI assistant</span> tab in
+				the builder to generate a component from a prompt, then save.
+			</p>
+		{/if}
+		{#key newBuilderKey}
+			<EmailBuilder
+				document={cloneDocument(EMPTY_DOCUMENT)}
+				{designComponents}
+				{designColors}
+				designAssets={builderDesignAssets}
+				previewOverrides={previewPropOverrides}
+				onUploadAsset={uploadBuilderAsset}
+				saving={savingNewComponent}
+				onSave={saveNewComponent}
+				aiEnabled={data.piConfigured}
+				aiName={newName}
+				aiDescription={newDescription}
+				aiSlots={newSlots}
+				onAiEdit={(args) =>
+					runComponentAiEdit({
+						...args,
+						name: newName,
+						description: newDescription
+					})}
+				onAiResult={(result) => {
+					newSlots = result.slots;
+				}}
+			/>
+		{/key}
+	</div>
 
 	{#if data.components.length === 0}
 		<p class="text-sm text-[hsl(var(--muted-foreground))]">No components yet.</p>
@@ -1046,7 +1153,11 @@
 							{#if component.description}
 								<p class="text-xs text-[hsl(var(--muted-foreground))]">{component.description}</p>
 							{/if}
-							{#if formatComponentProps(component.props)}
+							{#if component.parsedSlots?.length}
+								<p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+									Slots: {component.parsedSlots.map((s) => s.name).join(', ')}
+								</p>
+							{:else if formatComponentProps(component.props)}
 								<div class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
 									<p>props</p>
 									<pre class="mt-1 overflow-x-auto rounded bg-[hsl(var(--muted))] px-2 py-1 font-mono text-[11px] text-[hsl(var(--foreground))]">{formatComponentProps(component.props)}</pre>
@@ -1107,13 +1218,23 @@
 							aria-live="polite">{reapplyStream || 'Waiting for model…'}</pre>
 					{/if}
 					{#if getView(component.id) === 'preview'}
-						<div
-							class="component-preview overflow-visible rounded border border-[hsl(var(--border))] bg-white p-3 text-[#111]"
-						>
-							{@html previewHtml(component.html)}
-						</div>
+						{#if hasComponentDocument(component)}
+							<iframe
+								title="{component.name} preview"
+								class="component-preview min-h-48 w-full rounded border border-[hsl(var(--border))] bg-white"
+								srcdoc={renderEmailHtml(parseComponentDocumentField(component))}
+							></iframe>
+						{:else if component.html.trim()}
+							<div
+								class="component-preview overflow-visible rounded border border-[hsl(var(--border))] bg-white p-3 text-[#111]"
+							>
+								{@html previewHtml(component.html)}
+							</div>
+						{:else}
+							<p class="text-xs text-[hsl(var(--muted-foreground))]">No preview available.</p>
+						{/if}
 					{:else}
-						<CodeBlock code={component.html} />
+						<CodeBlock code={componentCode(component)} />
 					{/if}
 				</li>
 			{/each}
@@ -1124,128 +1245,78 @@
 <Modal
 	open={editComponentId !== null}
 	title={editName ? `Edit ${editName}` : 'Edit component'}
-	description="Preview changes, optionally edit with Pi, then save."
+	description="Use the AI assistant tab to generate blocks, edit in the canvas, then save."
 	onClose={cancelEdit}
 >
 	{#if editComponentId}
-		<div
-			class="component-preview mb-4 overflow-visible rounded border border-[hsl(var(--border))] bg-white p-3 text-[#111]"
-		>
-			{@html previewHtml(editHtml)}
-		</div>
 		<div class="space-y-3">
-			{#if data.piConfigured}
-				<form
-					class="space-y-3"
-					onsubmit={(e) => {
-						e.preventDefault();
-						void startPiEdit();
-					}}
-				>
-					{#if piFeed.length > 0 || piEditing || piStatus || piError}
-						<div
-							class="flex min-h-0 flex-col overflow-hidden rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.35)]"
+			<Input placeholder="Component name" bind:value={editName} required />
+			<Input placeholder="Optional description" bind:value={editDescription} />
+			<div class="space-y-2 rounded-md border border-[hsl(var(--border))] p-3">
+				<p class="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+					Slots
+				</p>
+				{#each editSlots as slot, i (i)}
+					<div class="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto] sm:items-center">
+						<Input bind:value={slot.name} placeholder="Slot name" aria-label="Slot name" />
+						<Input bind:value={slot.blockId} placeholder="Block ID" aria-label="Block ID" />
+						<Input bind:value={slot.prop} placeholder="Prop (e.g. props.text)" aria-label="Prop path" />
+						<select
+							bind:value={slot.type}
+							class="h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 text-sm"
+							aria-label="Slot type"
 						>
-							<div
-								{@attach (node) => {
-									void piFeed;
-									requestAnimationFrame(() => {
-										node.scrollTop = node.scrollHeight;
-									});
-								}}
-								class="max-h-64 min-h-32 space-y-1.5 overflow-y-auto px-3 py-2 font-mono text-xs"
-								aria-live="polite"
-							>
-								{#if piFeed.length === 0 && piEditing}
-									<p class="text-[hsl(var(--muted-foreground))]">
-										{piStatus || 'Starting…'}
-									</p>
-								{/if}
-								{#each piFeed as line (line.id)}
-									{#if line.kind === 'user'}
-										<p class="whitespace-pre-wrap font-sans text-[hsl(var(--foreground))]">
-											<span class="opacity-70">you </span>{line.label}
-										</p>
-									{:else if line.kind === 'step'}
-										<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
-									{:else if line.kind === 'thinking'}
-										<p class="whitespace-pre-wrap text-[hsl(var(--muted-foreground))] italic">
-											<span class="not-italic opacity-70">thinking </span>{line.label}
-										</p>
-									{:else if line.kind === 'text'}
-										<p class="whitespace-pre-wrap text-[hsl(var(--foreground))]">
-											{line.label}
-										</p>
-									{:else}
-										<p
-											class={line.error
-												? 'text-[hsl(var(--destructive))]'
-												: 'text-[hsl(var(--foreground))]'}
-										>
-											<span class="opacity-70">{line.pending ? 'tool…' : 'tool'}</span>
-											<span> {line.label}</span>
-											{#if line.detail}
-												<span class="text-[hsl(var(--muted-foreground))]"> — {line.detail}</span>
-											{/if}
-										</p>
-									{/if}
-								{/each}
-							</div>
-							{#if piEditing || piStatus || piError}
-								<div
-									class="flex flex-wrap items-center gap-2 border-t border-[hsl(var(--border))] px-3 py-2"
-								>
-									{#if piEditing}
-										<Button type="button" size="sm" variant="outline" onclick={stopPiEdit}>
-											Stop
-										</Button>
-									{/if}
-									{#if piError}
-										<p class="text-xs text-[hsl(var(--destructive))]">{piError}</p>
-									{:else if piStatus}
-										<p class="text-xs text-[hsl(var(--muted-foreground))]">{piStatus}</p>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					{/if}
-					<PiEditField
-						bind:value={piInstruction}
-						busy={piEditing}
-						disabled={piEditing}
-						placeholder="e.g. Make the button larger and use brand primary color"
-						hint="Follow-ups keep this chat and Pi’s context until you close the modal. Click Update component to save."
-					/>
-				</form>
-			{:else}
+							<option value="text">text</option>
+							<option value="url">url</option>
+							<option value="asset">asset</option>
+							<option value="color">color</option>
+						</select>
+						<Button type="button" size="sm" variant="ghost" onclick={() => removeSlot('edit', i)}>
+							Remove
+						</Button>
+					</div>
+				{/each}
+				<Button type="button" size="sm" variant="outline" onclick={() => addSlot('edit')}>
+					Add slot
+				</Button>
+			</div>
+			{#if editSaveError}
+				<p class="text-sm text-[hsl(var(--destructive))]">{editSaveError}</p>
+			{/if}
+			{#key editBuilderKey}
+				<EmailBuilder
+					document={editDocument}
+					{designComponents}
+					{designColors}
+					designAssets={builderDesignAssets}
+					previewOverrides={previewPropOverrides}
+					onUploadAsset={uploadBuilderAsset}
+					saving={savingEditComponent}
+					onSave={saveEditComponent}
+					aiEnabled={data.piConfigured}
+					aiName={editName}
+					aiDescription={editDescription}
+					aiSlots={editSlots}
+					onAiEdit={(args) =>
+						runComponentAiEdit({
+							...args,
+							name: editName,
+							description: editDescription
+						})}
+					onAiResult={(result) => {
+						editDocument = cloneDocument(result.document);
+						editSlots = result.slots;
+					}}
+				/>
+			{/key}
+			{#if !data.piConfigured}
 				<p class="text-xs text-[hsl(var(--muted-foreground))]">
-					Set OPENROUTER_API_KEY to edit components with Pi (speak or type).
+					Set OPENROUTER_API_KEY to generate components from the AI assistant tab in the builder.
 				</p>
 			{/if}
-			<form
-				method="POST"
-				action="?/saveComponent"
-				use:enhance={() =>
-					async ({ result, update }) => {
-						await update();
-						if (result.type === 'success') cancelEdit();
-					}}
-				class="space-y-3"
-			>
-				<input type="hidden" name="id" value={editComponentId} />
-				<Input name="name" placeholder="Component name" bind:value={editName} required />
-				<Input name="description" placeholder="Optional description" bind:value={editDescription} />
-				<textarea
-					name="html"
-					rows="6"
-					bind:value={editHtml}
-					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
-				></textarea>
-				<div class="flex gap-2">
-					<Button type="submit">Update component</Button>
-					<Button type="button" variant="ghost" onclick={cancelEdit}>Cancel</Button>
-				</div>
-			</form>
+			<div class="flex gap-2 pt-2">
+				<Button type="button" variant="ghost" onclick={cancelEdit}>Close</Button>
+			</div>
 		</div>
 	{/if}
 </Modal>

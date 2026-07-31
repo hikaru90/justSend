@@ -364,6 +364,9 @@ export function previewSampleValues(overrides?: Record<string, string>): Record<
 		subject: 'Your weekly update',
 		name: 'Alex',
 		first_name: 'Alex',
+		firstName: 'Alex',
+		last_name: 'River',
+		lastName: 'River',
 		company: 'Acme Inc',
 		email: 'alex@example.com',
 		unsubscribe_label: 'Unsubscribe',
@@ -386,11 +389,12 @@ function resolvePreviewSample(
 	overrides?: Record<string, string>
 ): string {
 	const lower = key.toLowerCase();
-	if (samples[lower]) return samples[lower];
-	if (samples[key]) return samples[key];
+	const byLower = new Map(Object.entries(samples).map(([k, v]) => [k.toLowerCase(), v]));
+	const exact = byLower.get(lower);
+	if (exact !== undefined) return exact;
 	if (overrides) {
 		for (const [overrideKey, value] of Object.entries(overrides)) {
-			if (lower.includes(overrideKey.toLowerCase())) return value;
+			if (overrideKey.toLowerCase() === lower) return value;
 		}
 	}
 	if (lower.includes('url') || lower.includes('href') || lower.includes('link')) {
@@ -406,9 +410,11 @@ function resolvePreviewSample(
 		lower.includes('title') ||
 		lower.includes('headline') ||
 		lower.includes('body') ||
-		lower.includes('name') ||
 		lower.includes('eyebrow')
 	) {
+		return 'Sample text';
+	}
+	if (lower === 'name' || lower.endsWith('_name')) {
 		return 'Sample text';
 	}
 	return key.replace(/_/g, ' ');

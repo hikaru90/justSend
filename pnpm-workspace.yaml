@@ -9,3 +9,6 @@ allowBuilds:
   '@google/genai': false
   protobufjs: false
   '@swc/core': true
+
+patchedDependencies:
+  '@usewaypoint/block-container@0.0.2': patches/@usewaypoint__block-container@0.0.2.patch

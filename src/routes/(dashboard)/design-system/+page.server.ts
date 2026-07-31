@@ -2,10 +2,10 @@ import { fail } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import {
 	addAsset,
-	appendStarterComponents,
 	deleteAsset,
 	deleteComponent,
 	getDesignSystemBundle,
+	parseComponentSlots,
 	updateAsset,
 	upsertComponent,
 	upsertDesignMd
@@ -16,6 +16,7 @@ import {
 } from '$lib/server/service/design-infer-service';
 import { designAssetKinds, type DesignAssetKind } from '$lib/server/db/schema';
 import { isPiConfigured } from '$lib/server/service/pi-service';
+import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import type { Actions, PageServerLoad } from './$types';
 
 const KIND_SET = new Set<string>(designAssetKinds);
@@ -26,7 +27,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		designMd: bundle.system?.designMd ?? '',
 		assets: bundle.assets,
-		components: bundle.components,
+		components: bundle.components.map((c) => ({
+			...c,
+			parsedSlots: parseComponentSlots(c)
+		})),
 		piConfigured: isPiConfigured()
 	};
 };
@@ -50,16 +54,6 @@ export const actions: Actions = {
 		}
 	},
 
-	appendStarters: async ({ locals }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const result = appendStarterComponents(teamId);
-		return {
-			success: true,
-			saved: 'starters' as const,
-			startersAdded: result.added,
-			startersSkipped: result.skipped
-		};
-	},
 	saveMd: async ({ request, locals }) => {
 		const teamId = requireTeamId(locals.teamId);
 		const form = await request.formData();
@@ -86,14 +80,18 @@ export const actions: Actions = {
 		}
 
 		const bytes = new Uint8Array(await file.arrayBuffer());
-		await addAsset(teamId, {
+		const asset = await addAsset(teamId, {
 			kind: kindRaw as DesignAssetKind,
 			name,
 			filename: file.name || name,
 			mime: file.type || 'application/octet-stream',
 			bytes
 		});
-		return { success: true, saved: 'asset' as const };
+		return {
+			success: true,
+			saved: 'asset' as const,
+			asset: { id: asset.id, name: asset.name, kind: asset.kind }
+		};
 	},
 
 	deleteAsset: async ({ request, locals }) => {
@@ -143,12 +141,30 @@ export const actions: Actions = {
 		const id = String(form.get('id') ?? '').trim() || undefined;
 		const name = String(form.get('name') ?? '').trim();
 		const description = String(form.get('description') ?? '').trim() || null;
-		const html = String(form.get('html') ?? '');
+		const documentRaw = String(form.get('document') ?? '').trim();
+		const slotsRaw = String(form.get('slots') ?? '').trim();
 
 		if (!name) return fail(400, { error: 'Component name is required' });
+		if (!documentRaw) return fail(400, { error: 'Component document is required' });
+
+		let document: TEditorConfiguration;
+		try {
+			document = JSON.parse(documentRaw) as TEditorConfiguration;
+		} catch {
+			return fail(400, { error: 'Invalid component document JSON' });
+		}
+
+		let slots: ComponentSlot[] = [];
+		if (slotsRaw) {
+			try {
+				slots = JSON.parse(slotsRaw) as ComponentSlot[];
+			} catch {
+				return fail(400, { error: 'Invalid slots JSON' });
+			}
+		}
 
 		try {
-			upsertComponent(teamId, { id, name, description, html });
+			upsertComponent(teamId, { id, name, description, document, slots });
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
 		}

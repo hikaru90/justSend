@@ -9,6 +9,12 @@
 	import type { EmailEditorState } from './editor-state.svelte';
 	import type { DesignLibraryComponent } from './library';
 	import { BLOCK_FACTORIES, type TEditorBlock } from './types';
+	import {
+		cloneComponentIntoEmail,
+		legacyHtmlBlock,
+		parseLibraryComponentDocument
+	} from './design-component-render';
+	import { renderEmailHtml } from './render';
 
 	let {
 		index,
@@ -57,6 +63,14 @@
 		return DOMPurify.sanitize(rendered, sanitizeOpts);
 	}
 
+	function previewForComponent(component: DesignLibraryComponent): string {
+		const doc = parseLibraryComponentDocument(component);
+		if (doc) {
+			return DOMPurify.sanitize(renderEmailHtml(doc), sanitizeOpts);
+		}
+		return previewHtml(component.html);
+	}
+
 	function insert(block: TEditorBlock) {
 		editor.insertBlockAt(parentId, childrenIds, index, block, columnIndex);
 		onClose();
@@ -69,22 +83,25 @@
 	}
 
 	function addComponent(component: DesignLibraryComponent) {
-		const contents =
+		const prefix = `cmp-${component.id.slice(0, 8)}-${Date.now().toString(36)}-`;
+		const cloned = cloneComponentIntoEmail(component, prefix, previewOverrides);
+		if (cloned) {
+			editor.insertComponentTree(
+				parentId,
+				childrenIds,
+				index,
+				cloned.blocks,
+				cloned.childrenIds,
+				columnIndex
+			);
+			onClose();
+			return;
+		}
+		const html =
 			component.html.includes('$props') || component.html.includes('<script')
 				? renderSvelteComponentPreview(component.html, previewOverrides)
 				: substitutePreviewPlaceholders(component.html, previewOverrides);
-
-		insert({
-			type: 'Html',
-			data: {
-				props: {
-					contents,
-					owlDesignComponentId: component.id,
-					owlDesignComponentName: component.name
-				},
-				style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
-			}
-		});
+		insert(legacyHtmlBlock(html, 'legacy'));
 	}
 </script>
 
@@ -137,8 +154,12 @@
 						class="flex flex-col overflow-hidden rounded-md border border-[hsl(var(--border))] text-left hover:border-[hsl(var(--ring))] hover:bg-[hsl(var(--muted))]/30"
 						onclick={() => addComponent(component)}
 					>
-						<div class="h-28 overflow-hidden bg-[#f8f8f8] p-1.5 text-[11px] leading-snug text-[#111]">
-							{@html previewHtml(component.html)}
+						<div class="relative h-28 overflow-hidden bg-[#f8f8f8]">
+							<div
+								class="pointer-events-none w-[600px] origin-top-left scale-[0.35] text-[#111]"
+							>
+								{@html previewForComponent(component)}
+							</div>
 						</div>
 						<div class="border-t border-[hsl(var(--border))] px-2 py-1.5">
 							<p class="truncate text-xs font-medium">{component.name}</p>

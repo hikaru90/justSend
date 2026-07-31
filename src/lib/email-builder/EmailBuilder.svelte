@@ -4,26 +4,77 @@
 	import { EmailEditorState as Editor } from './editor-state.svelte';
 	import { EDITOR_KEY } from './context';
 	import { EmailBuilderLibrary, LIBRARY_KEY } from './library-context.svelte';
-	import type { DesignLibraryComponent } from './library';
-	import type { TEditorConfiguration } from './types';
+	import type { DesignLibraryAsset, DesignLibraryComponent } from './library';
+	import type { ComponentSlot, TEditorConfiguration } from './types';
 	import { renderEmailHtml } from './render';
+	import { substitutePreviewPlaceholders } from '$lib/design/extractTokens';
 	import BuilderCanvas from './BuilderCanvas.svelte';
 	import InspectorPanel from './InspectorPanel.svelte';
+
+	type AiFeedLine = {
+		id: number;
+		kind: 'user' | 'step' | 'thinking' | 'text' | 'tool' | 'error';
+		label: string;
+		detail?: string;
+		pending?: boolean;
+		error?: boolean;
+	};
+
+	type AiEditEvent = {
+		type: string;
+		message?: string;
+		delta?: string;
+		tool?: string;
+		toolCallId?: string;
+		isError?: boolean;
+		document?: TEditorConfiguration;
+		slots?: ComponentSlot[];
+	};
 
 	let {
 		document: initialDocument = null,
 		designComponents = [],
 		designColors = [],
+		designAssets = [],
 		previewOverrides = {},
+		onUploadAsset = null,
 		onSave,
-		saving = false
+		saving = false,
+		aiEnabled = false,
+		aiName,
+		aiDescription,
+		aiSlots,
+		onAiEdit,
+		onAiResult
 	}: {
 		document?: TEditorConfiguration | null;
 		designComponents?: DesignLibraryComponent[];
 		designColors?: string[];
+		designAssets?: DesignLibraryAsset[];
 		previewOverrides?: Record<string, string>;
+		onUploadAsset?:
+			| ((file: File) => Promise<{ id: string; name: string; kind: string } | null>)
+			| null;
 		onSave?: (payload: { document: TEditorConfiguration; html: string }) => void | Promise<void>;
 		saving?: boolean;
+		aiEnabled?: boolean;
+		aiName?: string;
+		aiDescription?: string | null;
+		aiSlots?: ComponentSlot[];
+		onAiEdit?: (args: {
+			instruction: string;
+			document: TEditorConfiguration;
+			slots: ComponentSlot[];
+			signal: AbortSignal;
+			onEvent: (event: AiEditEvent) => void;
+		}) => Promise<{
+			document: TEditorConfiguration;
+			slots: ComponentSlot[];
+		} | null>;
+		onAiResult?: (result: {
+			document: TEditorConfiguration;
+			slots: ComponentSlot[];
+		}) => void;
 	} = $props();
 
 	const editor = new Editor();
@@ -35,6 +86,8 @@
 		library.components = designComponents;
 		library.previewOverrides = previewOverrides;
 		library.colors = designColors;
+		library.assets = designAssets;
+		library.onUploadAsset = onUploadAsset;
 	});
 
 	let lastLoaded = $state<string | null>(null);
@@ -46,10 +99,150 @@
 		}
 	});
 
+	let aiInstruction = $state('');
+	let aiEditing = $state(false);
+	let aiStatus = $state('');
+	let aiError = $state<string | null>(null);
+	let aiAbort = $state<AbortController | null>(null);
+	let aiFeed = $state<AiFeedLine[]>([]);
+	let aiFeedId = 0;
+
+	function appendAiFeed(line: Omit<AiFeedLine, 'id'>): number {
+		const id = ++aiFeedId;
+		aiFeed = [...aiFeed, { ...line, id }];
+		return id;
+	}
+
+	function patchAiFeed(id: number, patch: Partial<AiFeedLine>) {
+		aiFeed = aiFeed.map((line) => (line.id === id ? { ...line, ...patch } : line));
+	}
+
+	function appendAiDelta(kind: 'thinking' | 'text', delta: string) {
+		const last = aiFeed[aiFeed.length - 1];
+		if (last && last.kind === kind) {
+			patchAiFeed(last.id, { label: last.label + delta });
+			return;
+		}
+		appendAiFeed({ kind, label: delta });
+	}
+
+	function handleAiEvent(event: AiEditEvent, openTools: Record<string, number>) {
+		switch (event.type) {
+			case 'step':
+			case 'status':
+				if (event.message) {
+					aiStatus = event.message;
+					appendAiFeed({ kind: 'step', label: event.message });
+				}
+				break;
+			case 'thinking':
+				if (event.delta) {
+					aiStatus = 'Thinking…';
+					appendAiDelta('thinking', event.delta);
+				}
+				break;
+			case 'text':
+				if (event.delta) {
+					aiStatus = 'Responding…';
+					appendAiDelta('text', event.delta);
+				}
+				break;
+			case 'tool_start': {
+				const name = event.tool ?? 'tool';
+				aiStatus = `Using ${name}…`;
+				const id = appendAiFeed({
+					kind: 'tool',
+					label: name,
+					detail: event.message,
+					pending: true
+				});
+				const key = event.toolCallId ?? name;
+				openTools[key] = id;
+				break;
+			}
+			case 'tool_end': {
+				const name = event.tool ?? 'tool';
+				const key = event.toolCallId ?? name;
+				const id = openTools[key];
+				if (id != null) {
+					patchAiFeed(id, {
+						pending: false,
+						error: event.isError,
+						detail: event.isError ? 'error' : 'done'
+					});
+					delete openTools[key];
+				}
+				break;
+			}
+			case 'error':
+				aiError = event.message ?? 'Generation failed';
+				aiStatus = '';
+				if (event.message) {
+					appendAiFeed({ kind: 'error', label: event.message });
+				}
+				break;
+			case 'cancelled':
+				aiStatus = event.message ?? 'Cancelled.';
+				break;
+		}
+	}
+
+	function stopAiEdit() {
+		aiAbort?.abort();
+		aiStatus = 'Stopping…';
+	}
+
+	async function generate() {
+		if (aiEditing || !onAiEdit) return;
+		const instruction = aiInstruction.trim();
+		if (!instruction) return;
+
+		aiError = null;
+		aiEditing = true;
+		aiStatus = 'Starting…';
+		appendAiFeed({ kind: 'user', label: instruction });
+
+		const controller = new AbortController();
+		aiAbort = controller;
+		const openTools: Record<string, number> = {};
+
+		try {
+			const result = await onAiEdit({
+				instruction,
+				document: editor.document,
+				slots: aiSlots ?? [],
+				signal: controller.signal,
+				onEvent: (event) => handleAiEvent(event, openTools)
+			});
+
+			if (result) {
+				editor.load(result.document);
+				onAiResult?.(result);
+				aiInstruction = '';
+				aiStatus = 'Done.';
+				editor.tab = 'editor';
+			}
+		} catch (e) {
+			if (e instanceof Error && e.name === 'AbortError') {
+				aiStatus = 'Cancelled.';
+			} else {
+				aiError = e instanceof Error ? e.message : 'Generation failed';
+				aiStatus = '';
+			}
+		} finally {
+			aiEditing = false;
+			aiAbort = null;
+		}
+	}
+
 	async function save() {
 		const html = renderEmailHtml(editor.document);
 		await onSave?.({ document: editor.document, html });
 	}
+
+	const previewHtml = $derived(
+		substitutePreviewPlaceholders(renderEmailHtml(editor.document), previewOverrides)
+	);
 </script>
 
 <div class="email-builder overflow-hidden rounded-md border border-[hsl(var(--border))] bg-white text-[#111]">
@@ -93,32 +286,45 @@
 			>
 				JSON
 			</button>
+			{#if aiEnabled}
+				<button
+					type="button"
+					class="rounded px-2 py-1 text-xs {editor.tab === 'ai'
+						? 'bg-[hsl(var(--secondary))] font-medium'
+						: 'hover:bg-[hsl(var(--muted))]'}"
+					onclick={() => (editor.tab = 'ai')}
+				>
+					AI assistant
+				</button>
+			{/if}
 		</div>
 		<div class="flex flex-wrap items-center gap-2">
-			<div class="flex rounded border border-[hsl(var(--border))] text-xs">
-				<button
+			{#if editor.tab !== 'ai'}
+				<div class="flex rounded border border-[hsl(var(--border))] text-xs">
+					<button
+						type="button"
+						class="px-2 py-1 {editor.screen === 'desktop' ? 'bg-[hsl(var(--secondary))]' : ''}"
+						onclick={() => (editor.screen = 'desktop')}
+					>
+						Desktop
+					</button>
+					<button
+						type="button"
+						class="px-2 py-1 {editor.screen === 'mobile' ? 'bg-[hsl(var(--secondary))]' : ''}"
+						onclick={() => (editor.screen = 'mobile')}
+					>
+						Mobile
+					</button>
+				</div>
+				<Button
 					type="button"
-					class="px-2 py-1 {editor.screen === 'desktop' ? 'bg-[hsl(var(--secondary))]' : ''}"
-					onclick={() => (editor.screen = 'desktop')}
+					size="sm"
+					variant="outline"
+					onclick={() => (editor.inspectorOpen = !editor.inspectorOpen)}
 				>
-					Desktop
-				</button>
-				<button
-					type="button"
-					class="px-2 py-1 {editor.screen === 'mobile' ? 'bg-[hsl(var(--secondary))]' : ''}"
-					onclick={() => (editor.screen = 'mobile')}
-				>
-					Mobile
-				</button>
-			</div>
-			<Button
-				type="button"
-				size="sm"
-				variant="outline"
-				onclick={() => (editor.inspectorOpen = !editor.inspectorOpen)}
-			>
-				{editor.inspectorOpen ? 'Hide inspector' : 'Show inspector'}
-			</Button>
+					{editor.inspectorOpen ? 'Hide inspector' : 'Show inspector'}
+				</Button>
+			{/if}
 			{#if onSave}
 				<Button type="button" size="sm" disabled={saving} onclick={() => void save()}>
 					{saving ? 'Saving…' : 'Save email'}
@@ -138,23 +344,135 @@
 					<iframe
 						title="Email preview"
 						class="min-h-[600px] w-full rounded border border-[hsl(var(--border))] bg-white"
-						srcdoc={renderEmailHtml(editor.document)}
+						srcdoc={previewHtml}
 					></iframe>
 				</div>
 			{:else if editor.tab === 'html'}
 				<pre
 					class="m-0 max-h-[70vh] overflow-auto p-4 font-mono text-xs whitespace-pre-wrap text-[#111]">{renderEmailHtml(editor.document)}</pre>
-			{:else}
+			{:else if editor.tab === 'json'}
 				<pre
 					class="m-0 max-h-[70vh] overflow-auto p-4 font-mono text-xs whitespace-pre-wrap text-[#111]">{JSON.stringify(editor.document, null, 2)}</pre>
+			{:else if editor.tab === 'ai'}
+				<div class="flex h-full min-h-[640px] flex-col bg-[hsl(var(--card))] p-4">
+					<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
+						Describe the component to generate or how to change the current blocks. Example: hero
+						with image, headline, and CTA button.
+						{#if aiName}
+							<span class="mt-1 block text-xs opacity-80">Component: {aiName}</span>
+						{/if}
+						{#if aiDescription}
+							<span class="mt-0.5 block text-xs opacity-80">{aiDescription}</span>
+						{/if}
+					</p>
+
+					<div
+						class="mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.35)]"
+					>
+						<div
+							{@attach (node) => {
+								void aiFeed;
+								requestAnimationFrame(() => {
+									node.scrollTop = node.scrollHeight;
+								});
+							}}
+							class="min-h-48 flex-1 space-y-1.5 overflow-y-auto px-3 py-2 font-mono text-xs"
+							aria-live="polite"
+						>
+							{#if aiFeed.length === 0 && !aiEditing}
+								<p class="text-[hsl(var(--muted-foreground))]">No messages yet.</p>
+							{/if}
+							{#if aiFeed.length === 0 && aiEditing}
+								<p class="text-[hsl(var(--muted-foreground))]">
+									{aiStatus || 'Starting…'}
+								</p>
+							{/if}
+							{#each aiFeed as line (line.id)}
+								{#if line.kind === 'user'}
+									<p class="whitespace-pre-wrap font-sans text-[hsl(var(--foreground))]">
+										<span class="opacity-70">you </span>{line.label}
+									</p>
+								{:else if line.kind === 'step'}
+									<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
+								{:else if line.kind === 'thinking'}
+									<p class="whitespace-pre-wrap text-[hsl(var(--muted-foreground))] italic">
+										<span class="not-italic opacity-70">thinking </span>{line.label}
+									</p>
+								{:else if line.kind === 'text'}
+									<p class="whitespace-pre-wrap text-[hsl(var(--foreground))]">
+										{line.label}
+									</p>
+								{:else if line.kind === 'error'}
+									<p class="text-[hsl(var(--destructive))]">{line.label}</p>
+								{:else}
+									<p
+										class={line.error
+											? 'text-[hsl(var(--destructive))]'
+											: 'text-[hsl(var(--foreground))]'}
+									>
+										<span class="opacity-70">{line.pending ? 'tool…' : 'tool'}</span>
+										<span> {line.label}</span>
+										{#if line.detail}
+											<span class="text-[hsl(var(--muted-foreground))]"> — {line.detail}</span>
+										{/if}
+									</p>
+								{/if}
+							{/each}
+						</div>
+						{#if aiEditing || aiStatus || aiError}
+							<div
+								class="flex flex-wrap items-center gap-2 border-t border-[hsl(var(--border))] px-3 py-2"
+							>
+								{#if aiError}
+									<p class="text-xs text-[hsl(var(--destructive))]">{aiError}</p>
+								{:else if aiStatus}
+									<p class="text-xs text-[hsl(var(--muted-foreground))]">{aiStatus}</p>
+								{/if}
+							</div>
+						{/if}
+					</div>
+
+					<form
+						class="space-y-2"
+						onsubmit={(e) => {
+							e.preventDefault();
+							void generate();
+						}}
+					>
+						<textarea
+							bind:value={aiInstruction}
+							disabled={aiEditing}
+							placeholder="e.g. Add a hero section with logo, headline, and primary CTA button"
+							rows="3"
+							class="w-full resize-y rounded-md border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--ring))] disabled:opacity-50"
+						></textarea>
+						<div class="flex flex-wrap items-center gap-2">
+							{#if aiEditing}
+								<Button type="button" size="sm" variant="outline" onclick={stopAiEdit}>
+									Stop
+								</Button>
+							{:else}
+								<Button
+									type="submit"
+									size="sm"
+									disabled={!aiInstruction.trim() || !onAiEdit}
+								>
+									Generate
+								</Button>
+							{/if}
+						</div>
+					</form>
+				</div>
 			{/if}
 		</div>
 
 		{#if editor.inspectorOpen && editor.tab === 'editor'}
 			<aside
-				class="w-80 shrink-0 overflow-auto border-l border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-[hsl(var(--foreground))]"
+				class="flex w-80 shrink-0 flex-col overflow-hidden border-l border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-[hsl(var(--foreground))]"
 			>
-				<InspectorPanel />
+				<div class="flex min-h-0 flex-1 flex-col overflow-auto">
+					<InspectorPanel />
+				</div>
 			</aside>
 		{/if}
 	</div>

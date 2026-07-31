@@ -442,6 +442,7 @@ export const templates = sqliteTable(
 		content: text('content'),
 		prompt: text('prompt'),
 		designSnapshot: text('design_snapshot'),
+		tags: text('tags').notNull().default('[]'),
 		...timestamps
 	},
 	(t) => [
@@ -550,6 +551,10 @@ export const designComponents = sqliteTable(
 		props: text('props').notNull().default('[]'),
 		starterKey: text('starter_key'),
 		html: text('html').notNull().default(''),
+		/** Email-builder block tree JSON (TEditorConfiguration). */
+		document: text('document').notNull().default(''),
+		/** ComponentSlot[] JSON — pointers into document block props. */
+		slots: text('slots').notNull().default('[]'),
 		...timestamps
 	},
 	(t) => [index('design_components_team_id_idx').on(t.teamId)]

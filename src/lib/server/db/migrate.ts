@@ -278,6 +278,7 @@ CREATE TABLE IF NOT EXISTS templates (
   content TEXT,
   prompt TEXT,
   design_snapshot TEXT,
+  tags TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -443,10 +444,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idempotency_team_key_idx ON idempotency_keys(t
 	addColumnIfMissing('templates', 'domain_id', 'INTEGER REFERENCES domains(id) ON DELETE CASCADE');
 	addColumnIfMissing('templates', 'prompt', 'TEXT');
 	addColumnIfMissing('templates', 'design_snapshot', 'TEXT');
+	addColumnIfMissing('templates', 'tags', "TEXT NOT NULL DEFAULT '[]'");
 	addColumnIfMissing('design_components', 'kind', "TEXT NOT NULL DEFAULT 'custom'");
 	addColumnIfMissing('design_components', 'role', "TEXT NOT NULL DEFAULT 'section'");
 	addColumnIfMissing('design_components', 'props', "TEXT NOT NULL DEFAULT '[]'");
 	addColumnIfMissing('design_components', 'starter_key', 'TEXT');
+	addColumnIfMissing('design_components', 'document', "TEXT NOT NULL DEFAULT ''");
+	addColumnIfMissing('design_components', 'slots', "TEXT NOT NULL DEFAULT '[]'");
+	// Starter HTML kit is deprecated — components are authored as block trees.
+	rawDb.exec(`DELETE FROM design_components WHERE kind = 'starter' OR starter_key IS NOT NULL`);
 	addColumnIfMissing('template_components', 'source_type', "TEXT NOT NULL DEFAULT 'custom'");
 	addColumnIfMissing(
 		'template_components',
@@ -476,6 +482,7 @@ CREATE INDEX IF NOT EXISTS suppression_team_domain_idx ON suppression_list(team_
 	backfillDomainIds('contact_books');
 	backfillDomainIds('suppression_list');
 	backfillTemplateElementOrders();
+	migrateHeroImageOverlay();
 
 	db.run(sql`SELECT 1`);
 	console.log('Database migrated');
@@ -526,6 +533,122 @@ WHERE domain_id IS NULL
     SELECT 1 FROM domains d WHERE d.team_id = ${table}.team_id
   )
 `);
+}
+
+/**
+ * Rewrite stacked Image+Text "Hero Image" components into a Container with
+ * background-image + nested Text overlay. Idempotent: skips rows that already
+ * have a Container with style.backgroundImage.
+ */
+function migrateHeroImageOverlay() {
+	const rows = rawDb
+		.prepare(
+			`SELECT id, document, slots FROM design_components
+			 WHERE name = 'Hero Image' AND document IS NOT NULL AND document != ''`
+		)
+		.all() as Array<{ id: string; document: string; slots: string }>;
+
+	const update = rawDb.prepare(
+		`UPDATE design_components SET document = ?, slots = ?, updated_at = datetime('now') WHERE id = ?`
+	);
+
+	for (const row of rows) {
+		let doc: Record<string, { type: string; data: Record<string, unknown> }>;
+		try {
+			doc = JSON.parse(row.document) as typeof doc;
+		} catch {
+			continue;
+		}
+		if (!doc?.root || doc.root.type !== 'EmailLayout') continue;
+
+		const alreadyOverlay = Object.values(doc).some((block) => {
+			if (block?.type !== 'Container') return false;
+			const style = block.data?.style as { backgroundImage?: string } | undefined;
+			return Boolean(style?.backgroundImage);
+		});
+		if (alreadyOverlay) continue;
+
+		let imageUrl = '';
+		let titleText = 'Take Control of Your Data';
+		for (const block of Object.values(doc)) {
+			if (block?.type === 'Image') {
+				const props = block.data?.props as { url?: string } | undefined;
+				if (props?.url) imageUrl = props.url;
+			}
+			if (block?.type === 'Text' || block?.type === 'Heading') {
+				const props = block.data?.props as { text?: string } | undefined;
+				if (props?.text) titleText = props.text;
+			}
+		}
+		if (!imageUrl) continue;
+
+		const rootData = doc.root.data as {
+			backdropColor?: string;
+			canvasColor?: string;
+			textColor?: string;
+			fontFamily?: string;
+		};
+
+		const nextDoc = {
+			root: {
+				type: 'EmailLayout',
+				data: {
+					backdropColor: rootData.backdropColor ?? '#F5F5F5',
+					canvasColor: rootData.canvasColor ?? '#FFFFFF',
+					textColor: rootData.textColor ?? '#262626',
+					fontFamily: rootData.fontFamily ?? 'MODERN_SANS',
+					childrenIds: ['hero']
+				}
+			},
+			hero: {
+				type: 'Container',
+				data: {
+					style: {
+						backgroundImage: imageUrl,
+						backgroundSize: 'cover',
+						backgroundPosition: 'center',
+						backgroundRepeat: 'no-repeat',
+						backgroundColor: '#000000',
+						minHeight: 280,
+						padding: { top: 48, bottom: 48, left: 32, right: 32 }
+					},
+					props: { childrenIds: ['hero-title'] }
+				}
+			},
+			'hero-title': {
+				type: 'Text',
+				data: {
+					props: { text: titleText, markdown: true },
+					style: {
+						padding: { top: 0, bottom: 0, left: 0, right: 0 },
+						fontWeight: 'bold',
+						color: '#FFFFFF',
+						textAlign: 'center',
+						fontSize: 28
+					}
+				}
+			}
+		};
+
+		const nextSlots = [
+			{
+				name: 'hero_image_url',
+				blockId: 'hero',
+				prop: 'style.backgroundImage',
+				type: 'asset',
+				label: 'Hero Image URL'
+			},
+			{
+				name: 'hero_title_text',
+				blockId: 'hero-title',
+				prop: 'props.text',
+				type: 'text',
+				label: 'Title Text'
+			}
+		];
+
+		update.run(JSON.stringify(nextDoc), JSON.stringify(nextSlots), row.id);
+	}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

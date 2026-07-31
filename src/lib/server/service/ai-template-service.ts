@@ -37,6 +37,8 @@ export type BuildPromptInput = {
 		role: string;
 		props: string;
 		starterKey: string | null;
+		slots?: string;
+		document?: string;
 	}>;
 	assets: Array<{ id: string; kind: string; name: string; filename: string }>;
 	elements: TemplateElement[];
