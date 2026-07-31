@@ -44,6 +44,8 @@
 		backgroundRepeat?: 'no-repeat' | 'repeat' | null;
 		minHeight?: number | null;
 		overlayColor?: string | null;
+		textAlign?: 'left' | 'center' | 'right' | null;
+		contentAlignment?: 'top' | 'middle' | 'bottom' | null;
 	};
 
 	function setStyle(patch: BlockStyle) {
@@ -90,6 +92,14 @@
 	const imageWidth = $derived(
 		(block?.data.props as { width?: number | null })?.width ?? null
 	);
+	const imageContentAlignment = $derived(
+		String(
+			(block?.data.props as { contentAlignment?: string })?.contentAlignment ?? 'middle'
+		)
+	);
+	const imageTextAlign = $derived(
+		String((block?.data.style as BlockStyle | undefined)?.textAlign ?? 'left')
+	);
 	const blockStyle = $derived((block?.data.style as BlockStyle | undefined) ?? {});
 	const padding = $derived(blockStyle.padding ?? { top: 0, right: 0, bottom: 0, left: 0 });
 	const bgImageUrl = $derived(String(blockStyle.backgroundImage ?? ''));
@@ -97,6 +107,10 @@
 	const bgPosition = $derived(blockStyle.backgroundPosition ?? 'center');
 	const bgMinHeight = $derived(blockStyle.minHeight ?? 200);
 	const overlayColor = $derived(blockStyle.overlayColor ?? null);
+	const containerTextAlign = $derived(blockStyle.textAlign ?? 'left');
+	const containerContentAlignment = $derived(
+		blockStyle.contentAlignment ?? (bgImageUrl ? 'middle' : 'top')
+	);
 	const columnsProps = $derived(
 		(block?.data.props as {
 			columns?: Array<{ childrenIds: string[] }>;
@@ -368,6 +382,40 @@
 					}}
 				/>
 			</label>
+			<label class="block space-y-1 text-xs">
+				<span class="text-[hsl(var(--muted-foreground))]">Horizontal alignment</span>
+				<select
+					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
+					value={imageTextAlign}
+					onchange={(e) => {
+						const v = e.currentTarget.value;
+						setStyle({
+							textAlign: v === 'center' || v === 'right' ? v : 'left'
+						});
+					}}
+				>
+					<option value="left">Left</option>
+					<option value="center">Center</option>
+					<option value="right">Right</option>
+				</select>
+			</label>
+			<label class="block space-y-1 text-xs">
+				<span class="text-[hsl(var(--muted-foreground))]">Vertical alignment</span>
+				<select
+					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
+					value={imageContentAlignment}
+					onchange={(e) => {
+						const v = e.currentTarget.value;
+						setProps({
+							contentAlignment: v === 'top' || v === 'bottom' ? v : 'middle'
+						});
+					}}
+				>
+					<option value="top">Top</option>
+					<option value="middle">Middle</option>
+					<option value="bottom">Bottom</option>
+				</select>
+			</label>
 		{/if}
 
 		{#if block.type === 'Html'}
@@ -560,6 +608,40 @@
 						oninput={(e) =>
 							setStyle({ borderRadius: Number(e.currentTarget.value) || 0 })}
 					/>
+				</label>
+				<label class="block space-y-1 text-xs">
+					<span class="text-[hsl(var(--muted-foreground))]">Horizontal alignment</span>
+					<select
+						class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
+						value={containerTextAlign}
+						onchange={(e) => {
+							const v = e.currentTarget.value;
+							setStyle({
+								textAlign: v === 'center' || v === 'right' ? v : 'left'
+							});
+						}}
+					>
+						<option value="left">Left</option>
+						<option value="center">Center</option>
+						<option value="right">Right</option>
+					</select>
+				</label>
+				<label class="block space-y-1 text-xs">
+					<span class="text-[hsl(var(--muted-foreground))]">Vertical alignment</span>
+					<select
+						class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
+						value={containerContentAlignment}
+						onchange={(e) => {
+							const v = e.currentTarget.value;
+							setStyle({
+								contentAlignment: v === 'middle' || v === 'bottom' ? v : 'top'
+							});
+						}}
+					>
+						<option value="top">Top</option>
+						<option value="middle">Middle</option>
+						<option value="bottom">Bottom</option>
+					</select>
 				</label>
 			{/if}
 

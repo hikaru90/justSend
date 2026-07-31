@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@usewaypoint/block-container@0.0.2': 0039984987a08163ecf472c48198ba2e2dab9e1f09275539c321bfe6402aaac6
+  '@usewaypoint/block-container@0.0.2': e34efe663a4ccfad82ddd021cbd6206ea6a07495658942cf978796e93b246a3a
 
 importers:
 
@@ -40,7 +40,7 @@ importers:
         version: 0.0.3(react@18.3.1)(zod@4.4.3)
       '@usewaypoint/block-container':
         specifier: ^0.0.2
-        version: 0.0.2(patch_hash=0039984987a08163ecf472c48198ba2e2dab9e1f09275539c321bfe6402aaac6)(react@18.3.1)(zod@4.4.3)
+        version: 0.0.2(patch_hash=e34efe663a4ccfad82ddd021cbd6206ea6a07495658942cf978796e93b246a3a)(react@18.3.1)(zod@4.4.3)
       '@usewaypoint/block-divider':
         specifier: ^0.0.4
         version: 0.0.4(react@18.3.1)(zod@4.4.3)
@@ -4555,7 +4555,7 @@ snapshots:
       react: 18.3.1
       zod: 4.4.3
 
-  '@usewaypoint/block-container@0.0.2(patch_hash=0039984987a08163ecf472c48198ba2e2dab9e1f09275539c321bfe6402aaac6)(react@18.3.1)(zod@4.4.3)':
+  '@usewaypoint/block-container@0.0.2(patch_hash=e34efe663a4ccfad82ddd021cbd6206ea6a07495658942cf978796e93b246a3a)(react@18.3.1)(zod@4.4.3)':
     dependencies:
       react: 18.3.1
       zod: 4.4.3
@@ -4602,7 +4602,7 @@ snapshots:
       '@usewaypoint/block-avatar': 0.0.3(react@18.3.1)(zod@4.4.3)
       '@usewaypoint/block-button': 0.0.3(react@18.3.1)(zod@4.4.3)
       '@usewaypoint/block-columns-container': 0.0.3(react@18.3.1)(zod@4.4.3)
-      '@usewaypoint/block-container': 0.0.2(patch_hash=0039984987a08163ecf472c48198ba2e2dab9e1f09275539c321bfe6402aaac6)(react@18.3.1)(zod@4.4.3)
+      '@usewaypoint/block-container': 0.0.2(patch_hash=e34efe663a4ccfad82ddd021cbd6206ea6a07495658942cf978796e93b246a3a)(react@18.3.1)(zod@4.4.3)
       '@usewaypoint/block-divider': 0.0.4(react@18.3.1)(zod@4.4.3)
       '@usewaypoint/block-heading': 0.0.3(react@18.3.1)(zod@4.4.3)
       '@usewaypoint/block-html': 0.0.3(react@18.3.1)(zod@4.4.3)

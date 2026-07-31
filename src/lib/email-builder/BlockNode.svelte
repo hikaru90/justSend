@@ -48,6 +48,8 @@
 		backgroundRepeat?: 'no-repeat' | 'repeat' | null;
 		minHeight?: number | null;
 		overlayColor?: string | null;
+		textAlign?: 'left' | 'center' | 'right' | null;
+		contentAlignment?: 'top' | 'middle' | 'bottom' | null;
 	};
 
 	function containerCss(style: BlockStyle | undefined): string {
@@ -70,6 +72,24 @@
 				`padding:${p.top ?? 0}px ${p.right ?? 0}px ${p.bottom ?? 0}px ${p.left ?? 0}px`
 			);
 		}
+		return parts.join(';');
+	}
+
+	function containerAlignCss(style: BlockStyle | undefined): string {
+		if (!style) return '';
+		if (!style.textAlign && !style.contentAlignment && !style.backgroundImage && style.minHeight == null) {
+			return '';
+		}
+		const parts = ['display:flex', 'flex-direction:column', 'height:100%'];
+		const h = style.textAlign ?? 'left';
+		parts.push(
+			`align-items:${h === 'center' ? 'center' : h === 'right' ? 'flex-end' : 'stretch'}`
+		);
+		const v = style.contentAlignment ?? (style.backgroundImage ? 'middle' : 'top');
+		parts.push(
+			`justify-content:${v === 'middle' ? 'center' : v === 'bottom' ? 'flex-end' : 'flex-start'}`
+		);
+		if (style.textAlign) parts.push(`text-align:${style.textAlign}`);
 		return parts.join(';');
 	}
 
@@ -128,17 +148,23 @@
 	<BlockWrapper {blockId}>
 		<div style={containerCss(style)}>
 			{#if style.overlayColor}
-				<div style="background-color:{style.overlayColor};height:100%;width:100%">
+				<div
+					style="background-color:{style.overlayColor};height:100%;width:100%;{containerAlignCss(
+						style
+					)}"
+				>
 					<BlockChildren
 						parentId={blockId}
 						childrenIds={getBlockChildrenIds(block)}
 					/>
 				</div>
 			{:else}
-				<BlockChildren
-					parentId={blockId}
-					childrenIds={getBlockChildrenIds(block)}
-				/>
+				<div style={containerAlignCss(style)}>
+					<BlockChildren
+						parentId={blockId}
+						childrenIds={getBlockChildrenIds(block)}
+					/>
+				</div>
 			{/if}
 		</div>
 	</BlockWrapper>

@@ -1,8 +1,8 @@
 diff --git a/dist/index.d.mts b/dist/index.d.mts
-index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e7050c3e2ef 100644
+index 6de778d32b289bfcb21bac349ff8068ded23ee3d..fcaed8c725f0e1cc084a38d87aae35957153be57 100644
 --- a/dist/index.d.mts
 +++ b/dist/index.d.mts
-@@ -22,6 +22,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -22,6 +22,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          }>>>;
@@ -12,10 +12,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat: z.ZodOptional<z.ZodNullable<z.ZodEnum<["no-repeat", "repeat"]>>>;
 +        minHeight: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
 +        overlayColor: z.ZodOptional<z.ZodNullable<z.ZodString>>;
++        textAlign: z.ZodOptional<z.ZodNullable<z.ZodEnum<["left", "center", "right"]>>>;
++        contentAlignment: z.ZodOptional<z.ZodNullable<z.ZodEnum<["top", "middle", "bottom"]>>>;
      }, "strip", z.ZodTypeAny, {
          backgroundColor?: string | null | undefined;
          borderColor?: string | null | undefined;
-@@ -32,6 +38,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -32,6 +40,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -25,10 +27,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      }, {
          backgroundColor?: string | null | undefined;
          borderColor?: string | null | undefined;
-@@ -42,6 +54,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -42,6 +58,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -38,10 +42,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      }>>>;
  }, "strip", z.ZodTypeAny, {
      style?: {
-@@ -54,6 +72,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -54,6 +78,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -51,10 +57,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      } | null | undefined;
  }, {
      style?: {
-@@ -66,6 +90,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -66,6 +98,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -64,14 +72,16 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      } | null | undefined;
  }>;
  type ContainerProps = {
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e7050c3e2ef 100644
+index 6de778d32b289bfcb21bac349ff8068ded23ee3d..fcaed8c725f0e1cc084a38d87aae35957153be57 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -22,6 +22,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -22,6 +22,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          }>>>;
@@ -81,10 +91,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat: z.ZodOptional<z.ZodNullable<z.ZodEnum<["no-repeat", "repeat"]>>>;
 +        minHeight: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
 +        overlayColor: z.ZodOptional<z.ZodNullable<z.ZodString>>;
++        textAlign: z.ZodOptional<z.ZodNullable<z.ZodEnum<["left", "center", "right"]>>>;
++        contentAlignment: z.ZodOptional<z.ZodNullable<z.ZodEnum<["top", "middle", "bottom"]>>>;
      }, "strip", z.ZodTypeAny, {
          backgroundColor?: string | null | undefined;
          borderColor?: string | null | undefined;
-@@ -32,6 +38,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -32,6 +40,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -94,10 +106,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      }, {
          backgroundColor?: string | null | undefined;
          borderColor?: string | null | undefined;
-@@ -42,6 +54,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -42,6 +58,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -107,10 +121,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      }>>>;
  }, "strip", z.ZodTypeAny, {
      style?: {
-@@ -54,6 +72,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -54,6 +78,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -120,10 +136,12 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      } | null | undefined;
  }, {
      style?: {
-@@ -66,6 +90,12 @@ declare const ContainerPropsSchema: z.ZodObject<{
+@@ -66,6 +98,14 @@ declare const ContainerPropsSchema: z.ZodObject<{
              right: number;
              left: number;
          } | null | undefined;
@@ -133,14 +151,16 @@ index 6de778d32b289bfcb21bac349ff8068ded23ee3d..b26f29f41680fb92380c9437127c8e70
 +        backgroundRepeat?: "no-repeat" | "repeat" | null | undefined;
 +        minHeight?: number | null | undefined;
 +        overlayColor?: string | null | undefined;
++        textAlign?: "left" | "center" | "right" | null | undefined;
++        contentAlignment?: "top" | "middle" | "bottom" | null | undefined;
      } | null | undefined;
  }>;
  type ContainerProps = {
 diff --git a/dist/index.js b/dist/index.js
-index e2f264f3f742497b98698e46d2b6243306bc9cd7..847cd81e121dab1aa35d5865d7f412719d22d30b 100644
+index e2f264f3f742497b98698e46d2b6243306bc9cd7..a47341d0327ff201a1ad7140955fc1c23edfa36f 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -49,7 +49,13 @@ var ContainerPropsSchema = import_zod.z.object({
+@@ -49,7 +49,15 @@ var ContainerPropsSchema = import_zod.z.object({
      backgroundColor: COLOR_SCHEMA,
      borderColor: COLOR_SCHEMA,
      borderRadius: import_zod.z.number().optional().nullable(),
@@ -151,28 +171,37 @@ index e2f264f3f742497b98698e46d2b6243306bc9cd7..847cd81e121dab1aa35d5865d7f41271
 +    backgroundPosition: import_zod.z.string().nullable().optional(),
 +    backgroundRepeat: import_zod.z.enum(["no-repeat", "repeat"]).nullable().optional(),
 +    minHeight: import_zod.z.number().nullable().optional(),
-+    overlayColor: COLOR_SCHEMA
++    overlayColor: COLOR_SCHEMA,
++    textAlign: import_zod.z.enum(["left", "center", "right"]).nullable().optional(),
++    contentAlignment: import_zod.z.enum(["top", "middle", "bottom"]).nullable().optional()
    }).optional().nullable()
  });
  function getBorder(style) {
-@@ -58,8 +64,72 @@ function getBorder(style) {
+@@ -58,14 +66,125 @@ function getBorder(style) {
    }
    return `1px solid ${style.borderColor}`;
  }
 +function escapeHtmlAttr(value) {
 +  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 +}
++function resolveContentAlignment(style, hasBackgroundImage) {
++  const value = style == null ? void 0 : style.contentAlignment;
++  if (value === "top" || value === "middle" || value === "bottom") return value;
++  return hasBackgroundImage ? "middle" : "top";
++}
  function Container({ style, children }) {
 -  var _a, _b;
-+  var _a, _b, _c, _d, _e, _f, _g;
++  var _a, _b, _c, _d, _e, _f, _g, _h;
 +  const backgroundImage = (_a = style == null ? void 0 : style.backgroundImage) != null ? _a : null;
++  const textAlign = (_b = style == null ? void 0 : style.textAlign) != null ? _b : void 0;
++  const contentAlignment = resolveContentAlignment(style, Boolean(backgroundImage));
 +  if (backgroundImage) {
-+    const backgroundColor = (_b = style == null ? void 0 : style.backgroundColor) != null ? _b : "#000000";
-+    const backgroundSize = (_c = style == null ? void 0 : style.backgroundSize) != null ? _c : "cover";
-+    const backgroundPosition = (_d = style == null ? void 0 : style.backgroundPosition) != null ? _d : "center";
-+    const backgroundRepeat = (_e = style == null ? void 0 : style.backgroundRepeat) != null ? _e : "no-repeat";
-+    const minHeight = (_f = style == null ? void 0 : style.minHeight) != null ? _f : 200;
-+    const overlayColor = (_g = style == null ? void 0 : style.overlayColor) != null ? _g : null;
++    const backgroundColor = (_c = style == null ? void 0 : style.backgroundColor) != null ? _c : "#000000";
++    const backgroundSize = (_d = style == null ? void 0 : style.backgroundSize) != null ? _d : "cover";
++    const backgroundPosition = (_e = style == null ? void 0 : style.backgroundPosition) != null ? _e : "center";
++    const backgroundRepeat = (_f = style == null ? void 0 : style.backgroundRepeat) != null ? _f : "no-repeat";
++    const minHeight = (_g = style == null ? void 0 : style.minHeight) != null ? _g : 200;
++    const overlayColor = (_h = style == null ? void 0 : style.overlayColor) != null ? _h : null;
 +    const padding = getPadding(style == null ? void 0 : style.padding);
 +    const border = getBorder(style);
 +    const borderRadius = style == null ? void 0 : style.borderRadius;
@@ -190,9 +219,10 @@ index e2f264f3f742497b98698e46d2b6243306bc9cd7..847cd81e121dab1aa35d5865d7f41271
 +      padding: padding != null ? padding : void 0,
 +      border: border != null ? border : void 0,
 +      borderRadius: borderRadius != null ? borderRadius : void 0,
-+      verticalAlign: "middle"
++      verticalAlign: contentAlignment,
++      textAlign: textAlign != null ? textAlign : void 0
 +    };
-+    const content = overlayColor ? /* @__PURE__ */ import_react.default.createElement("div", { style: { backgroundColor: overlayColor, height: "100%", width: "100%" } }, children) : children;
++    const content = overlayColor ? /* @__PURE__ */ import_react.default.createElement("div", { style: { backgroundColor: overlayColor, height: "100%", width: "100%", textAlign: textAlign != null ? textAlign : void 0 } }, children) : children;
 +    return /* @__PURE__ */ import_react.default.createElement(
 +      "table",
 +      {
@@ -214,8 +244,9 @@ index e2f264f3f742497b98698e46d2b6243306bc9cd7..847cd81e121dab1aa35d5865d7f41271
 +            {
 +              background: backgroundImage,
 +              bgcolor: backgroundColor,
-+              valign: "middle",
++              valign: contentAlignment,
 +              height: minHeight,
++              align: textAlign === "center" || textAlign === "right" ? textAlign : "left",
 +              style: cellStyle
 +            },
 +            /* @__PURE__ */ import_react.default.createElement("div", { dangerouslySetInnerHTML: { __html: vmlOpen } }),
@@ -226,14 +257,59 @@ index e2f264f3f742497b98698e46d2b6243306bc9cd7..847cd81e121dab1aa35d5865d7f41271
 +      )
 +    );
 +  }
++  const minHeight = style == null ? void 0 : style.minHeight;
    const wStyle = {
      backgroundColor: (_a = style == null ? void 0 : style.backgroundColor) != null ? _a : void 0,
      border: getBorder(style),
+     borderRadius: (_b = style == null ? void 0 : style.borderRadius) != null ? _b : void 0,
+-    padding: getPadding(style == null ? void 0 : style.padding)
++    padding: getPadding(style == null ? void 0 : style.padding),
++    textAlign: textAlign != null ? textAlign : void 0,
++    minHeight: minHeight != null ? `${minHeight}px` : void 0
+   };
++  if (minHeight != null && contentAlignment !== "top") {
++    return /* @__PURE__ */ import_react.default.createElement(
++      "table",
++      {
++        role: "presentation",
++        width: "100%",
++        cellPadding: "0",
++        cellSpacing: "0",
++        border: "0",
++        style: { width: "100%", borderCollapse: "collapse" }
++      },
++      /* @__PURE__ */ import_react.default.createElement(
++        "tbody",
++        null,
++        /* @__PURE__ */ import_react.default.createElement(
++          "tr",
++          null,
++          /* @__PURE__ */ import_react.default.createElement(
++            "td",
++            {
++              valign: contentAlignment,
++              height: minHeight,
++              align: textAlign === "center" || textAlign === "right" ? textAlign : "left",
++              style: {
++                ...wStyle,
++                verticalAlign: contentAlignment,
++                height: `${minHeight}px`
++              }
++            },
++            children
++          )
++        )
++      )
++    );
++  }
+   if (!children) {
+     return /* @__PURE__ */ import_react.default.createElement("div", { style: wStyle });
+   }
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 0b46fff4ae642bed504a4125a6e5338448c59d85..320435991de8a6611e57921f1bbc1a2b1fcf3439 100644
+index 0b46fff4ae642bed504a4125a6e5338448c59d85..22b65a16ae9b3a9f41091ed857b9c11e207ae5bd 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -14,7 +14,13 @@ var ContainerPropsSchema = z.object({
+@@ -14,7 +14,15 @@ var ContainerPropsSchema = z.object({
      backgroundColor: COLOR_SCHEMA,
      borderColor: COLOR_SCHEMA,
      borderRadius: z.number().optional().nullable(),
@@ -244,28 +320,37 @@ index 0b46fff4ae642bed504a4125a6e5338448c59d85..320435991de8a6611e57921f1bbc1a2b
 +    backgroundPosition: z.string().nullable().optional(),
 +    backgroundRepeat: z.enum(["no-repeat", "repeat"]).nullable().optional(),
 +    minHeight: z.number().nullable().optional(),
-+    overlayColor: COLOR_SCHEMA
++    overlayColor: COLOR_SCHEMA,
++    textAlign: z.enum(["left", "center", "right"]).nullable().optional(),
++    contentAlignment: z.enum(["top", "middle", "bottom"]).nullable().optional()
    }).optional().nullable()
  });
  function getBorder(style) {
-@@ -23,8 +29,72 @@ function getBorder(style) {
+@@ -23,14 +31,125 @@ function getBorder(style) {
    }
    return `1px solid ${style.borderColor}`;
  }
 +function escapeHtmlAttr(value) {
 +  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 +}
++function resolveContentAlignment(style, hasBackgroundImage) {
++  const value = style == null ? void 0 : style.contentAlignment;
++  if (value === "top" || value === "middle" || value === "bottom") return value;
++  return hasBackgroundImage ? "middle" : "top";
++}
  function Container({ style, children }) {
 -  var _a, _b;
-+  var _a, _b, _c, _d, _e, _f, _g;
++  var _a, _b, _c, _d, _e, _f, _g, _h;
 +  const backgroundImage = (_a = style == null ? void 0 : style.backgroundImage) != null ? _a : null;
++  const textAlign = (_b = style == null ? void 0 : style.textAlign) != null ? _b : void 0;
++  const contentAlignment = resolveContentAlignment(style, Boolean(backgroundImage));
 +  if (backgroundImage) {
-+    const backgroundColor = (_b = style == null ? void 0 : style.backgroundColor) != null ? _b : "#000000";
-+    const backgroundSize = (_c = style == null ? void 0 : style.backgroundSize) != null ? _c : "cover";
-+    const backgroundPosition = (_d = style == null ? void 0 : style.backgroundPosition) != null ? _d : "center";
-+    const backgroundRepeat = (_e = style == null ? void 0 : style.backgroundRepeat) != null ? _e : "no-repeat";
-+    const minHeight = (_f = style == null ? void 0 : style.minHeight) != null ? _f : 200;
-+    const overlayColor = (_g = style == null ? void 0 : style.overlayColor) != null ? _g : null;
++    const backgroundColor = (_c = style == null ? void 0 : style.backgroundColor) != null ? _c : "#000000";
++    const backgroundSize = (_d = style == null ? void 0 : style.backgroundSize) != null ? _d : "cover";
++    const backgroundPosition = (_e = style == null ? void 0 : style.backgroundPosition) != null ? _e : "center";
++    const backgroundRepeat = (_f = style == null ? void 0 : style.backgroundRepeat) != null ? _f : "no-repeat";
++    const minHeight = (_g = style == null ? void 0 : style.minHeight) != null ? _g : 200;
++    const overlayColor = (_h = style == null ? void 0 : style.overlayColor) != null ? _h : null;
 +    const padding = getPadding(style == null ? void 0 : style.padding);
 +    const border = getBorder(style);
 +    const borderRadius = style == null ? void 0 : style.borderRadius;
@@ -283,9 +368,10 @@ index 0b46fff4ae642bed504a4125a6e5338448c59d85..320435991de8a6611e57921f1bbc1a2b
 +      padding: padding != null ? padding : void 0,
 +      border: border != null ? border : void 0,
 +      borderRadius: borderRadius != null ? borderRadius : void 0,
-+      verticalAlign: "middle"
++      verticalAlign: contentAlignment,
++      textAlign: textAlign != null ? textAlign : void 0
 +    };
-+    const content = overlayColor ? /* @__PURE__ */ React.createElement("div", { style: { backgroundColor: overlayColor, height: "100%", width: "100%" } }, children) : children;
++    const content = overlayColor ? /* @__PURE__ */ React.createElement("div", { style: { backgroundColor: overlayColor, height: "100%", width: "100%", textAlign: textAlign != null ? textAlign : void 0 } }, children) : children;
 +    return /* @__PURE__ */ React.createElement(
 +      "table",
 +      {
@@ -307,8 +393,9 @@ index 0b46fff4ae642bed504a4125a6e5338448c59d85..320435991de8a6611e57921f1bbc1a2b
 +            {
 +              background: backgroundImage,
 +              bgcolor: backgroundColor,
-+              valign: "middle",
++              valign: contentAlignment,
 +              height: minHeight,
++              align: textAlign === "center" || textAlign === "right" ? textAlign : "left",
 +              style: cellStyle
 +            },
 +            /* @__PURE__ */ React.createElement("div", { dangerouslySetInnerHTML: { __html: vmlOpen } }),
@@ -319,6 +406,51 @@ index 0b46fff4ae642bed504a4125a6e5338448c59d85..320435991de8a6611e57921f1bbc1a2b
 +      )
 +    );
 +  }
++  const minHeight = style == null ? void 0 : style.minHeight;
    const wStyle = {
      backgroundColor: (_a = style == null ? void 0 : style.backgroundColor) != null ? _a : void 0,
      border: getBorder(style),
+     borderRadius: (_b = style == null ? void 0 : style.borderRadius) != null ? _b : void 0,
+-    padding: getPadding(style == null ? void 0 : style.padding)
++    padding: getPadding(style == null ? void 0 : style.padding),
++    textAlign: textAlign != null ? textAlign : void 0,
++    minHeight: minHeight != null ? `${minHeight}px` : void 0
+   };
++  if (minHeight != null && contentAlignment !== "top") {
++    return /* @__PURE__ */ React.createElement(
++      "table",
++      {
++        role: "presentation",
++        width: "100%",
++        cellPadding: "0",
++        cellSpacing: "0",
++        border: "0",
++        style: { width: "100%", borderCollapse: "collapse" }
++      },
++      /* @__PURE__ */ React.createElement(
++        "tbody",
++        null,
++        /* @__PURE__ */ React.createElement(
++          "tr",
++          null,
++          /* @__PURE__ */ React.createElement(
++            "td",
++            {
++              valign: contentAlignment,
++              height: minHeight,
++              align: textAlign === "center" || textAlign === "right" ? textAlign : "left",
++              style: {
++                ...wStyle,
++                verticalAlign: contentAlignment,
++                height: `${minHeight}px`
++              }
++            },
++            children
++          )
++        )
++      )
++    );
++  }
+   if (!children) {
+     return /* @__PURE__ */ React.createElement("div", { style: wStyle });
+   }

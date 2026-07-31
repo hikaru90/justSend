@@ -19,7 +19,6 @@ export default defineConfig({
 		noExternal: [/@usewaypoint\//]
 	},
 	optimizeDeps: {
-		exclude: ['better-sqlite3'],
-		include: ['react', 'react-dom', 'react/jsx-runtime']
+		exclude: ['better-sqlite3']
 	}
 });
