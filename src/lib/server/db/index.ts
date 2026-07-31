@@ -5,13 +5,13 @@ import { dirname, resolve } from 'node:path';
 import { env } from '../env';
 import * as schema from './schema';
 
-function resolveDbPath(url: string) {
+export function resolveDbPath(url: string) {
 	if (url === ':memory:' || url.startsWith('file::memory:')) return ':memory:';
 	const path = url.startsWith('file:') ? url.slice('file:'.length) : url;
 	return resolve(process.cwd(), path);
 }
 
-const dbPath = resolveDbPath(env.DATABASE_URL);
+export const dbPath = resolveDbPath(env.DATABASE_URL);
 if (dbPath !== ':memory:') {
 	mkdirSync(dirname(dbPath), { recursive: true });
 }
@@ -25,3 +25,11 @@ sqlite.pragma('synchronous = NORMAL');
 export const db = drizzle(sqlite, { schema });
 export const rawDb = sqlite;
 export type Db = typeof db;
+
+/** Consistent on-disk snapshot (safe with WAL). Caller must delete `dest` when done. */
+export async function backupDatabaseTo(dest: string) {
+	if (dbPath === ':memory:') {
+		throw new Error('Cannot backup in-memory database to a file');
+	}
+	await sqlite.backup(dest);
+}
