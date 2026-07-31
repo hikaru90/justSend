@@ -11,10 +11,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 # pnpm 10+ aborts module purge/reinstall without a TTY unless CI or confirm-modules-purge is set.
 ENV CI=true
+# Vite SSR+client on small Coolify builders OOMs without a larger heap (exit 255 / killed).
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN corepack enable pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm build && pnpm prune --prod --config.ignore-scripts=true
+RUN pnpm build
+RUN pnpm prune --prod --config.ignore-scripts=true
 
 FROM node:22-alpine AS runner
 WORKDIR /app
