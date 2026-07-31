@@ -72,6 +72,22 @@ describe('email-service', () => {
 			expect(job!.status).toBe('pending');
 		});
 
+		it('rewrites relative design-asset URLs to absolute HOST_URL paths', async () => {
+			const { team, domain } = setupTeamWithDomain();
+
+			const email = await sendEmail({
+				teamId: team.id,
+				from: `noreply@${domain.name}`,
+				to: 'recipient@test.com',
+				subject: 'With image',
+				html: '<img src="/api/design-asset/asset_abc" alt="logo" />'
+			});
+
+			expect(email.html).toBe(
+				'<img src="http://localhost:5173/api/design-asset/asset_abc" alt="logo" />'
+			);
+		});
+
 		it('requires text or html content', async () => {
 			const { team, domain } = setupTeamWithDomain();
 

@@ -20,6 +20,7 @@ import { QUEUES } from '../queue/constants';
 import { validateApiKeyDomainAccess, validateDomainFromEmail } from './domain-service';
 import { checkMultipleEmails } from './suppression-service';
 import { queueEmail } from './email-queue-service';
+import { absolutizeEmailAssetUrls } from '../absolutize-email-urls';
 import { apiKeys } from '../db/schema';
 import { updateContactSubscription } from './contact-service';
 
@@ -29,6 +30,7 @@ type Contact = typeof contacts.$inferSelect;
 const BUILT_IN_CONTACT_VARIABLES = ['email', 'firstName', 'lastName'] as const;
 
 const CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS = [
+	'unsubscribe_url',
 	'unsend_unsubscribe_url',
 	'owlery_unsubscribe_url'
 ] as const;
@@ -159,7 +161,10 @@ function renderCampaignHtmlForContact(params: {
 	const variables = buildContactVariables(contact, allowedVariables, unsubscribeUrl);
 
 	if (campaign.content) {
-		return renderEmailHtml(campaign.content, campaign.html, variables);
+		return absolutizeEmailAssetUrls(
+			renderEmailHtml(campaign.content, campaign.html, variables),
+			env.HOST_URL
+		);
 	}
 
 	if (!campaign.html) {
@@ -168,7 +173,7 @@ function renderCampaignHtmlForContact(params: {
 
 	let html = replaceUnsubscribePlaceholders(campaign.html, unsubscribeUrl);
 	html = renderEmailHtml(null, html, variables);
-	return html;
+	return absolutizeEmailAssetUrls(html, env.HOST_URL);
 }
 
 // ---------------------------------------------------------------------------

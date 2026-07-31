@@ -226,6 +226,30 @@ describe('composeEmailHtml', () => {
 		expect(html).toContain('data-owl-section="hero"');
 		expect(html).not.toContain('{{headline}}');
 	});
+
+	it('defaults footer unsubscribe_url to the owlery send shortcode', () => {
+		const html = composeEmailHtml({
+			template: fakeTemplate({ content: null }),
+			elements: [
+				fakeElement({
+					config: JSON.stringify({ designComponentId: 'dc_footer' })
+				})
+			],
+			components: [
+				fakeHtmlComponent({
+					id: 'dc_footer',
+					name: 'Footer',
+					html: `<a href="{{unsubscribe_url}}">{{unsubscribe_label}}</a>`,
+					props: ['unsubscribe_url', 'unsubscribe_label']
+				})
+			],
+			assets: [],
+			assetBaseUrl: 'http://localhost:5173'
+		});
+		expect(html).toContain('href="{{owlery_unsubscribe_url}}"');
+		expect(html).toContain('Unsubscribe');
+		expect(html).not.toContain('href="{{unsubscribe_url}}"');
+	});
 });
 
 describe('collectExpectedSlots', () => {

@@ -13,6 +13,8 @@ import { enqueue } from '../queue';
 import { QUEUES } from '../queue/constants';
 import { queueEmail } from './email-queue-service';
 import { validateDomainFromEmail } from './domain-service';
+import { absolutizeEmailAssetUrls } from '../absolutize-email-urls';
+import { env } from '../env';
 import {
 	getFlowById,
 	listActiveFlowsByTrigger,
@@ -191,11 +193,14 @@ async function executeSendEmail(
 	if (templateId) {
 		try {
 			const template = getTemplate(templateId, flow.teamId, flow.domainId);
-			html = renderEmailHtml(template.content, template.html, {
-				email: contact.email,
-				firstName: contact.firstName ?? '',
-				lastName: contact.lastName ?? ''
-			});
+			html = absolutizeEmailAssetUrls(
+				renderEmailHtml(template.content, template.html, {
+					email: contact.email,
+					firstName: contact.firstName ?? '',
+					lastName: contact.lastName ?? ''
+				}),
+				env.HOST_URL
+			);
 			if (!subjectOverride) {
 				subject = template.subject;
 			}

@@ -366,7 +366,7 @@ function buildComposeSlots(input: ComposeEmailInput): {
 	};
 
 	if (!slots.unsubscribe_label) slots.unsubscribe_label = 'Unsubscribe';
-	if (!slots.unsubscribe_url) slots.unsubscribe_url = '{{unsubscribe_url}}';
+	if (!slots.unsubscribe_url) slots.unsubscribe_url = '{{owlery_unsubscribe_url}}';
 	if (!slots.header_url) slots.header_url = '#';
 
 	return { scaffold, slots };

@@ -18,12 +18,15 @@ import {
 	resumeCampaign,
 	scheduleCampaign,
 	sendCampaign,
+	processCampaignBatch,
 	updateCampaign
 } from './campaign-service';
+import { emails } from '$lib/server/db/schema';
 
 beforeEach(() => resetDb());
 
 const UNSUB_HTML = '<p>Hello</p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>';
+const FOOTER_UNSUB_HTML = '<p>Hello</p><a href="{{unsubscribe_url}}">Unsubscribe</a>';
 
 describe('campaign-service', () => {
 	function setup() {
@@ -171,6 +174,22 @@ describe('campaign-service', () => {
 			expect(updated.total).toBe(1);
 		});
 
+		it('accepts the template-compose {{unsubscribe_url}} shortcode', async () => {
+			const { team, domain, book } = setup();
+			const campaign = await createCampaign({
+				teamId: team.id,
+				name: 'Footer shortcode',
+				from: `noreply@${domain.name}`,
+				subject: 'Hi',
+				html: '<p>Hello</p><a href="{{unsubscribe_url}}">Unsubscribe</a>',
+				contactBookId: book.id
+			});
+
+			await scheduleCampaign({ campaignId: campaign.id, teamId: team.id });
+
+			expect(getCampaign(campaign.id, team.id).status).toBe('SCHEDULED');
+		});
+
 		it('throws when html lacks unsubscribe placeholder', async () => {
 			const { team, domain, book } = setup();
 			const campaign = await createCampaign({
@@ -275,6 +294,34 @@ describe('campaign-service', () => {
 
 			const jobs = db.select().from(queueJobs).where(eq(queueJobs.queue, QUEUES.CAMPAIGN_BATCH)).all();
 			expect(jobs.some((j) => j.jobId === `campaign-batch:${campaign.id}:start`)).toBe(true);
+		});
+	});
+
+	describe('processCampaignBatch', () => {
+		it('replaces {{unsubscribe_url}} with a signed /unsubscribe link', async () => {
+			const { team, domain, book } = setup();
+			const campaign = await createCampaign({
+				teamId: team.id,
+				name: 'Footer unsub',
+				from: `noreply@${domain.name}`,
+				subject: 'Hi',
+				html: FOOTER_UNSUB_HTML,
+				contactBookId: book.id
+			});
+			await scheduleCampaign({
+				campaignId: campaign.id,
+				teamId: team.id,
+				scheduledAt: new Date(Date.now() - 60_000)
+			});
+
+			await processCampaignBatch({ campaignId: campaign.id, teamId: team.id });
+
+			const sent = db.select().from(emails).where(eq(emails.campaignId, campaign.id)).all();
+			expect(sent).toHaveLength(1);
+			expect(sent[0]?.html).toContain('/unsubscribe?id=');
+			expect(sent[0]?.html).toContain('hash=');
+			expect(sent[0]?.html).not.toContain('{{unsubscribe_url}}');
+			expect(sent[0]?.html).not.toContain('{{owlery_unsubscribe_url}}');
 		});
 	});
 });

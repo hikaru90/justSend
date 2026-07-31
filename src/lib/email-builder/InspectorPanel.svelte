@@ -128,12 +128,27 @@
 		setProps({ columnsCount: count, columns });
 	}
 
+	function designAssetUrl(assetId: string): string {
+		const origin =
+			typeof window !== 'undefined' ? window.location.origin : '';
+		return origin
+			? `${origin}/api/design-asset/${assetId}`
+			: resolve(`/api/design-asset/${assetId}`);
+	}
+
+	function isSelectedAssetUrl(current: string, assetId: string): boolean {
+		if (!current) return false;
+		const absolute = designAssetUrl(assetId);
+		const relative = resolve(`/api/design-asset/${assetId}`);
+		return current === absolute || current === relative || current.endsWith(`/api/design-asset/${assetId}`);
+	}
+
 	function pickLibraryAsset(assetId: string) {
-		setProps({ url: resolve(`/api/design-asset/${assetId}`) });
+		setProps({ url: designAssetUrl(assetId) });
 	}
 
 	function pickBackgroundAsset(assetId: string) {
-		setStyle({ backgroundImage: resolve(`/api/design-asset/${assetId}`) });
+		setStyle({ backgroundImage: designAssetUrl(assetId) });
 	}
 
 	async function uploadImageAsset(file: File, target: 'props' | 'background' = 'props') {
@@ -308,10 +323,10 @@
 				{#if libraryAssets.length > 0}
 					<div class="grid grid-cols-3 gap-2">
 						{#each libraryAssets as asset (asset.id)}
-							{@const assetUrl = resolve(`/api/design-asset/${asset.id}`)}
+							{@const assetUrl = designAssetUrl(asset.id)}
 							<button
 								type="button"
-								class="rounded-md border p-1.5 text-left {imageUrl === assetUrl
+								class="rounded-md border p-1.5 text-left {isSelectedAssetUrl(imageUrl, asset.id)
 									? 'border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/50'
 									: 'border-[hsl(var(--border))]'}"
 								onclick={() => pickLibraryAsset(asset.id)}
@@ -482,10 +497,10 @@
 					{#if libraryAssets.length > 0}
 						<div class="grid grid-cols-3 gap-2">
 							{#each libraryAssets as asset (asset.id)}
-								{@const assetUrl = resolve(`/api/design-asset/${asset.id}`)}
+								{@const assetUrl = designAssetUrl(asset.id)}
 								<button
 									type="button"
-									class="rounded-md border p-1.5 text-left {bgImageUrl === assetUrl
+									class="rounded-md border p-1.5 text-left {isSelectedAssetUrl(bgImageUrl, asset.id)
 										? 'border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/50'
 										: 'border-[hsl(var(--border))]'}"
 									onclick={() => pickBackgroundAsset(asset.id)}

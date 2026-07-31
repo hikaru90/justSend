@@ -68,6 +68,13 @@ export function getAsset(assetId: string, teamId: number): DesignAsset {
 	return asset;
 }
 
+/** Lookup by id only — used for public email-client image fetches. */
+export function getAssetById(assetId: string): DesignAsset {
+	const asset = db.select().from(designAssets).where(eq(designAssets.id, assetId)).get();
+	if (!asset) throw new Error('Asset not found');
+	return asset;
+}
+
 export async function addAsset(
 	teamId: number,
 	input: {
