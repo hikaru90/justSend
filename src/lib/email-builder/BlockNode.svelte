@@ -123,7 +123,7 @@
 		style:background-color={block.data.backdropColor ?? '#F5F5F5'}
 		style:color={block.data.textColor ?? '#262626'}
 		style:font-family={fontFamily(block.data.fontFamily)}
-		style="font-size:16px;line-height:1.5;padding:32px 0;width:100%;min-height:100%"
+		style="font-size:16px;line-height:1.5;padding:32px 12px;width:100%;max-width:100%;min-height:100%;box-sizing:border-box"
 		onclick={() => editor.select(null)}
 	>
 		<table
@@ -133,7 +133,7 @@
 			cellspacing="0"
 			cellpadding="0"
 			border={0}
-			style="margin:0 auto;max-width:600px;background-color:{block.data.canvasColor ?? '#FFFFFF'}"
+			style="margin:0 auto;width:100%;max-width:600px;background-color:{block.data.canvasColor ?? '#FFFFFF'}"
 		>
 			<tbody>
 				<tr style="width:100%">

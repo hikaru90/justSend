@@ -245,9 +245,9 @@
 	);
 </script>
 
-<div class="email-builder overflow-hidden rounded-md border border-[hsl(var(--border))] bg-white text-[#111]">
+<div class="email-builder w-full max-w-full overflow-hidden rounded-md border border-[hsl(var(--border))] bg-white text-[#111]">
 	<div
-		class="flex flex-wrap items-center justify-between gap-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-2"
+		class="flex flex-wrap items-center justify-between gap-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-2 sm:px-3"
 	>
 		<div class="flex flex-wrap gap-1">
 			<button
@@ -333,28 +333,37 @@
 		</div>
 	</div>
 
-	<div class="flex min-h-[640px]">
-		<div class="min-w-0 flex-1 overflow-auto bg-[#f5f5f5]">
+	<div class="flex min-h-[420px] flex-col sm:min-h-[640px] lg:flex-row">
+		<div class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f5f5f5]">
 			{#if editor.tab === 'editor'}
-				<div class="p-4 {editor.screen === 'mobile' ? 'mx-auto max-w-[370px]' : ''}">
+				<div
+					class="box-border p-2 sm:p-4 {editor.screen === 'mobile'
+						? 'mx-auto w-full max-w-[min(100%,370px)]'
+						: 'w-full'}"
+				>
 					<BuilderCanvas />
 				</div>
 			{:else if editor.tab === 'preview'}
-				<div class="p-4 {editor.screen === 'mobile' ? 'mx-auto max-w-[370px]' : ''}">
+				<div
+					class="box-border p-2 sm:p-4 {editor.screen === 'mobile'
+						? 'mx-auto w-full max-w-[min(100%,370px)]'
+						: 'w-full'}"
+				>
 					<iframe
 						title="Email preview"
-						class="min-h-[600px] w-full rounded border border-[hsl(var(--border))] bg-white"
+						class="block min-h-[480px] w-full max-w-full rounded border border-[hsl(var(--border))] bg-white sm:min-h-[600px]"
+						sandbox="allow-same-origin"
 						srcdoc={previewHtml}
 					></iframe>
 				</div>
 			{:else if editor.tab === 'html'}
 				<pre
-					class="m-0 max-h-[70vh] overflow-auto p-4 font-mono text-xs whitespace-pre-wrap text-[#111]">{renderEmailHtml(editor.document)}</pre>
+					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{renderEmailHtml(editor.document)}</pre>
 			{:else if editor.tab === 'json'}
 				<pre
-					class="m-0 max-h-[70vh] overflow-auto p-4 font-mono text-xs whitespace-pre-wrap text-[#111]">{JSON.stringify(editor.document, null, 2)}</pre>
+					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{JSON.stringify(editor.document, null, 2)}</pre>
 			{:else if editor.tab === 'ai'}
-				<div class="flex h-full min-h-[640px] flex-col bg-[hsl(var(--card))] p-4">
+				<div class="flex h-full min-h-[420px] flex-col bg-[hsl(var(--card))] p-3 sm:min-h-[640px] sm:p-4">
 					<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
 						Describe the component to generate or how to change the current blocks. Example: hero
 						with image, headline, and CTA button.
@@ -468,9 +477,9 @@
 
 		{#if editor.inspectorOpen && editor.tab === 'editor'}
 			<aside
-				class="flex w-80 shrink-0 flex-col overflow-hidden border-l border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-[hsl(var(--foreground))]"
+				class="flex w-full shrink-0 flex-col overflow-hidden border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-[hsl(var(--foreground))] lg:w-80 lg:border-t-0 lg:border-l"
 			>
-				<div class="flex min-h-0 flex-1 flex-col overflow-auto">
+				<div class="flex max-h-[50vh] min-h-0 flex-1 flex-col overflow-auto lg:max-h-none">
 					<InspectorPanel />
 				</div>
 			</aside>

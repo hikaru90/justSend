@@ -3,6 +3,7 @@
  * Plain TypeScript + marked for Text markdown — no third-party email SDK.
  */
 import { marked } from 'marked';
+import { fluidifyEmailHtml } from '$lib/email/fluidify-email-html';
 import type { TEditorBlock, TEditorConfiguration, Padding } from './types';
 
 type BlockStyle = {
@@ -168,7 +169,8 @@ function renderHtml(block: TEditorBlock): string {
 	const props = (block.data.props ?? {}) as { contents?: string };
 	const style = styleOf(block);
 	const fontSize = style.fontSize != null ? `font-size:${style.fontSize}px;` : '';
-	return `<div style="${paddingCss(style.padding)}${fontSize}">${props.contents ?? ''}</div>`;
+	const contents = fluidifyEmailHtml(props.contents ?? '');
+	return `<div style="${paddingCss(style.padding)}${fontSize}">${contents}</div>`;
 }
 
 function renderContainer(document: TEditorConfiguration, block: TEditorBlock): string {
@@ -251,7 +253,7 @@ function renderColumns(document: TEditorConfiguration, block: TEditorBlock): str
 	const cells = cols
 		.map((col, i) => {
 			const padRight = i < cols.length - 1 ? `padding-right:${gap}px;` : '';
-			return `<td width="${widthPct}%" valign="${valign}" style="width:${widthPct}%;${padRight}vertical-align:${valign};">${renderChildren(document, col.childrenIds ?? [])}</td>`;
+			return `<td class="owl-stack" width="${widthPct}%" valign="${valign}" style="width:${widthPct}%;${padRight}vertical-align:${valign};">${renderChildren(document, col.childrenIds ?? [])}</td>`;
 		})
 		.join('');
 	return `<div style="${paddingCss(style.padding)}${bg}${border}${radius}">
@@ -266,16 +268,40 @@ function renderEmailLayout(document: TEditorConfiguration, block: TEditorBlock):
 	const canvas = block.data.canvasColor ?? '#FFFFFF';
 	const textColor = block.data.textColor ?? '#262626';
 	const font = fontFamilyCss(block.data.fontFamily);
-	const kids = renderChildren(document, childrenIds(block));
+	const kids = fluidifyEmailHtml(renderChildren(document, childrenIds(block)));
 	return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"></head>
-<body style="margin:0;padding:0;background-color:${escapeAttr(backdrop)};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:${escapeAttr(backdrop)};">
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<style type="text/css">
+:root{color-scheme:light dark;supported-color-schemes:light dark;}
+html,body{margin:0!important;padding:0!important;width:100%!important;}
+img{max-width:100%!important;height:auto!important;}
+table{border-collapse:collapse;}
+.owl-email-pad{padding:32px 12px;}
+.logo-dark{display:none!important;max-height:0!important;overflow:hidden!important;}
+@media (prefers-color-scheme:dark){
+.logo-light{display:none!important;max-height:0!important;overflow:hidden!important;}
+.logo-dark{display:inline-block!important;max-height:none!important;overflow:visible!important;}
+}
+@media only screen and (max-width:620px){
+.owl-email-pad{padding:16px 8px!important;}
+.owl-email-canvas{width:100%!important;max-width:100%!important;}
+.owl-stack{display:block!important;width:100%!important;max-width:100%!important;}
+}
+</style>
+<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+</head>
+<body style="margin:0;padding:0;width:100%;background-color:${escapeAttr(backdrop)};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(backdrop)}" style="width:100%;background-color:${escapeAttr(backdrop)};">
 <tr>
-<td align="center" style="padding:32px 0;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;max-width:600px;width:100%;background-color:${escapeAttr(canvas)};color:${escapeAttr(textColor)};font-family:${escapeAttr(font)};font-size:16px;line-height:1.5;">
-<tr><td>${kids}</td></tr>
+<td align="center" class="owl-email-pad" style="padding:32px 12px;">
+<table role="presentation" class="owl-email-canvas" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(canvas)}" style="margin:0 auto;max-width:600px;width:100%;background-color:${escapeAttr(canvas)};color:${escapeAttr(textColor)};font-family:${escapeAttr(font)};font-size:16px;line-height:1.5;">
+<tr><td style="width:100%;">${kids}</td></tr>
 </table>
 </td>
 </tr>
