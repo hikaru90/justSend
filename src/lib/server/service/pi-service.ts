@@ -1174,7 +1174,7 @@ const COMPONENT_TREE_SYSTEM = [
 	'- Heading data: { props: { text, level? }, style?: { padding } }',
 	'- Text data: { props: { text, markdown: true }, style?: { padding, fontWeight } } — text supports Markdown (**bold**, *italic*, links, lists)',
 	'- Button data: { props: { text, url }, style?: { padding } }',
-	'- Image data: { props: { url, alt, contentAlignment?, linkHref? }, style?: { padding } }',
+	'- Image data: { props: { url, alt, contentAlignment?, linkHref?, width? }, style?: { padding } }',
 	'- Divider data: { props: { lineColor }, style?: { padding } }',
 	'- Spacer data: { props: { height } }',
 	'- Html data: { props: { contents }, style?: { padding } }',

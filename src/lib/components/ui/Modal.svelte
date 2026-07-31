@@ -37,7 +37,7 @@
 			};
 		}}
 		class={cn(
-			'fixed inset-0 m-auto max-h-[min(90vh,900px)] w-[calc(100%-2rem)] max-w-3xl overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-0 text-[hsl(var(--card-foreground))] shadow-lg open:flex open:flex-col',
+			'fixed inset-0 m-auto max-h-[min(90vh,900px)] w-[calc(100%-2rem)] max-w-none overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-0 text-[hsl(var(--card-foreground))] shadow-lg open:flex open:flex-col',
 			className
 		)}
 		onclose={requestClose}

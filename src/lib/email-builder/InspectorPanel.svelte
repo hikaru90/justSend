@@ -87,6 +87,9 @@
 	const htmlValue = $derived(String((block?.data.props as { contents?: string })?.contents ?? ''));
 	const imageUrl = $derived(String((block?.data.props as { url?: string })?.url ?? ''));
 	const imageAlt = $derived(String((block?.data.props as { alt?: string })?.alt ?? ''));
+	const imageWidth = $derived(
+		(block?.data.props as { width?: number | null })?.width ?? null
+	);
 	const blockStyle = $derived((block?.data.style as BlockStyle | undefined) ?? {});
 	const padding = $derived(blockStyle.padding ?? { top: 0, right: 0, bottom: 0, left: 0 });
 	const bgImageUrl = $derived(String(blockStyle.backgroundImage ?? ''));
@@ -344,6 +347,25 @@
 					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
 					value={imageAlt}
 					oninput={(e) => setProps({ alt: e.currentTarget.value })}
+				/>
+			</label>
+			<label class="block space-y-1 text-xs">
+				<span class="text-[hsl(var(--muted-foreground))]">Width (px)</span>
+				<input
+					type="number"
+					min="1"
+					placeholder="auto"
+					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
+					value={imageWidth ?? ''}
+					oninput={(e) => {
+						const raw = e.currentTarget.value.trim();
+						if (!raw) {
+							setProps({ width: null });
+							return;
+						}
+						const n = Number(raw);
+						setProps({ width: Number.isFinite(n) && n > 0 ? n : null });
+					}}
 				/>
 			</label>
 		{/if}

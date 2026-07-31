@@ -927,7 +927,6 @@
 	description={pickerMode === 'single-edit'
 		? 'Pick one library section to replace this element.'
 		: 'Select one or more sections to include.'}
-	class="max-w-5xl"
 	onClose={closePicker}
 >
 	{#if designComponents.length === 0}

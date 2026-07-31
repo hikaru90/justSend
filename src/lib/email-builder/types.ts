@@ -119,7 +119,8 @@ export const BLOCK_FACTORIES: Array<{
 					url: 'https://placehold.co/600x200/F8F8F8/CCC?text=Image',
 					alt: 'Image',
 					contentAlignment: 'middle',
-					linkHref: null
+					linkHref: null,
+					width: null
 				},
 				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } }
 			}
