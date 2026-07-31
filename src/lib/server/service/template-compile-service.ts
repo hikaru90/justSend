@@ -136,7 +136,12 @@ export function healMissingPropBindings(source: string): string {
 				) {
 					const names = propsPatternNames(decl.id as unknown as Record<string, unknown>);
 					for (const name of names) declared.add(name);
-					propsPattern = { start: decl.id.start, end: decl.id.end, names };
+					const objectPattern = decl.id as typeof decl.id & { start?: number; end?: number };
+					propsPattern = {
+						start: objectPattern.start ?? 0,
+						end: objectPattern.end ?? 0,
+						names
+					};
 				}
 			}
 		}
@@ -210,13 +215,192 @@ export function healMissingPropBindings(source: string): string {
 		return `${source.slice(0, propsPattern.start)}{ ${nextInner} }${source.slice(propsPattern.end)}`;
 	}
 
-	const scriptOpen = source.match(/<script\b[^>]*>/i);
+	// Prefer the instance <script>, not <script module>.
+	const scriptOpen = source.match(/<script(?![^>]*\bmodule\b)(\s[^>]*)?>/i);
 	if (scriptOpen && scriptOpen.index != null) {
 		const insertAt = scriptOpen.index + scriptOpen[0].length;
 		return `${source.slice(0, insertAt)}\n\tlet { ${injection} } = $props();${source.slice(insertAt)}`;
 	}
 
 	return `<script>\n\tlet { ${injection} } = $props();\n</script>\n${source}`;
+}
+
+type TopLevelScriptMatch = {
+	start: number;
+	end: number;
+	attrs: string;
+	body: string;
+	isModule: boolean;
+};
+
+/** Find top-level `<script>` / `<script module>` blocks (non-greedy body match). */
+export function findTopLevelScripts(source: string): TopLevelScriptMatch[] {
+	const re = /<script(\s[^>]*)?>([\s\S]*?)<\/script>/gi;
+	const matches: TopLevelScriptMatch[] = [];
+	let m: RegExpExecArray | null;
+	while ((m = re.exec(source)) !== null) {
+		const attrs = m[1] ?? '';
+		matches.push({
+			start: m.index,
+			end: m.index + m[0].length,
+			attrs,
+			body: m[2] ?? '',
+			isModule: /\bmodule\b/i.test(attrs)
+		});
+	}
+	return matches;
+}
+
+/**
+ * Svelte allows at most one instance `<script>` and one `<script module>`.
+ * AI/Pi sometimes emits two instance scripts (imports in one, $props in another).
+ * Merge duplicates so parse can succeed (`script_duplicate`).
+ */
+export function healDuplicateScripts(source: string): string {
+	const scripts = findTopLevelScripts(source);
+	const instance = scripts.filter((s) => !s.isModule);
+	const modules = scripts.filter((s) => s.isModule);
+	if (instance.length <= 1 && modules.length <= 1) return source;
+
+	type Edit = { start: number; end: number; text: string };
+	const edits: Edit[] = [];
+
+	const mergeGroup = (group: TopLevelScriptMatch[]) => {
+		if (group.length <= 1) return;
+		const mergedBody = group
+			.map((s) => s.body.replace(/^\n+|\n+$/g, '').trimEnd())
+			.filter((b) => b.trim().length > 0)
+			.join('\n\n');
+		const first = group[0];
+		edits.push({
+			start: first.start,
+			end: first.end,
+			text: `<script${first.attrs}>\n${mergedBody}\n</script>`
+		});
+		for (const extra of group.slice(1)) {
+			let end = extra.end;
+			if (source[end] === '\n') end += 1;
+			else if (source.startsWith('\r\n', end)) end += 2;
+			// Drop a blank line left behind when possible.
+			if (source[end] === '\n') end += 1;
+			edits.push({ start: extra.start, end, text: '' });
+		}
+	};
+
+	mergeGroup(instance);
+	mergeGroup(modules);
+
+	edits.sort((a, b) => b.start - a.start);
+	let out = source;
+	for (const edit of edits) {
+		out = `${out.slice(0, edit.start)}${edit.text}${out.slice(edit.end)}`;
+	}
+	return out;
+}
+
+function isWhitespaceTextNode(node: Record<string, unknown>): boolean {
+	if (node.type !== 'Text') return false;
+	const data = typeof node.data === 'string' ? node.data : typeof node.raw === 'string' ? node.raw : '';
+	return /^\s*$/.test(data);
+}
+
+function isDirectTableTr(node: Record<string, unknown>): boolean {
+	return node.type === 'RegularElement' && node.name === 'tr';
+}
+
+/**
+ * Svelte 5 rejects `<tr>` as a direct child of `<table>` (`node_invalid_placement`).
+ * Email HTML often omits `<tbody>`; wrap consecutive bare `<tr>` runs so compile succeeds.
+ */
+export function healTableRowPlacement(source: string): string {
+	let ast;
+	try {
+		ast = parse(source, { filename: 'HealTable.svelte', modern: true });
+	} catch {
+		return source;
+	}
+
+	const wraps: Array<{ start: number; end: number }> = [];
+
+	const visit = (node: unknown): void => {
+		if (!node || typeof node !== 'object') return;
+		const n = node as Record<string, unknown>;
+
+		if (n.type === 'RegularElement' && n.name === 'table') {
+			const fragment = n.fragment as { nodes?: unknown[] } | undefined;
+			const children = fragment?.nodes ?? [];
+			let runStart: number | null = null;
+			let runEnd: number | null = null;
+			let hasTr = false;
+
+			const flush = () => {
+				if (hasTr && runStart != null && runEnd != null) {
+					wraps.push({ start: runStart, end: runEnd });
+				}
+				runStart = null;
+				runEnd = null;
+				hasTr = false;
+			};
+
+			for (const child of children) {
+				if (!child || typeof child !== 'object') {
+					flush();
+					continue;
+				}
+				const c = child as Record<string, unknown>;
+				const start = typeof c.start === 'number' ? c.start : null;
+				const end = typeof c.end === 'number' ? c.end : null;
+				if (isDirectTableTr(c) && start != null && end != null) {
+					if (runStart == null) runStart = start;
+					runEnd = end;
+					hasTr = true;
+					continue;
+				}
+				if (isWhitespaceTextNode(c) && hasTr && start != null && end != null) {
+					runEnd = end;
+					continue;
+				}
+				flush();
+			}
+			flush();
+		}
+
+		for (const value of Object.values(n)) {
+			if (Array.isArray(value)) {
+				for (const child of value) visit(child);
+			} else if (value && typeof value === 'object') {
+				visit(value);
+			}
+		}
+	};
+
+	const fragment = (ast as { fragment?: unknown }).fragment ?? (ast as { html?: unknown }).html;
+	visit(fragment);
+
+	if (wraps.length === 0) return source;
+
+	const open = '<tbody>';
+	const close = '</tbody>';
+	// Innermost / later ranges first; adjust remaining ranges that contain them.
+	const adjusted = [...wraps].sort((a, b) => b.start - a.start || b.end - a.end);
+	let out = source;
+
+	for (let i = 0; i < adjusted.length; i++) {
+		const w = adjusted[i];
+		out = `${out.slice(0, w.start)}${open}${out.slice(w.start, w.end)}${close}${out.slice(w.end)}`;
+		for (let j = i + 1; j < adjusted.length; j++) {
+			const o = adjusted[j];
+			if (o.end <= w.start) continue;
+			if (o.start >= w.end) {
+				o.start += open.length + close.length;
+				o.end += open.length + close.length;
+			} else if (o.start <= w.start && o.end >= w.end) {
+				o.end += open.length + close.length;
+			}
+		}
+	}
+
+	return out;
 }
 
 /** Prop names declared via `let { … } = $props()` (after healing). */
@@ -352,7 +536,7 @@ export function compileOneComponent(
 	source: string,
 	generate: CompileTarget
 ): { js: string; css: string; warnings: CompiledComponentMap['warnings'] } {
-	const healed = healMissingPropBindings(source);
+	const healed = healMissingPropBindings(healTableRowPlacement(healDuplicateScripts(source)));
 	assertSafeEmailComponentSource(healed, name);
 
 	const key = hashSource(healed, generate);

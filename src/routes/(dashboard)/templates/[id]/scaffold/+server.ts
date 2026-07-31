@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import {
-	generateTemplateHtml,
+	generateScaffold,
 	type GenerateProgressEvent
 } from '$lib/server/service/ai-template-service';
 import type { RequestHandler } from './$types';
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 			};
 
 			try {
-				await generateTemplateHtml({
+				await generateScaffold({
 					teamId,
 					domainId,
 					templateId: params.id,
@@ -42,14 +42,13 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 						send(event);
 					}
 				});
-				send({ stage: 'done', message: 'Generation complete.' });
 			} catch (e) {
 				if (e instanceof Error && e.name === 'AbortError') {
 					send({ stage: 'cancelled', message: 'Generation stopped.' });
 				} else {
 					send({
 						stage: 'error',
-						message: e instanceof Error ? e.message : 'Generation failed'
+						message: e instanceof Error ? e.message : 'Scaffold failed'
 					});
 				}
 			} finally {
@@ -57,7 +56,7 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 			}
 		},
 		cancel() {
-			// Client disconnected / aborted — request.signal already aborted.
+			// Client disconnected — request.signal already aborted.
 		}
 	});
 

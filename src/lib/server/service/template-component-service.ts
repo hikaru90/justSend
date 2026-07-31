@@ -1,7 +1,11 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { cuid, nowIso } from '$lib/utils';
 import { db } from '../db';
-import { templateComponents, type TemplateComponentKind } from '../db/schema';
+import {
+	templateComponents,
+	type TemplateComponentKind,
+	type TemplateComponentSourceType
+} from '../db/schema';
 import { getTemplate } from './template-service';
 
 export type TemplateComponent = typeof templateComponents.$inferSelect;
@@ -53,6 +57,9 @@ export type UpsertComponentInput = {
 	id?: string;
 	name: string;
 	kind: TemplateComponentKind;
+	sourceType?: TemplateComponentSourceType;
+	designComponentId?: string | null;
+	locked?: boolean;
 	source: string;
 	order?: number;
 };
@@ -74,6 +81,9 @@ export function replaceTemplateComponents(
 		templateId,
 		name: c.name,
 		kind: c.kind,
+		sourceType: c.sourceType ?? 'custom',
+		designComponentId: c.designComponentId ?? null,
+		locked: c.locked ?? false,
 		source: c.source,
 		order: c.order ?? index
 	}));
@@ -97,6 +107,9 @@ export function updateComponentSource(
 		)
 		.get();
 	if (!existing) throw new Error('Component not found');
+	if (existing.locked) {
+		throw new Error('This section is library-backed and locked. Edit it in the design system or convert it to custom first.');
+	}
 
 	return db
 		.update(templateComponents)

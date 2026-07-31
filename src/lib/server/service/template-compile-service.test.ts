@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	assertSafeEmailComponentSource,
 	compileComponentSources,
+	healDuplicateScripts,
 	healMissingPropBindings,
+	healTableRowPlacement,
 	linkCompiledComponents,
 	loadLinkedComponent,
 	TemplateCompileError,
@@ -30,6 +32,72 @@ describe('healMissingPropBindings', () => {
 <Header {logo_url} />`
 		);
 		expect(healed).toMatch(/let \{[^}]*logo_url = ''/);
+	});
+});
+
+describe('healDuplicateScripts', () => {
+	it('merges two instance script tags into one', () => {
+		const source = `<script>
+	import Header from './Header.svelte';
+</script>
+<script>
+	let { headline } = $props();
+</script>
+<Header {headline} />`;
+		const healed = healDuplicateScripts(source);
+		expect(healed.match(/<script\b/gi)?.length).toBe(1);
+		expect(healed).toContain("import Header from './Header.svelte'");
+		expect(healed).toContain('let { headline } = $props()');
+		expect(() => validateComponentSource('Root', healed)).not.toThrow();
+	});
+
+	it('is a no-op for a single script', () => {
+		const source = `<script>
+	let { x } = $props();
+</script>
+<p>{x}</p>`;
+		expect(healDuplicateScripts(source)).toBe(source);
+	});
+
+	it('validates Root that had duplicate scripts after heal chain', () => {
+		const source = `<script>
+	import Header from './Header.svelte';
+</script>
+<script>
+	let { headline } = $props();
+</script>
+<table><tr><td><Header {headline} /></td></tr></table>`;
+		expect(() => validateComponentSource('Root', source)).not.toThrow();
+	});
+});
+
+describe('healTableRowPlacement', () => {
+	it('wraps bare tr children of table in tbody', () => {
+		const healed = healTableRowPlacement('<table><tr><td>Hi</td></tr></table>');
+		expect(healed).toBe('<table><tbody><tr><td>Hi</td></tr></tbody></table>');
+	});
+
+	it('wraps consecutive tr runs and leaves thead alone', () => {
+		const healed = healTableRowPlacement(
+			'<table><thead><tr><td>H</td></tr></thead><tr><td>A</td></tr><tr><td>B</td></tr></table>'
+		);
+		expect(healed).toBe(
+			'<table><thead><tr><td>H</td></tr></thead><tbody><tr><td>A</td></tr><tr><td>B</td></tr></tbody></table>'
+		);
+	});
+
+	it('heals nested tables', () => {
+		const healed = healTableRowPlacement(
+			'<table><tr><td><table><tr><td>in</td></tr></table></td></tr></table>'
+		);
+		expect(healed).toBe(
+			'<table><tbody><tr><td><table><tbody><tr><td>in</td></tr></tbody></table></td></tr></tbody></table>'
+		);
+	});
+
+	it('is a no-op when tbody already present', () => {
+		const src = '<table><tbody><tr><td>Hi</td></tr></tbody></table>';
+		expect(healTableRowPlacement(src)).toBe(src);
 	});
 });
 
@@ -134,5 +202,11 @@ describe('compile + link + render', () => {
 		const T = await loadLinkedComponent(linked);
 		const out = render(T, { props: { logo_url: 'https://cdn.example/logo.png' } });
 		expect(out.body).toContain('https://cdn.example/logo.png');
+	});
+
+	it('compiles bare table/tr markup after tbody heal', () => {
+		expect(() =>
+			validateComponentSource('Plain', '<table><tr><td>Hi</td></tr></table>')
+		).not.toThrow();
 	});
 });

@@ -87,11 +87,25 @@ export type QueueJobStatus = (typeof queueJobStatuses)[number];
 export const designAssetKinds = ['font', 'image', 'logo'] as const;
 export type DesignAssetKind = (typeof designAssetKinds)[number];
 
-export const templateElementTypes = ['logo', 'text', 'button', 'cta', 'link', 'image'] as const;
+export const templateElementTypes = [
+	'logo',
+	'text',
+	'button',
+	'cta',
+	'link',
+	'image',
+	'component'
+] as const;
 export type TemplateElementType = (typeof templateElementTypes)[number];
 
 export const templateComponentKinds = ['root', 'component'] as const;
 export type TemplateComponentKind = (typeof templateComponentKinds)[number];
+
+export const designComponentKinds = ['starter', 'custom'] as const;
+export type DesignComponentKind = (typeof designComponentKinds)[number];
+
+export const templateComponentSourceTypes = ['library', 'custom'] as const;
+export type TemplateComponentSourceType = (typeof templateComponentSourceTypes)[number];
 
 const timestamps = {
 	createdAt: text('created_at')
@@ -530,7 +544,11 @@ export const designComponents = sqliteTable(
 			.notNull()
 			.references(() => teams.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
+		kind: text('kind', { enum: designComponentKinds }).notNull().default('custom'),
+		role: text('role').notNull().default('section'),
 		description: text('description'),
+		props: text('props').notNull().default('[]'),
+		starterKey: text('starter_key'),
 		html: text('html').notNull().default(''),
 		...timestamps
 	},
@@ -548,6 +566,7 @@ export const templateElements = sqliteTable(
 		label: text('label').notNull(),
 		required: integer('required', { mode: 'boolean' }).notNull().default(true),
 		config: text('config').notNull().default('{}'),
+		order: integer('order').notNull().default(0),
 		...timestamps
 	},
 	(t) => [index('template_elements_template_id_idx').on(t.templateId)]
@@ -562,6 +581,13 @@ export const templateComponents = sqliteTable(
 			.references(() => templates.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
 		kind: text('kind', { enum: templateComponentKinds }).notNull().default('component'),
+		sourceType: text('source_type', { enum: templateComponentSourceTypes })
+			.notNull()
+			.default('custom'),
+		designComponentId: text('design_component_id').references(() => designComponents.id, {
+			onDelete: 'set null'
+		}),
+		locked: integer('locked', { mode: 'boolean' }).notNull().default(false),
 		source: text('source').notNull().default(''),
 		order: integer('order').notNull().default(0),
 		...timestamps

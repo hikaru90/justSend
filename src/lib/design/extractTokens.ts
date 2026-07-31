@@ -118,6 +118,125 @@ export function extractDesignTokens(md: string): DesignTokens {
 	return { colors, fontFamilies };
 }
 
+const COLORS_HEADING_RE = /^#{1,4}\s*.*colors?\b/i;
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Expand short hex (#abc) to long (#aabbcc) for <input type="color">. */
+export function hexForColorInput(hex: string): string {
+	const normalized = normalizeHex(hex);
+	return normalized.length === 4
+		? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+		: normalized;
+}
+
+function isValidHex(value: string): boolean {
+	return /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(value.trim());
+}
+
+/**
+ * Replace every occurrence of `from` hex (any casing / short form) with `to`.
+ */
+export function replaceHexColor(md: string, from: string, to: string): string {
+	if (!isValidHex(from) || !isValidHex(to)) return md;
+	const target = normalizeHex(to);
+	const fromNorm = normalizeHex(from);
+	const short =
+		fromNorm.length === 7 &&
+		fromNorm[1] === fromNorm[2] &&
+		fromNorm[3] === fromNorm[4] &&
+		fromNorm[5] === fromNorm[6]
+			? `#${fromNorm[1]}${fromNorm[3]}${fromNorm[5]}`
+			: null;
+
+	const patterns = [fromNorm];
+	if (short && short !== fromNorm) patterns.push(short);
+	if (from.toLowerCase() !== fromNorm) patterns.push(from.toLowerCase());
+
+	let result = md;
+	for (const pattern of patterns) {
+		result = result.replace(new RegExp(escapeRegExp(pattern), 'gi'), target);
+	}
+	return result;
+}
+
+/**
+ * Append a color to the Colors section, or create one if missing.
+ */
+export function addHexColor(md: string, hex: string, label = 'Accent'): string {
+	if (!isValidHex(hex)) return md;
+	const color = normalizeHex(hex);
+	const existing = extractDesignTokens(md).colors;
+	if (existing.some((c) => normalizeHex(c) === color)) return md;
+
+	const lines = md.split(/\r?\n/);
+	let colorsHeadingIdx = -1;
+	let nextHeadingIdx = lines.length;
+
+	for (let i = 0; i < lines.length; i++) {
+		if (COLORS_HEADING_RE.test(lines[i])) {
+			colorsHeadingIdx = i;
+			continue;
+		}
+		if (colorsHeadingIdx >= 0 && /^#{1,4}\s+/.test(lines[i])) {
+			nextHeadingIdx = i;
+			break;
+		}
+	}
+
+	const bullet = `- ${label}: \`${color}\``;
+	if (colorsHeadingIdx < 0) {
+		const block = ['', '## Colors', bullet, ''];
+		const trimmed = md.trimEnd();
+		return trimmed ? `${trimmed}\n${block.join('\n')}` : `## Colors\n${bullet}\n`;
+	}
+
+	let insertAt = nextHeadingIdx;
+	while (insertAt > colorsHeadingIdx + 1 && lines[insertAt - 1].trim() === '') {
+		insertAt--;
+	}
+	lines.splice(insertAt, 0, bullet);
+	return lines.join('\n');
+}
+
+/**
+ * Remove a hex color from design.md (list lines that only carry that swatch, else strip the hex).
+ */
+export function removeHexColor(md: string, hex: string): string {
+	if (!isValidHex(hex)) return md;
+	const target = normalizeHex(hex);
+	const short =
+		target.length === 7 &&
+		target[1] === target[2] &&
+		target[3] === target[4] &&
+		target[5] === target[6]
+			? `#${target[1]}${target[3]}${target[5]}`
+			: null;
+	const hexAlt = short ? `${escapeRegExp(target)}|${escapeRegExp(short)}` : escapeRegExp(target);
+	const hexRe = new RegExp(hexAlt, 'i');
+
+	const lines = md.split(/\r?\n/);
+	const kept: string[] = [];
+	for (const line of lines) {
+		if (!hexRe.test(line)) {
+			kept.push(line);
+			continue;
+		}
+		const withoutHex = line.replace(new RegExp(hexAlt, 'gi'), '').replace(/\s+/g, ' ').trim();
+		// Drop bullet/definition lines that only existed for this color
+		if (/^[-*+]\s*`?[^`]*`?:?\s*$/.test(withoutHex) || /^[-*+]\s*$/.test(withoutHex)) {
+			continue;
+		}
+		if (/^[-*+]\s+[A-Za-z][\w\s-]*:\s*$/.test(withoutHex)) {
+			continue;
+		}
+		kept.push(line.replace(new RegExp(hexAlt, 'gi'), '').replace(/[ \t]+\n/g, '\n').replace(/`\s*`/g, '').trimEnd());
+	}
+	return kept.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
 export type EmailLogoPair<T> = {
 	light: T;
 	dark: T;
@@ -210,6 +329,91 @@ function unwrapPrefersColorSchemeBlocks(
 	return out;
 }
 
+const PLACEHOLDER_LOGO =
+	"data:image/svg+xml," +
+	encodeURIComponent(
+		`<svg xmlns="http://www.w3.org/2000/svg" width="140" height="40" viewBox="0 0 140 40"><rect width="140" height="40" rx="6" fill="#e2e8f0"/><text x="70" y="25" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#64748b">Logo</text></svg>`
+	);
+const PLACEHOLDER_IMAGE =
+	"data:image/svg+xml," +
+	encodeURIComponent(
+		`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300"><rect width="600" height="300" rx="12" fill="#e2e8f0"/><text x="300" y="155" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" fill="#64748b">Image</text></svg>`
+	);
+
+/** Sample prop / {{placeholder}} values for design-system and template previews. */
+export function previewSampleValues(overrides?: Record<string, string>): Record<string, string> {
+	return {
+		cta_label: 'Click here',
+		cta_url: 'https://example.com',
+		button_label: 'Get started',
+		button_url: 'https://example.com',
+		link_label: 'Learn more',
+		link_url: 'https://example.com',
+		primary_cta_label: 'Get started',
+		primary_cta_url: 'https://example.com',
+		secondary_cta_label: 'Learn more',
+		secondary_cta_url: 'https://example.com',
+		header_url: 'https://example.com',
+		header_text: 'Weekly digest',
+		brand_name: 'Acme Inc',
+		eyebrow: 'New this week',
+		headline: 'Welcome aboard',
+		title: 'Hello there',
+		body: 'A short supporting sentence that shows how this section reads in email.',
+		body_text: 'A short supporting sentence that shows how this section reads in email.',
+		subject: 'Your weekly update',
+		name: 'Alex',
+		first_name: 'Alex',
+		company: 'Acme Inc',
+		email: 'alex@example.com',
+		unsubscribe_label: 'Unsubscribe',
+		unsubscribe_url: 'https://example.com/unsubscribe',
+		logo: PLACEHOLDER_LOGO,
+		logo_url: PLACEHOLDER_LOGO,
+		logo_light: PLACEHOLDER_LOGO,
+		logo_dark: PLACEHOLDER_LOGO,
+		logo_dark_url: PLACEHOLDER_LOGO,
+		image: PLACEHOLDER_IMAGE,
+		image_url: PLACEHOLDER_IMAGE,
+		year: String(new Date().getFullYear()),
+		...overrides
+	};
+}
+
+function resolvePreviewSample(
+	key: string,
+	samples: Record<string, string>,
+	overrides?: Record<string, string>
+): string {
+	const lower = key.toLowerCase();
+	if (samples[lower]) return samples[lower];
+	if (samples[key]) return samples[key];
+	if (overrides) {
+		for (const [overrideKey, value] of Object.entries(overrides)) {
+			if (lower.includes(overrideKey.toLowerCase())) return value;
+		}
+	}
+	if (lower.includes('url') || lower.includes('href') || lower.includes('link')) {
+		return 'https://example.com';
+	}
+	if (lower.includes('logo')) return samples.logo_url ?? PLACEHOLDER_LOGO;
+	if (lower.includes('image') || lower.includes('img')) {
+		return samples.image_url ?? PLACEHOLDER_IMAGE;
+	}
+	if (
+		lower.includes('label') ||
+		lower.includes('text') ||
+		lower.includes('title') ||
+		lower.includes('headline') ||
+		lower.includes('body') ||
+		lower.includes('name') ||
+		lower.includes('eyebrow')
+	) {
+		return 'Sample text';
+	}
+	return key.replace(/_/g, ' ');
+}
+
 /**
  * Substitute {{variable}} placeholders with sample values for preview only.
  * Pass `overrides` to inject real design-system URLs (e.g. logo).
@@ -218,49 +422,51 @@ export function substitutePreviewPlaceholders(
 	html: string,
 	overrides?: Record<string, string>
 ): string {
-	const samples: Record<string, string> = {
-		cta_label: 'Click here',
-		cta_url: 'https://example.com',
-		button_label: 'Get started',
-		button_url: 'https://example.com',
-		link_label: 'Learn more',
-		link_url: 'https://example.com',
-		headline: 'Welcome aboard',
-		title: 'Hello there',
-		subject: 'Your weekly update',
-		name: 'Alex',
-		first_name: 'Alex',
-		company: 'Acme Inc',
-		email: 'alex@example.com',
-		unsubscribe_url: 'https://example.com/unsubscribe',
-		logo: 'https://placehold.co/120x40/png?text=Logo',
-		logo_url: 'https://placehold.co/120x40/png?text=Logo',
-		logo_light: 'https://placehold.co/120x40/png?text=Logo',
-		logo_dark: 'https://placehold.co/120x40/png?text=Logo',
-		logo_dark_url: 'https://placehold.co/120x40/png?text=Logo',
-		image: 'https://placehold.co/600x300/png?text=Image',
-		image_url: 'https://placehold.co/600x300/png?text=Image',
-		year: String(new Date().getFullYear()),
-		...overrides
-	};
+	const samples = previewSampleValues(overrides);
 
-	return html.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (full, key: string) => {
-		const lower = key.toLowerCase();
-		if (samples[lower]) return samples[lower];
-		if (overrides) {
-			for (const [overrideKey, value] of Object.entries(overrides)) {
-				if (lower.includes(overrideKey.toLowerCase())) return value;
-			}
+	return html.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_full, key: string) =>
+		resolvePreviewSample(key, samples, overrides)
+	);
+}
+
+/**
+ * Turn a Svelte email component source into static HTML for preview,
+ * filling $props() with sample / design-system values.
+ */
+export function renderSvelteComponentPreview(
+	source: string,
+	overrides?: Record<string, string>
+): string {
+	const samples = previewSampleValues(overrides);
+	let markup = source.replace(/<script[\s\S]*?<\/script>/gi, '');
+
+	// Unwrap {#if} blocks from the inside out (keep truthy branch; drop {:else…}).
+	const innermostIf =
+		/\{#if\s+[^}]+\}((?:(?!\{#if)[\s\S])*?)(?:\{:else(?:\s+if\s+[^}]+)?\}(?:(?!\{#if)[\s\S])*?)?\{\/if\}/g;
+	let previous = '';
+	while (markup !== previous) {
+		previous = markup;
+		markup = markup.replace(innermostIf, '$1');
+	}
+
+	const sampleFor = (key: string) => resolvePreviewSample(key, samples, overrides);
+
+	// Attribute bindings: src={logo_url}, href={primary_cta_url || '#'}, alt={brand_name || 'Logo'}
+	markup = markup.replace(
+		/\b([a-zA-Z_:][a-zA-Z0-9_:-]*)=\{([a-z][a-z0-9_]*)(?:\s*\|\|\s*(?:'[^']*'|"[^"]*"|[a-z][a-z0-9_]*))?\}/g,
+		(_full, attr: string, key: string) => `${attr}="${sampleFor(key)}"`
+	);
+
+	// Text expressions: {headline}, {body || body_text}, {brand_name || 'Logo'}
+	markup = markup.replace(
+		/\{([a-z][a-z0-9_]*)(?:\s*\|\|\s*(?:'[^']*'|"[^"]*"|([a-z][a-z0-9_]*)))?\}/g,
+		(_full, key: string, altKey?: string) => {
+			const primary = sampleFor(key);
+			if (primary && primary !== key.replace(/_/g, ' ')) return primary;
+			if (altKey) return sampleFor(altKey);
+			return primary;
 		}
-		if (lower.includes('url') || lower.includes('href') || lower.includes('link')) {
-			return 'https://example.com';
-		}
-		if (lower.includes('logo') || lower.includes('image') || lower.includes('img')) {
-			return samples.logo;
-		}
-		if (lower.includes('label') || lower.includes('text') || lower.includes('title')) {
-			return 'Sample text';
-		}
-		return full.replace(/[{}]/g, '').replace(/_/g, ' ');
-	});
+	);
+
+	return substitutePreviewPlaceholders(markup.trim(), overrides);
 }

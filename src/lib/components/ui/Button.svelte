@@ -39,11 +39,13 @@
 		lg: 'h-10 px-6 text-sm'
 	};
 
-	const classes = cn(
-		'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-opacity disabled:pointer-events-none disabled:opacity-50',
-		variants[variant],
-		sizes[size],
-		className
+	const classes = $derived(
+		cn(
+			'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-opacity disabled:pointer-events-none disabled:opacity-50',
+			variants[variant],
+			sizes[size],
+			className
+		)
 	);
 </script>
 

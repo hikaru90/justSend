@@ -8,3 +8,4 @@ allowBuilds:
   # Transitive from Pi SDK (@earendil-works/pi-ai) — Owlery uses OpenRouter, not Google
   '@google/genai': false
   protobufjs: false
+  '@swc/core': true

@@ -3,53 +3,69 @@ import { nowIso } from '$lib/utils';
 import { pickEmailLogos } from '$lib/design/extractTokens';
 import {
 	elementSlug,
-	formatElementConfigForPrompt
+	formatElementConfigForPrompt,
+	parseElementConfig
 } from '$lib/template-element-config';
+import { EMAIL_FORMATTING_RULES } from '../email-formatting-rules';
 import { env } from '../env';
 import { db } from '../db';
 import { templates } from '../db/schema';
-import { getDesignSystemBundle } from './design-system-service';
+import { getDesignSystemBundle, parseComponentProps } from './design-system-service';
 import { listElements, type TemplateElement } from './template-element-service';
-import { replaceTemplateComponents } from './template-component-service';
-import { validateComponentSource, TemplateCompileError } from './template-compile-service';
 import { getTemplate, type Template } from './template-service';
+import { openRouterChat, openRouterModel } from './openrouter';
+import {
+	collectExpectedSlots,
+	parseScaffoldContent,
+	serializeScaffoldContent,
+	type ScaffoldContent
+} from './template-compose-service';
+import {
+	parseEmailBuilderContent,
+	serializeEmailBuilderContent
+} from '$lib/email-builder/render';
 
 export type BuildPromptInput = {
 	template: Template;
 	designMd: string | null;
-	components: Array<{ name: string; description: string | null; html: string }>;
+	components: Array<{
+		id: string;
+		name: string;
+		description: string | null;
+		html: string;
+		kind: string;
+		role: string;
+		props: string;
+		starterKey: string | null;
+	}>;
 	assets: Array<{ id: string; kind: string; name: string; filename: string }>;
 	elements: TemplateElement[];
 	prompt: string;
 	assetBaseUrl: string;
+	expectedSlots: string[];
 };
 
-export type ComponentPlanItem = {
-	name: string;
-	kind: 'root' | 'component';
-	role: string;
-	/** Element prop slugs this component receives / uses */
-	props: string[];
-	/** Sub-component names this component imports (root only typically) */
-	imports?: string[];
-};
+function elementLines(items: TemplateElement[], assetBaseUrl: string, input: BuildPromptInput): string {
+	const designComponentById = Object.fromEntries(
+		input.components.map((c) => [
+			c.id,
+			{ name: c.name, starterKey: c.starterKey, kind: c.kind }
+		])
+	);
 
-export type ComponentPlan = {
-	components: ComponentPlanItem[];
-};
-
-function elementLines(items: TemplateElement[], assetBaseUrl: string): string {
 	return items
 		.map((el) => {
 			const slug = elementSlug(el.label, el.type);
-			const values = formatElementConfigForPrompt(el, { assetBaseUrl });
-			const propHints =
-				el.type === 'logo' || el.type === 'image'
-					? `props: ${slug}, ${slug}_url`
-					: el.type === 'text'
-						? `props: ${slug}, ${slug}_text`
-						: `props: ${slug}, ${slug}_label, ${slug}_url`;
-			return `- type=${el.type}; label="${el.label}"; ${propHints}; values: ${values}`;
+			const values = formatElementConfigForPrompt(el, { assetBaseUrl, designComponentById });
+			if (el.type === 'component') {
+				const config = parseElementConfig(el.config);
+				const lib = config.designComponentId
+					? input.components.find((c) => c.id === config.designComponentId)
+					: undefined;
+				const props = lib ? parseComponentProps(lib).join(', ') : '';
+				return `- type=component; label="${el.label}"; library="${lib?.name ?? '?'}"; slots=[${props}]; ${values}`;
+			}
+			return `- type=${el.type}; label="${el.label}"; slug=${slug}; values: ${values}`;
 		})
 		.join('\n');
 }
@@ -60,10 +76,8 @@ function designContextBlocks(input: BuildPromptInput): string {
 			? '(none)'
 			: input.components
 					.map((c) => {
-						const looksSvelte =
-							/\$props\s*\(/.test(c.html) || /<\/?script\b/i.test(c.html);
-						const fence = looksSvelte ? 'svelte' : 'html';
-						return `### ${c.name}${c.description ? ` — ${c.description}` : ''}\n\`\`\`${fence}\n${c.html}\n\`\`\``;
+						const props = parseComponentProps(c).join(', ') || '(none)';
+						return `### ${c.name}${c.description ? ` — ${c.description}` : ''}\nkind: ${c.kind}; role: ${c.role}; starterKey: ${c.starterKey ?? '(none)'}; slots: [${props}]`;
 					})
 					.join('\n\n');
 
@@ -73,8 +87,8 @@ function designContextBlocks(input: BuildPromptInput): string {
 
 	const logoBlock = logoPair
 		? [
-				`- [logo/light] ${logoPair.light.name} (${logoPair.light.filename}) → ${input.assetBaseUrl}/api/design-asset/${logoPair.light.id}`,
-				`- [logo/dark] ${logoPair.dark.name} (${logoPair.dark.filename}) → ${input.assetBaseUrl}/api/design-asset/${logoPair.dark.id}`
+				`- [logo/light] ${logoPair.light.name} → ${input.assetBaseUrl}/api/design-asset/${logoPair.light.id}`,
+				`- [logo/dark] ${logoPair.dark.name} → ${input.assetBaseUrl}/api/design-asset/${logoPair.dark.id}`
 			].join('\n')
 		: '(no logos)';
 
@@ -84,7 +98,7 @@ function designContextBlocks(input: BuildPromptInput): string {
 			: nonLogoAssets
 					.map(
 						(a) =>
-							`- [${a.kind}] ${a.name} (${a.filename}) → ${input.assetBaseUrl}/api/design-asset/${a.id}`
+							`- [${a.kind}] ${a.name} → ${input.assetBaseUrl}/api/design-asset/${a.id}`
 					)
 					.join('\n');
 
@@ -99,7 +113,10 @@ function designContextBlocks(input: BuildPromptInput): string {
 		`# Design system (design.md)`,
 		input.designMd?.trim() || '(empty — use a clean, modern default)',
 		``,
-		`# Library components (reuse structure and patterns — emit Svelte for this template)`,
+		`# Email formatting rules (tone and structure guidance for copy)`,
+		EMAIL_FORMATTING_RULES.trim(),
+		``,
+		`# Library sections available (structure is fixed — fill their slots with copy)`,
 		componentBlock,
 		``,
 		`# Logos`,
@@ -108,40 +125,37 @@ function designContextBlocks(input: BuildPromptInput): string {
 		`# Other assets`,
 		otherAssetBlock,
 		``,
-		`# Required elements (bind these as $props)`,
-		required.length ? elementLines(required, input.assetBaseUrl) : '(none)',
+		`# Chosen sections (in order)`,
+		required.length ? elementLines(required, input.assetBaseUrl, input) : '(none required)',
 		``,
-		`# Optional elements`,
-		optional.length ? elementLines(optional, input.assetBaseUrl) : '(none)',
+		`# Optional sections`,
+		optional.length ? elementLines(optional, input.assetBaseUrl, input) : '(none)',
+		``,
+		`# Allowed slot keys (use ONLY these keys in "slots")`,
+		input.expectedSlots.length ? input.expectedSlots.join(', ') : '(none)',
 		``,
 		`# User prompt`,
 		input.prompt.trim() || '(no additional instructions)'
 	].join('\n');
 }
 
-/** @deprecated Use buildPlannerMessages / buildComponentMessages. Kept for tests during transition. */
-export function buildGenerationMessages(input: BuildPromptInput): Array<{
-	role: 'system' | 'user';
-	content: string;
-}> {
-	return buildPlannerMessages(input);
-}
-
-export function buildPlannerMessages(input: BuildPromptInput): Array<{
+export function buildScaffoldMessages(input: BuildPromptInput): Array<{
 	role: 'system' | 'user';
 	content: string;
 }> {
 	const system = [
-		'You plan a Svelte 5 email template as a tree of components.',
-		'Return ONLY valid JSON (no markdown fences) with this shape:',
-		'{ "components": [ { "name": string, "kind": "root"|"component", "role": string, "props": string[], "imports"?: string[] } ] }',
-		'Exactly one component must have kind "root" and name "Root".',
-		'Component names must be PascalCase identifiers (e.g. Header, Hero, Footer).',
-		'props are the element slug names the component receives (e.g. primary_cta, primary_cta_url, headline).',
-		'Root imports child components via imports: ["Header","Hero"].',
-		'Split layout into 2–6 components. Keep email structure table-based.',
-		'Every required element prop must appear on at least one component.',
-		'When library components are provided, reuse matching patterns (Header, Footer, CTA, etc.) instead of inventing from scratch.'
+		'You write copy and slot values for an email template.',
+		'Return ONLY valid JSON (no markdown fences, no commentary) with this shape:',
+		'{ "subject"?: string, "preheader"?: string, "slots": { "<slotName>": "<value>" } }',
+		'Rules:',
+		'- Fill every meaningful slot for the chosen sections with short, email-ready copy.',
+		'- Use ONLY slot keys from the Allowed slot keys list. Extra keys are rejected.',
+		'- For URL slots, use real https:// URLs or leave empty if unknown.',
+		'- For image/logo URL slots that already have design-system assets listed, copy those URLs into the slots.',
+		'- preheader: one short preview sentence (≤90 chars).',
+		'- subject: optional override of the template subject.',
+		'- Do NOT invent HTML, CSS, or Svelte. Text values only.',
+		'- Keep paragraphs short (1–3 sentences). One clear primary CTA label.'
 	].join(' ');
 
 	return [
@@ -150,114 +164,67 @@ export function buildPlannerMessages(input: BuildPromptInput): Array<{
 	];
 }
 
-export function buildComponentMessages(
-	input: BuildPromptInput,
-	plan: ComponentPlan,
-	item: ComponentPlanItem
-): Array<{ role: 'system' | 'user'; content: string }> {
-	const siblings = plan.components
-		.filter((c) => c.name !== item.name)
-		.map((c) => `- ${c.name} (${c.kind}): ${c.role}; props=[${c.props.join(', ')}]`)
-		.join('\n');
-
-	const system = [
-		'You author a single Svelte 5 email component (.svelte source).',
-		'Return ONLY the .svelte source. No markdown fences, no commentary.',
-		'Rules:',
-		'- Use Svelte 5 runes: let { … } = $props();',
-		'- Allowed in <script>: relative imports of sibling .svelte components (import X from "./X.svelte") and $props() destructuring ONLY. No other JavaScript.',
-		'- No <script module>. No events, no onMount, no fetch.',
-		'- Email-safe HTML: tables with <tbody>, inline CSS, no flex/grid reliance.',
-		'- Make the layout responsive and mobile-friendly: use percentage/table widths, a max-width ~600px container, fluid images (img { max-width: 100%; height: auto; }), and media queries for ~320px–600px viewports. Never assume a fixed desktop width.',
-		'- Keep output HTML-email-friendly: table-based layout, inline CSS, no <style> reliance beyond media queries, no <script>/<form>/<input>, no external CSS or web fonts, no flex/grid, no position:absolute. Use role="presentation" on layout tables.',
-		'- Always wrap <tr> inside <tbody>/<thead>/<tfoot>.',
-		'- Bind dynamic values via props (e.g. {headline}, href={cta_url}, src={logo_url}). Do NOT hardcode element text/urls/images — use the prop names.',
-		'- Every identifier used in markup (including component shorthand like <Header {logo_url} />) MUST appear in that same file\'s let { … } = $props() list. Do not reference undeclared names.',
-		'- You may use {#snippet}, {@render}, {#if}, {#each}.',
-		'- Support dark mode with @media (prefers-color-scheme: dark) in a <style> block.',
-		'- For logos use classes logo-light / logo-dark when both variants are available.',
-		`- This component is named ${item.name} (${item.kind}). Role: ${item.role}.`,
-		`- It must accept these props: ${item.props.join(', ') || '(none)'}.`,
-		item.imports?.length
-			? `- It must import and use: ${item.imports.map((n) => `./${n}.svelte`).join(', ')}.`
-			: '- Do not import other components unless listed.'
-	].join(' ');
-
-	const user = [
-		designContextBlocks(input),
-		``,
-		`# Full component plan`,
-		siblings || '(only this component)',
-		``,
-		`# Generate component: ${item.name}`
-	].join('\n');
-
-	return [
-		{ role: 'system', content: system },
-		{ role: 'user', content: user }
-	];
-}
-
 function stripMarkdownFences(text: string): string {
 	const trimmed = text.trim();
-	const fenced = trimmed.match(/^```(?:svelte|html|json)?\s*([\s\S]*?)\s*```$/i);
+	const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
 	return fenced ? fenced[1].trim() : trimmed;
 }
 
-function parsePlanJson(raw: string): ComponentPlan {
+export function parseScaffoldJson(raw: string, expectedSlots: string[]): ScaffoldContent {
 	const cleaned = stripMarkdownFences(raw);
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(cleaned);
 	} catch {
-		// Try to extract a JSON object from surrounding text
 		const match = cleaned.match(/\{[\s\S]*\}/);
-		if (!match) throw new Error('Planner did not return valid JSON');
+		if (!match) throw new Error('Scaffold did not return valid JSON');
 		parsed = JSON.parse(match[0]);
 	}
 
-	if (!parsed || typeof parsed !== 'object' || !Array.isArray((parsed as ComponentPlan).components)) {
-		throw new Error('Planner JSON missing components array');
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+		throw new Error('Scaffold JSON must be an object');
 	}
 
-	const components = (parsed as ComponentPlan).components.map((c, i) => {
-		if (!c || typeof c !== 'object') throw new Error(`Invalid component at index ${i}`);
-		const name = String(c.name ?? '').trim();
-		if (!/^[A-Z][A-Za-z0-9]*$/.test(name)) {
-			throw new Error(`Invalid component name "${name}"`);
-		}
-		const kind = c.kind === 'root' || name === 'Root' ? 'root' : 'component';
-		const props = Array.isArray(c.props) ? c.props.map(String) : [];
-		const imports = Array.isArray(c.imports) ? c.imports.map(String) : undefined;
-		return {
-			name: kind === 'root' ? 'Root' : name,
-			kind: kind as 'root' | 'component',
-			role: String(c.role ?? name),
-			props,
-			imports
-		};
-	});
+	const obj = parsed as Record<string, unknown>;
+	const expected = new Set(expectedSlots);
+	const slots: Record<string, string> = {};
 
-	const roots = components.filter((c) => c.kind === 'root');
-	if (roots.length !== 1) {
-		throw new Error(`Plan must have exactly one root (got ${roots.length})`);
+	const slotSrc =
+		obj.slots && typeof obj.slots === 'object' && !Array.isArray(obj.slots)
+			? (obj.slots as Record<string, unknown>)
+			: {};
+
+	for (const [key, value] of Object.entries(slotSrc)) {
+		if (typeof value !== 'string') continue;
+		if (expected.size > 0 && !expected.has(key)) continue;
+		slots[key] = value;
 	}
 
-	return { components };
+	// Also accept flat keys at top level
+	for (const [key, value] of Object.entries(obj)) {
+		if (key === 'subject' || key === 'preheader' || key === 'slots') continue;
+		if (typeof value !== 'string') continue;
+		if (expected.size > 0 && !expected.has(key)) continue;
+		if (!(key in slots)) slots[key] = value;
+	}
+
+	return {
+		subject: typeof obj.subject === 'string' ? obj.subject.trim() || undefined : undefined,
+		preheader: typeof obj.preheader === 'string' ? obj.preheader.trim() || undefined : undefined,
+		slots
+	};
 }
 
 export type GenerateProgressEvent =
 	| { stage: 'preparing'; message: string }
-	| { stage: 'planning'; message: string }
 	| { stage: 'calling_model'; message: string; model: string }
-	| { stage: 'generating_component'; message: string; component: string; index: number; total: number }
-	| { stage: 'validating'; message: string; component: string }
-	| { stage: 'streaming'; message: string; chars: number }
+	| { stage: 'delta'; delta: string; chars: number }
 	| { stage: 'saving'; message: string }
 	| { stage: 'done'; message: string }
-	| { stage: 'error'; message: string };
+	| { stage: 'error'; message: string }
+	| { stage: 'cancelled'; message: string };
 
-export type GenerateTemplateOptions = {
+export type GenerateScaffoldOptions = {
 	teamId: number;
 	domainId?: number;
 	templateId: string;
@@ -267,128 +234,32 @@ export type GenerateTemplateOptions = {
 	onProgress?: (event: GenerateProgressEvent) => void;
 };
 
-async function readOpenRouterStream(
-	response: Response,
-	opts: {
-		signal?: AbortSignal;
-		onDelta?: (chars: number) => void;
-	}
-): Promise<string> {
-	if (!response.body) {
-		throw new Error('OpenRouter returned an empty stream body');
-	}
-
-	const reader = response.body.getReader();
-	const decoder = new TextDecoder();
-	let buffer = '';
-	let content = '';
-
-	try {
-		while (true) {
-			if (opts.signal?.aborted) {
-				throw new DOMException('Generation cancelled', 'AbortError');
-			}
-			const { done, value } = await reader.read();
-			if (done) break;
-			buffer += decoder.decode(value, { stream: true });
-
-			const lines = buffer.split('\n');
-			buffer = lines.pop() ?? '';
-
-			for (const line of lines) {
-				const trimmed = line.trim();
-				if (!trimmed || trimmed.startsWith(':')) continue;
-				if (!trimmed.startsWith('data:')) continue;
-				const data = trimmed.slice(5).trim();
-				if (data === '[DONE]') continue;
-				try {
-					const parsed = JSON.parse(data) as {
-						choices?: Array<{ delta?: { content?: string } }>;
-					};
-					const delta = parsed.choices?.[0]?.delta?.content;
-					if (delta) {
-						content += delta;
-						opts.onDelta?.(content.length);
-					}
-				} catch {
-					// ignore malformed SSE chunks
-				}
-			}
-		}
-	} finally {
-		reader.releaseLock();
-	}
-
-	return content;
-}
-
-async function openRouterChat(
-	messages: Array<{ role: 'system' | 'user'; content: string }>,
-	opts: {
-		signal?: AbortSignal;
-		stream?: boolean;
-		onDelta?: (chars: number) => void;
-	}
-): Promise<string> {
-	if (!env.OPENROUTER_API_KEY) {
-		throw new Error('OPENROUTER_API_KEY is not configured');
-	}
-
-	const response = await fetch(`${env.OPENROUTER_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-			'Content-Type': 'application/json',
-			'HTTP-Referer': env.HOST_URL,
-			'X-Title': 'Owlery'
-		},
-		body: JSON.stringify({
-			model: env.OPENROUTER_MODEL,
-			messages,
-			stream: opts.stream !== false
-		}),
-		signal: opts.signal
-	});
-
-	if (!response.ok) {
-		const body = await response.text().catch(() => '');
-		throw new Error(`OpenRouter request failed (${response.status}): ${body.slice(0, 500)}`);
-	}
-
-	if (opts.stream === false) {
-		const json = (await response.json()) as {
-			choices?: Array<{ message?: { content?: string } }>;
-		};
-		return json.choices?.[0]?.message?.content ?? '';
-	}
-
-	return readOpenRouterStream(response, {
-		signal: opts.signal,
-		onDelta: opts.onDelta
-	});
-}
-
-const MAX_COMPONENT_RETRIES = 2;
-
 /**
- * Generate a Svelte component-tree email template:
- * 1) Planner JSON → component list
- * 2) Per-component .svelte source (validated)
- * 3) Persist to template_components
+ * AI fills slot values (copy) for the chosen sections. Does NOT write HTML.
+ * Persists JSON to templates.content and optionally updates subject.
+ * Streams OpenRouter tokens via onProgress when provided.
  */
-export async function generateTemplateHtml(opts: GenerateTemplateOptions): Promise<Template> {
+export async function generateScaffold(opts: GenerateScaffoldOptions): Promise<{
+	template: Template;
+	scaffold: ScaffoldContent;
+}> {
 	const emit = (event: GenerateProgressEvent) => opts.onProgress?.(event);
-
-	emit({ stage: 'preparing', message: 'Loading design system, components, and required elements…' });
 
 	if (opts.signal?.aborted) {
 		throw new DOMException('Generation cancelled', 'AbortError');
 	}
 
+	emit({ stage: 'preparing', message: 'Loading design system, sections, and expected slots…' });
+
 	const template = getTemplate(opts.templateId, opts.teamId, opts.domainId);
 	const bundle = getDesignSystemBundle(opts.teamId);
 	const elements = listElements(opts.templateId, opts.teamId, opts.domainId);
 	const assetBaseUrl = (opts.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
+	const expectedSlots = collectExpectedSlots(elements, bundle.components);
+
+	if (elements.length === 0) {
+		throw new Error('Add at least one section before generating content');
+	}
 
 	const promptInput: BuildPromptInput = {
 		template,
@@ -397,140 +268,79 @@ export async function generateTemplateHtml(opts: GenerateTemplateOptions): Promi
 		assets: bundle.assets,
 		elements,
 		prompt: opts.prompt,
-		assetBaseUrl
+		assetBaseUrl,
+		expectedSlots
 	};
 
-	emit({ stage: 'planning', message: 'Planning Svelte component tree…' });
+	const model = openRouterModel();
 	emit({
 		stage: 'calling_model',
-		message: `Sending plan prompt to ${env.OPENROUTER_MODEL}…`,
-		model: env.OPENROUTER_MODEL
+		message: `Streaming scaffold JSON from ${model}…`,
+		model
 	});
 
-	const planRaw = await openRouterChat(buildPlannerMessages(promptInput), {
+	const raw = await openRouterChat(buildScaffoldMessages(promptInput), {
 		signal: opts.signal,
 		stream: true,
-		onDelta: (chars) => {
-			emit({
-				stage: 'streaming',
-				message: `Receiving plan… (${chars.toLocaleString()} characters)`,
-				chars
-			});
+		jsonObject: true,
+		onDelta: (delta, chars) => {
+			emit({ stage: 'delta', delta, chars });
 		}
 	});
 
-	if (!planRaw?.trim()) {
-		throw new Error('Planner returned empty content');
+	if (!raw?.trim()) {
+		throw new Error('Scaffold returned empty content');
 	}
 
-	const plan = parsePlanJson(planRaw);
-	emit({
-		stage: 'planning',
-		message: `Plan ready: ${plan.components.map((c) => c.name).join(', ')}`
-	});
+	emit({ stage: 'saving', message: 'Parsing and saving slot values…' });
 
-	const generated: Array<{ name: string; kind: 'root' | 'component'; source: string; order: number }> =
-		[];
+	const scaffold = parseScaffoldJson(raw, expectedSlots);
 
-	for (let i = 0; i < plan.components.length; i++) {
-		const item = plan.components[i];
-		emit({
-			stage: 'generating_component',
-			message: `Generating ${item.name}…`,
-			component: item.name,
-			index: i + 1,
-			total: plan.components.length
-		});
-
-		let lastError: Error | undefined;
-		let source: string | undefined;
-
-		for (let attempt = 0; attempt <= MAX_COMPONENT_RETRIES; attempt++) {
-			if (opts.signal?.aborted) {
-				throw new DOMException('Generation cancelled', 'AbortError');
-			}
-
-			const messages = buildComponentMessages(promptInput, plan, item);
-			if (attempt > 0 && lastError) {
-				messages.push({
-					role: 'user',
-					content: `Previous attempt failed validation:\n${lastError.message}\n\nFix the .svelte source and return ONLY the corrected file.`
-				});
-			}
-
-			const raw = await openRouterChat(messages, {
-				signal: opts.signal,
-				stream: true,
-				onDelta: (chars) => {
-					emit({
-						stage: 'streaming',
-						message: `Writing ${item.name}… (${chars.toLocaleString()} characters)`,
-						chars
-					});
-				}
-			});
-
-			source = stripMarkdownFences(raw ?? '');
-			if (!source.trim()) {
-				lastError = new Error('Empty component source');
-				continue;
-			}
-
-			emit({ stage: 'validating', message: `Validating ${item.name}…`, component: item.name });
-
-			try {
-				validateComponentSource(item.name, source);
-				lastError = undefined;
-				break;
-			} catch (e) {
-				lastError =
-					e instanceof TemplateCompileError
-						? e
-						: new Error(e instanceof Error ? e.message : String(e));
-			}
-		}
-
-		if (lastError || !source) {
-			throw new Error(
-				`Failed to generate valid component ${item.name}: ${lastError?.message ?? 'unknown'}`
-			);
-		}
-
-		generated.push({
-			name: item.name,
-			kind: item.kind,
-			source,
-			order: i
-		});
+	// Preserve logos from design system if the model omitted them
+	const logoAssets = bundle.assets.filter((a) => a.kind === 'logo');
+	const logoPair = pickEmailLogos(logoAssets);
+	if (logoPair) {
+		const light = `${assetBaseUrl}/api/design-asset/${logoPair.light.id}`;
+		const dark = `${assetBaseUrl}/api/design-asset/${logoPair.dark.id}`;
+		if (!scaffold.slots.logo_url) scaffold.slots.logo_url = light;
+		if (!scaffold.slots.logo) scaffold.slots.logo = light;
+		if (!scaffold.slots.logo_dark_url) scaffold.slots.logo_dark_url = dark;
+		if (!scaffold.slots.logo_dark) scaffold.slots.logo_dark = dark;
 	}
 
-	emit({ stage: 'saving', message: 'Saving Svelte components…' });
-
-	replaceTemplateComponents(opts.templateId, opts.teamId, opts.domainId, generated);
+	const existingParsed = parseEmailBuilderContent(template.content);
+	const existing = existingParsed.scaffold.slots
+		? existingParsed.scaffold
+		: parseScaffoldContent(template.content);
+	const merged: ScaffoldContent = {
+		subject: scaffold.subject ?? existing.subject,
+		preheader: scaffold.preheader ?? existing.preheader,
+		slots: { ...existing.slots, ...scaffold.slots }
+	};
 
 	const designSnapshot = JSON.stringify({
 		designMd: bundle.system?.designMd ?? null,
 		components: bundle.components.map((c) => ({
 			id: c.id,
 			name: c.name,
-			description: c.description,
-			html: c.html
-		})),
-		assets: bundle.assets.map((a) => ({
-			id: a.id,
-			kind: a.kind,
-			name: a.name,
-			filename: a.filename
+			kind: c.kind,
+			role: c.role,
+			starterKey: c.starterKey,
+			props: c.props
 		})),
 		elements,
-		plan
+		scaffold: merged
 	});
 
-	// Clear legacy html so send path prefers components; keep prompt + snapshot.
+	const content = existingParsed.document
+		? serializeEmailBuilderContent(existingParsed.document, merged)
+		: serializeScaffoldContent(merged);
+
 	const updated = db
 		.update(templates)
 		.set({
-			html: null,
+			content,
+			...(merged.subject ? { subject: merged.subject } : {}),
 			prompt: opts.prompt,
 			designSnapshot,
 			updatedAt: nowIso()
@@ -539,6 +349,12 @@ export async function generateTemplateHtml(opts: GenerateTemplateOptions): Promi
 		.returning()
 		.get();
 
-	emit({ stage: 'done', message: 'Generation complete.' });
-	return updated;
+	emit({ stage: 'done', message: 'Scaffold saved.' });
+	return { template: updated, scaffold: merged };
+}
+
+/** @deprecated Prefer generateScaffold. Kept as alias during transition. */
+export async function generateTemplateHtml(opts: GenerateScaffoldOptions): Promise<Template> {
+	const { template } = await generateScaffold(opts);
+	return template;
 }

@@ -84,7 +84,6 @@
 				return async ({ result, update }) => {
 					pendingAction = null;
 					await update();
-					return result;
 				};
 			}}
 		>

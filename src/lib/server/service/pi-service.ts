@@ -4,14 +4,15 @@
  * Embeds `@earendil-works/pi-coding-agent` via createAgentSession.
  * Auth reuses OPENROUTER_API_KEY.
  *
- * HTML edits: write the current HTML into a work directory, let Pi (coding agent
- * with read/edit/write tools) change that file, then read the file back and load
- * it into the template/component — never treat Pi's chat text as the HTML.
+ * HTML edits: write the current HTML into a work directory, stage the team's
+ * design library (design.md, components, assets) so Pi can read them itself,
+ * let Pi change the target file with read/edit/write/ls, then read it back —
+ * never treat Pi's chat text as the HTML.
  *
  * Docs: https://pi.dev — SDK: https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/docs/sdk.md
  */
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
 import {
 	createAgentSession,
 	DefaultResourceLoader,
@@ -22,7 +23,14 @@ import {
 	type AgentSessionEvent
 } from '@earendil-works/pi-coding-agent';
 import { cuid } from '$lib/utils';
+import type { DesignAssetKind, TemplateComponentKind } from '../db/schema';
+import { EMAIL_FORMATTING_RULES } from '../email-formatting-rules';
 import { env } from '../env';
+import {
+	assetDiskPath,
+	getDesignSystemBundle,
+	type DesignAsset
+} from './design-system-service';
 
 export type PiSessionHandle = {
 	id: string;
@@ -37,28 +45,65 @@ export type SpawnPiSessionOptions = {
 	modelId?: string;
 	/**
 	 * `connection` — tool-free ping/smoke session.
-	 * `html-edit` — coding agent with read/edit/write over a work directory.
+	 * `html-edit` — coding agent with read/edit/write/ls over a work directory (single file).
+	 * `email-tree-edit` — coding agent over an `email/` multi-file Svelte tree.
 	 */
-	purpose?: 'connection' | 'html-edit';
+	purpose?: 'connection' | 'html-edit' | 'email-tree-edit';
 };
 
 const HTML_EDIT_SYSTEM_PROMPT = [
 	'You are a coding agent.',
-	'Your job is to edit the email/component HTML file in the current working directory using your tools (read, edit, write).',
+	'Your job is to edit the email/component HTML file in the current working directory using your tools (read, edit, write, ls).',
 	'Apply the user instruction to that file.',
-	'Prefer editing the target file directly — it already reflects the brand from generation.',
-	'Only open files under components/ when the instruction needs a layout/pattern reference.',
-	'Preserve email-safe markup (tables, inline CSS, Svelte props/snippets) unless asked to change them.',
+	'Prefer editing the target file first — it often already reflects the brand from generation.',
+	'When the instruction needs brand tokens, patterns, or images, open design.md, components/, or assets/README.md yourself.',
+	'For images/logos in HTML, use the embed URLs listed in assets/README.md (not local file paths).',
+	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
+	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
+	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
 	'Do not create unrelated files. Do not leave the work directory.'
 ].join(' ');
 
+const EMAIL_TREE_EDIT_SYSTEM_PROMPT = [
+	'You are a coding agent.',
+	'Your job is to edit the Svelte email component tree under email/ using your tools (read, edit, write, ls).',
+	'Apply the user instruction across one or more files in email/ as needed.',
+	'Root.svelte composes the email; section components are sibling .svelte files imported by Root.',
+	'You may create new section .svelte files and update Root imports; you may remove unused section files.',
+	'When the instruction needs brand tokens, patterns, or images, open design.md, components/, or assets/README.md yourself.',
+	'For images/logos in HTML, use the embed URLs listed in assets/README.md (not local file paths).',
+	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
+	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
+	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
+	'Keep <script> limited to relative .svelte imports and $props() only — a single top-level <script> block (never two).',
+	'Do not modify design.md, components/, or assets/. Do not leave the work directory.'
+].join(' ');
+
+/** A template component read back from a Pi email/ work tree. */
+export type PiTemplateTreeComponent = {
+	name: string;
+	kind: TemplateComponentKind;
+	source: string;
+	order: number;
+};
+
+export type PiDesignAssetRef = {
+	id: string;
+	kind: DesignAssetKind;
+	name: string;
+	filename: string;
+	mime: string;
+	size: number;
+};
+
 export type PiDesignContext = {
-	/**
-	 * Full design.md. Prefer only for one-shot generation — omit on Pi edit to avoid
-	 * reloading the entire brand doc into context on every tweak.
-	 */
 	designMd?: string | null;
 	components?: Array<{ name: string; description?: string | null; html: string }>;
+	assets?: PiDesignAssetRef[];
+	/** Base URL for /api/design-asset/{id} embed links. */
+	assetBaseUrl?: string;
+	/** Exclude a design-library component with this name (the one being edited). */
+	excludeComponentName?: string | null;
 };
 
 /** Safe filename stem for a design component in the Pi work directory. */
@@ -71,10 +116,18 @@ export function slugifyPiComponentFilename(name: string): string {
 	return slug || 'component';
 }
 
+export function safePiAssetFilename(filename: string): string {
+	return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+/** Relative path for a design asset inside the Pi work directory. */
+export function piAssetRelativePath(asset: Pick<PiDesignAssetRef, 'id' | 'kind' | 'filename'>): string {
+	return `assets/${asset.kind}/${asset.id}-${safePiAssetFilename(asset.filename)}`;
+}
+
 /**
- * Build design-system files for the Pi work directory.
- * design.md is optional and usually omitted for edit sessions (context cost);
- * component HTML refs are the lighter fallback when pattern matching is needed.
+ * Build text design-system files for the Pi work directory
+ * (design.md, components/, assets/README.md). Binary assets are copied separately.
  */
 export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 	relativePath: string;
@@ -82,10 +135,19 @@ export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 }> {
 	const files: Array<{ relativePath: string; content: string }> = [];
 	const designMd = design?.designMd?.trim() ?? '';
-	const components = design?.components?.filter((c) => c.html?.trim()) ?? [];
+	const excludeName = design?.excludeComponentName?.trim() ?? '';
+	const components =
+		design?.components?.filter(
+			(c) => c.html?.trim() && (!excludeName || c.name !== excludeName)
+		) ?? [];
+	const assets = design?.assets ?? [];
+	const assetBaseUrl = (design?.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
 
 	if (designMd) {
-		files.push({ relativePath: 'design.md', content: designMd.endsWith('\n') ? designMd : `${designMd}\n` });
+		files.push({
+			relativePath: 'design.md',
+			content: designMd.endsWith('\n') ? designMd : `${designMd}\n`
+		});
 	}
 
 	if (components.length > 0) {
@@ -102,20 +164,64 @@ export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 			used.add(filename);
 			const relativePath = `components/${filename}`;
 			const header = [
-				c.description?.trim() ? `<!-- ${c.name}: ${c.description.trim()} -->` : `<!-- ${c.name} -->`,
+				c.description?.trim()
+					? `<!-- ${c.name}: ${c.description.trim()} -->`
+					: `<!-- ${c.name} -->`,
 				''
 			].join('\n');
 			files.push({
 				relativePath,
 				content: `${header}${c.html.trim()}\n`
 			});
-			indexLines.push(`- \`${relativePath}\` — ${c.name}${c.description?.trim() ? `: ${c.description.trim()}` : ''}`);
+			indexLines.push(
+				`- \`${relativePath}\` — ${c.name}${c.description?.trim() ? `: ${c.description.trim()}` : ''}`
+			);
 		}
 		indexLines.push('');
 		files.push({ relativePath: 'components/README.md', content: indexLines.join('\n') });
 	}
 
+	if (assets.length > 0) {
+		const indexLines = [
+			'# Design assets',
+			'',
+			'Uploaded logos, images, and fonts for this brand.',
+			'Use the **embed URL** in HTML `src` / CSS — not the local file path.',
+			'',
+			'| kind | name | mime | size | local file | embed URL |',
+			'| --- | --- | --- | --- | --- | --- |'
+		];
+		for (const a of assets) {
+			const relativePath = piAssetRelativePath(a);
+			const url = `${assetBaseUrl}/api/design-asset/${a.id}`;
+			indexLines.push(
+				`| ${a.kind} | ${a.name} | ${a.mime} | ${a.size} | \`${relativePath}\` | ${url} |`
+			);
+		}
+		indexLines.push('');
+		files.push({ relativePath: 'assets/README.md', content: indexLines.join('\n') });
+	}
+
 	return files;
+}
+
+/** Copy design asset binaries from Owlery disk storage into the Pi work directory. */
+export async function copyPiDesignAssetsToWorkDir(
+	workDir: string,
+	teamId: number,
+	assets: DesignAsset[]
+): Promise<void> {
+	for (const asset of assets) {
+		const relative = piAssetRelativePath(asset);
+		const dest = join(workDir, relative);
+		const src = assetDiskPath(teamId, asset.kind, asset.id, asset.filename);
+		await mkdir(dirname(dest), { recursive: true });
+		try {
+			await copyFile(src, dest);
+		} catch {
+			// Missing on-disk file — skip; README still lists the embed URL.
+		}
+	}
 }
 
 export function buildPiAgentsMd(opts: {
@@ -124,16 +230,22 @@ export function buildPiAgentsMd(opts: {
 	designFiles: Array<{ relativePath: string }>;
 }): string {
 	const hasDesignMd = opts.designFiles.some((f) => f.relativePath === 'design.md');
-	const componentFiles = opts.designFiles.filter((f) => f.relativePath.startsWith('components/'));
+	const hasComponents = opts.designFiles.some((f) => f.relativePath.startsWith('components/'));
+	const hasAssets = opts.designFiles.some((f) => f.relativePath.startsWith('assets/'));
 	const designSection: string[] = [];
-	if (hasDesignMd || componentFiles.length > 0) {
-		designSection.push('## Optional design references', '');
-		designSection.push('- Edit the target file first; it already carries the generated brand.');
+	if (hasDesignMd || hasComponents || hasAssets) {
+		designSection.push('## Design library (read on demand)', '');
+		designSection.push('- Edit the target file first; open these only when the instruction needs them.');
 		if (hasDesignMd) {
-			designSection.push('- `design.md` is available — open it only if the instruction needs brand tokens not obvious from the file.');
+			designSection.push('- `design.md` — brand tokens, typography, colors.');
 		}
-		if (componentFiles.length > 0) {
-			designSection.push('- `components/` has reference HTML patterns — open only when matching an existing pattern.');
+		if (hasComponents) {
+			designSection.push('- `components/` — reusable HTML patterns (`components/README.md` index).');
+		}
+		if (hasAssets) {
+			designSection.push(
+				'- `assets/README.md` — uploaded logos/images/fonts with embed URLs for HTML.'
+			);
 		}
 		designSection.push('');
 	}
@@ -148,10 +260,134 @@ export function buildPiAgentsMd(opts: {
 		...designSection,
 		'## Rules',
 		'- Keep email-safe HTML (tables + inline CSS) unless asked otherwise.',
+		'- Always wrap `<tr>` in `<tbody>`/`<thead>`/`<tfoot>` — never put `<tr>` directly under `<table>`.',
 		'- Preserve `{{placeholders}}` unless asked to change them.',
 		'- Do not modify files outside this directory.',
-		'- Do not overwrite design.md or components/; they are read-only context.'
+		'- Do not overwrite design.md, components/, or assets/; they are read-only context.',
+		'- In HTML, reference assets via their embed URLs from assets/README.md.',
+		'',
+		EMAIL_FORMATTING_RULES.trim()
 	].join('\n');
+}
+
+/**
+ * AGENTS.md for a whole-email multi-file Svelte tree under `email/`.
+ */
+export function buildPiEmailTreeAgentsMd(opts: {
+	fileNames: string[];
+	metaLines: string[];
+	designFiles: Array<{ relativePath: string }>;
+}): string {
+	const hasDesignMd = opts.designFiles.some((f) => f.relativePath === 'design.md');
+	const hasComponents = opts.designFiles.some((f) => f.relativePath.startsWith('components/'));
+	const hasAssets = opts.designFiles.some((f) => f.relativePath.startsWith('assets/'));
+	const designSection: string[] = [];
+	if (hasDesignMd || hasComponents || hasAssets) {
+		designSection.push('## Design library (read on demand)', '');
+		designSection.push(
+			'- Prefer editing `email/` first; open these only when the instruction needs them.'
+		);
+		if (hasDesignMd) {
+			designSection.push('- `design.md` — brand tokens, typography, colors.');
+		}
+		if (hasComponents) {
+			designSection.push('- `components/` — reusable HTML patterns (`components/README.md` index).');
+		}
+		if (hasAssets) {
+			designSection.push(
+				'- `assets/README.md` — uploaded logos/images/fonts with embed URLs for HTML.'
+			);
+		}
+		designSection.push('');
+	}
+
+	const listed =
+		opts.fileNames.length > 0
+			? opts.fileNames.map((f) => `- \`email/${f}\``)
+			: ['- (empty — create Root.svelte and section components)'];
+
+	return [
+		'# Owlery email tree edit workspace',
+		'',
+		'The email is a Svelte 5 component tree under `email/`.',
+		'`email/Root.svelte` composes the message; other `email/*.svelte` files are sections.',
+		'You may edit multiple files, add new section `.svelte` files, and update Root imports.',
+		'You may delete unused section files. Keep exactly one Root.',
+		'',
+		'## Email files',
+		...listed,
+		'',
+		...(opts.metaLines.length ? ['## Meta', ...opts.metaLines, ''] : []),
+		...designSection,
+		'## Rules',
+		'- Keep email-safe HTML (tables + inline CSS) unless asked otherwise.',
+		'- Always wrap `<tr>` in `<tbody>`/`<thead>`/`<tfoot>` — never put `<tr>` directly under `<table>`.',
+		'- Bind element values via `$props()` — do not hardcode required-element values.',
+		'- `<script>` may only contain relative `.svelte` imports and `$props()` — exactly one top-level `<script>` block.',
+		'- Component file names must be PascalCase identifiers (e.g. `Header.svelte`, `Hero.svelte`).',
+		'- Do not modify files outside this directory.',
+		'- Do not overwrite design.md, components/, or assets/; they are read-only context.',
+		'- In HTML, reference assets via their embed URLs from assets/README.md.',
+		'',
+		EMAIL_FORMATTING_RULES.trim()
+	].join('\n');
+}
+
+/** Safe PascalCase-ish filename stem for email/*.svelte staging. */
+export function safePiEmailComponentFilename(name: string): string {
+	const trimmed = name.trim().replace(/\.svelte$/i, '');
+	const cleaned = trimmed.replace(/[^A-Za-z0-9_]/g, '');
+	if (/^[A-Za-z][A-Za-z0-9_]*$/.test(cleaned)) return cleaned;
+	const fallback = cleaned.replace(/^[^A-Za-z]+/, '');
+	return fallback || 'Component';
+}
+
+/**
+ * Read `email/*.svelte` from a Pi work directory into template component rows.
+ * Root (case-insensitive) → kind root; others → component. Empty files skipped.
+ */
+export async function readPiEmailTree(emailDir: string): Promise<PiTemplateTreeComponent[]> {
+	let entries: string[];
+	try {
+		entries = await readdir(emailDir);
+	} catch (err) {
+		const code = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
+		if (code === 'ENOENT') {
+			throw new Error('Pi finished but email/ directory is missing. The tree was not applied.');
+		}
+		throw err;
+	}
+
+	const svelteFiles = entries
+		.filter((e) => e.toLowerCase().endsWith('.svelte'))
+		.map((e) => basename(e))
+		.sort((a, b) => {
+			const aRoot = a.replace(/\.svelte$/i, '').toLowerCase() === 'root';
+			const bRoot = b.replace(/\.svelte$/i, '').toLowerCase() === 'root';
+			if (aRoot && !bRoot) return -1;
+			if (!aRoot && bRoot) return 1;
+			return a.localeCompare(b);
+		});
+
+	const components: PiTemplateTreeComponent[] = [];
+	for (const file of svelteFiles) {
+		const stem = file.replace(/\.svelte$/i, '');
+		const name = safePiEmailComponentFilename(stem);
+		if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(stem) && name === 'Component') {
+			continue;
+		}
+		const source = await readFile(join(emailDir, file), 'utf8');
+		if (!source.trim() || !looksLikeHtml(source)) continue;
+		const kind: TemplateComponentKind = name.toLowerCase() === 'root' ? 'root' : 'component';
+		components.push({
+			name: kind === 'root' ? 'Root' : name,
+			kind,
+			source,
+			order: components.length
+		});
+	}
+
+	return components;
 }
 
 type PiRegistryEntry = PiSessionHandle;
@@ -235,7 +471,13 @@ export async function spawnPiSession(
 	const agentDir = resolvePiAgentDir();
 	const purpose = opts.purpose ?? 'connection';
 	const settingsManager = SettingsManager.inMemory();
-	const isHtmlEdit = purpose === 'html-edit';
+	const isCodingEdit = purpose === 'html-edit' || purpose === 'email-tree-edit';
+	const systemPrompt =
+		purpose === 'email-tree-edit'
+			? EMAIL_TREE_EDIT_SYSTEM_PROMPT
+			: purpose === 'html-edit'
+				? HTML_EDIT_SYSTEM_PROMPT
+				: 'You are a minimal connectivity probe. Reply briefly.';
 
 	const resourceLoader = new DefaultResourceLoader({
 		cwd,
@@ -245,13 +487,13 @@ export async function spawnPiSession(
 		noSkills: true,
 		noPromptTemplates: true,
 		noThemes: true,
-		// html-edit: allow AGENTS.md in the work dir; connection: no project context
-		noContextFiles: !isHtmlEdit,
-		...(isHtmlEdit
-			? { systemPrompt: HTML_EDIT_SYSTEM_PROMPT }
+		// coding edits: allow AGENTS.md in the work dir; connection: no project context
+		noContextFiles: !isCodingEdit,
+		...(isCodingEdit
+			? { systemPrompt }
 			: {
 					agentsFilesOverride: () => ({ agentsFiles: [] }),
-					systemPrompt: 'You are a minimal connectivity probe. Reply briefly.'
+					systemPrompt
 				})
 	});
 	await resourceLoader.reload();
@@ -263,10 +505,10 @@ export async function spawnPiSession(
 			agentDir,
 			modelRuntime,
 			model,
-			// HTML edits: enable thinking so the UI can stream it. Connection probes stay quiet.
-			thinkingLevel: isHtmlEdit ? 'low' : 'off',
-			...(isHtmlEdit
-				? { tools: ['read', 'edit', 'write'] }
+			// Coding edits: enable thinking so the UI can stream it. Connection probes stay quiet.
+			thinkingLevel: isCodingEdit ? 'low' : 'off',
+			...(isCodingEdit
+				? { tools: ['read', 'edit', 'write', 'ls'] }
 				: { noTools: 'all' as const }),
 			resourceLoader,
 			sessionManager: SessionManager.inMemory(cwd),
@@ -331,7 +573,13 @@ export type PiEditStreamEvent =
 	| { type: 'text'; delta: string }
 	| { type: 'tool_start'; toolName: string; detail?: string }
 	| { type: 'tool_end'; toolName: string; isError?: boolean; detail?: string }
-	| { type: 'done'; html: string; message?: string }
+	| {
+			type: 'done';
+			html: string;
+			message?: string;
+			/** Present after whole-email tree edits. */
+			components?: PiTemplateTreeComponent[];
+	  }
 	| { type: 'error'; message: string }
 	| { type: 'cancelled'; message: string };
 
@@ -368,7 +616,7 @@ export function mapAgentSessionEventToPiEdit(event: AgentSessionEvent): PiEditSt
 		case 'turn_start': {
 			const turnIndex =
 				typeof (event as { turnIndex?: unknown }).turnIndex === 'number'
-					? (event as { turnIndex: number }).turnIndex
+					? (event as unknown as { turnIndex: number }).turnIndex
 					: undefined;
 			return {
 				type: 'step',
@@ -472,6 +720,10 @@ export function looksLikeHtml(text: string): boolean {
 export type EditHtmlWithPiInput = {
 	html: string;
 	instruction: string;
+	/** Team whose design library is staged into the work directory. */
+	teamId: number;
+	/** Origin for /api/design-asset/{id} URLs (default: HOST_URL). */
+	assetBaseUrl?: string;
 	/** Override work-file name (default email.html / component.html). */
 	filename?: string;
 	context?: {
@@ -480,12 +732,6 @@ export type EditHtmlWithPiInput = {
 		description?: string | null;
 		subject?: string;
 	};
-	/**
-	 * Optional design references for the work directory.
-	 * For template edits, omit `designMd` — generation already applied it; re-injecting
-	 * the full doc on every Pi tweak is unnecessary context cost.
-	 */
-	design?: PiDesignContext;
 	/** Abort signal (SSE client disconnect / Stop). */
 	signal?: AbortSignal;
 	/** Live progress for SSE clients. */
@@ -495,9 +741,9 @@ export type EditHtmlWithPiInput = {
 /**
  * Let Pi edit HTML as a coding agent:
  * 1. Write current HTML into an isolated work directory
- * 2. Inject optional design refs (prefer components/; skip design.md on edits)
- * 3. Spawn Pi with read/edit/write tools in that directory
- * 4. Instruct Pi to change the file (optionally streaming progress)
+ * 2. Load the team's design library (design.md, components, assets) into that directory
+ * 3. Spawn Pi with read/edit/write/ls so it can fetch context itself
+ * 4. Instruct Pi to change the target file (optionally streaming progress)
  * 5. Read the file back and return it for the UI/DB
  */
 export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string> {
@@ -526,16 +772,38 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string
 		input.filename ??
 		(input.context?.kind === 'component' ? 'component.html' : 'email.html');
 	const filePath = join(workDir, filename);
+	const assetBaseUrl = (input.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
 
 	await mkdir(workDir, { recursive: true });
 	await writeFile(filePath, input.html.trim() ? input.html : '<!-- empty -->\n', 'utf8');
 
-	const designFiles = buildPiDesignWorkspaceFiles(input.design);
+	const bundle = getDesignSystemBundle(input.teamId);
+	const design: PiDesignContext = {
+		designMd: bundle.system?.designMd ?? null,
+		components: bundle.components.map((c) => ({
+			name: c.name,
+			description: c.description,
+			html: c.html
+		})),
+		assets: bundle.assets.map((a) => ({
+			id: a.id,
+			kind: a.kind,
+			name: a.name,
+			filename: a.filename,
+			mime: a.mime,
+			size: a.size
+		})),
+		assetBaseUrl,
+		excludeComponentName: input.context?.name ?? null
+	};
+
+	const designFiles = buildPiDesignWorkspaceFiles(design);
 	for (const file of designFiles) {
 		const absolute = join(workDir, file.relativePath);
 		await mkdir(dirname(absolute), { recursive: true });
 		await writeFile(absolute, file.content, 'utf8');
 	}
+	await copyPiDesignAssetsToWorkDir(workDir, input.teamId, bundle.assets);
 
 	const metaLines = [
 		input.context?.kind ? `- kind: ${input.context.kind}` : null,
@@ -570,18 +838,6 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string
 			throw err;
 		}
 
-		const designHint =
-			designFiles.length > 0
-				? [
-						'',
-						'## Optional references (do not read unless needed)',
-						'Edit the target file directly. Open these only if the instruction needs a brand/pattern lookup:',
-						...designFiles
-							.filter((f) => f.relativePath !== 'components/README.md')
-							.map((f) => `- ${f.relativePath}`)
-					]
-				: [];
-
 		await handle.session.prompt(
 			[
 				`Open and edit \`${filename}\` in the current working directory.`,
@@ -589,9 +845,9 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<string
 				'',
 				'## Instruction',
 				instruction,
-				...designHint,
 				'',
-				'Use your read/edit/write tools to apply the change to that file.',
+				'Use your read/edit/write/ls tools to apply the change to that file.',
+				'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
 				'When done, the updated HTML must be saved in that file.'
 			].join('\n')
 		);
@@ -625,4 +881,193 @@ export async function editHtmlWithPiStream(
 	input: EditHtmlWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
 ): Promise<string> {
 	return editHtmlWithPi(input);
+}
+
+export type EditTemplateTreeWithPiInput = {
+	components: Array<{
+		name: string;
+		kind: TemplateComponentKind;
+		source: string;
+		order?: number;
+	}>;
+	instruction: string;
+	teamId: number;
+	assetBaseUrl?: string;
+	subject?: string;
+	/** Abort signal (SSE client disconnect / Stop). */
+	signal?: AbortSignal;
+	/** Live progress for SSE clients. */
+	onEvent?: (event: PiEditStreamEvent) => void;
+};
+
+/**
+ * Let Pi edit a full Svelte email component tree:
+ * 1. Stage all components under email/*.svelte in an isolated work directory
+ * 2. Load the team's design library for on-demand context
+ * 3. Spawn Pi with read/edit/write/ls so it can change any/all files and add sections
+ * 4. Read email/ back and return the component list for DB sync
+ */
+export async function editTemplateTreeWithPi(
+	input: EditTemplateTreeWithPiInput
+): Promise<PiTemplateTreeComponent[]> {
+	const instruction = input.instruction.trim();
+	if (!instruction) {
+		throw new Error('Instruction is required');
+	}
+	if (input.components.length === 0) {
+		throw new Error('No components to edit');
+	}
+
+	const emit = (event: PiEditStreamEvent) => {
+		try {
+			input.onEvent?.(event);
+		} catch {
+			// Client callback errors must not break the edit.
+		}
+	};
+
+	if (input.signal?.aborted) {
+		const err = new Error('Edit cancelled');
+		err.name = 'AbortError';
+		throw err;
+	}
+
+	const workId = cuid();
+	const workDir = join(resolvePiWorkRoot(), workId);
+	const emailDir = join(workDir, 'email');
+	const assetBaseUrl = (input.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
+
+	await mkdir(emailDir, { recursive: true });
+
+	const usedNames = new Set<string>();
+	const stagedFiles: string[] = [];
+	const sorted = [...input.components].sort(
+		(a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name)
+	);
+
+	for (const component of sorted) {
+		const baseName =
+			component.kind === 'root' ? 'Root' : safePiEmailComponentFilename(component.name);
+		let fileStem = baseName;
+		let n = 2;
+		while (usedNames.has(fileStem.toLowerCase())) {
+			fileStem = `${baseName}${n}`;
+			n += 1;
+		}
+		usedNames.add(fileStem.toLowerCase());
+		const filename = `${fileStem}.svelte`;
+		stagedFiles.push(filename);
+		await writeFile(
+			join(emailDir, filename),
+			component.source.trim() ? component.source : '<!-- empty -->\n',
+			'utf8'
+		);
+	}
+
+	const bundle = getDesignSystemBundle(input.teamId);
+	const design: PiDesignContext = {
+		designMd: bundle.system?.designMd ?? null,
+		components: bundle.components.map((c) => ({
+			name: c.name,
+			description: c.description,
+			html: c.html
+		})),
+		assets: bundle.assets.map((a) => ({
+			id: a.id,
+			kind: a.kind,
+			name: a.name,
+			filename: a.filename,
+			mime: a.mime,
+			size: a.size
+		})),
+		assetBaseUrl
+	};
+
+	const designFiles = buildPiDesignWorkspaceFiles(design);
+	for (const file of designFiles) {
+		const absolute = join(workDir, file.relativePath);
+		await mkdir(dirname(absolute), { recursive: true });
+		await writeFile(absolute, file.content, 'utf8');
+	}
+	await copyPiDesignAssetsToWorkDir(workDir, input.teamId, bundle.assets);
+
+	const metaLines = [
+		'- kind: email-tree',
+		`- components: ${stagedFiles.length}`,
+		input.subject ? `- subject: ${input.subject}` : null
+	].filter((line): line is string => Boolean(line));
+
+	await writeFile(
+		join(workDir, 'AGENTS.md'),
+		buildPiEmailTreeAgentsMd({ fileNames: stagedFiles, metaLines, designFiles }),
+		'utf8'
+	);
+
+	emit({ type: 'step', message: 'Starting Pi…' });
+
+	const handle = await spawnPiSession({ purpose: 'email-tree-edit', cwd: workDir });
+	const onAbort = () => {
+		void handle.session.abort().catch(() => undefined);
+	};
+	input.signal?.addEventListener('abort', onAbort);
+
+	const unsubscribe = handle.session.subscribe((event: AgentSessionEvent) => {
+		const mapped = mapAgentSessionEventToPiEdit(event);
+		if (mapped) emit(mapped);
+	});
+
+	try {
+		if (input.signal?.aborted) {
+			const err = new Error('Edit cancelled');
+			err.name = 'AbortError';
+			throw err;
+		}
+
+		await handle.session.prompt(
+			[
+				'Edit the Svelte email under `email/` in the current working directory.',
+				`Email directory: ${emailDir}`,
+				'',
+				'## Instruction',
+				instruction,
+				'',
+				'Use your read/edit/write/ls tools. You may change multiple files, add new section `.svelte` files, and update Root imports.',
+				'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
+				'When done, the updated tree must live under `email/` with exactly one Root.svelte.'
+			].join('\n')
+		);
+		await handle.session.agent.waitForIdle();
+
+		if (input.signal?.aborted) {
+			const err = new Error('Edit cancelled');
+			err.name = 'AbortError';
+			throw err;
+		}
+
+		const tree = await readPiEmailTree(emailDir);
+		const roots = tree.filter((c) => c.kind === 'root');
+		if (roots.length !== 1) {
+			throw new Error(
+				`Pi finished but email/ must contain exactly one Root (found ${roots.length}). The tree was not applied.`
+			);
+		}
+		if (tree.length === 0) {
+			throw new Error('Pi finished but email/ has no valid .svelte components. The tree was not applied.');
+		}
+		return tree;
+	} finally {
+		input.signal?.removeEventListener('abort', onAbort);
+		unsubscribe();
+		disposePiSession(handle.id);
+		await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+	}
+}
+
+/**
+ * Same as {@link editTemplateTreeWithPi} but requires an `onEvent` callback for SSE streaming.
+ */
+export async function editTemplateTreeWithPiStream(
+	input: EditTemplateTreeWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
+): Promise<PiTemplateTreeComponent[]> {
+	return editTemplateTreeWithPi(input);
 }

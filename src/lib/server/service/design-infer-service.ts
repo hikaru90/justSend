@@ -1,5 +1,21 @@
-import { env } from '../env';
-import { addAsset, upsertComponent, upsertDesignMd, type DesignSystem } from './design-system-service';
+import {
+	addAsset,
+	ensureStarterComponents,
+	getComponent,
+	getDesignSystem,
+	listComponents,
+	parseComponentProps,
+	upsertComponent,
+	upsertDesignMd,
+	type DesignComponent,
+	type DesignSystem
+} from './design-system-service';
+import { openRouterChat, openRouterModel } from './openrouter';
+import {
+	STARTER_DESIGN_COMPONENTS,
+	getStarterDesignComponentByKey,
+	getStarterDesignComponentByName
+} from './design-component-library';
 import {
 	assertSafeUrl,
 	downloadAssetBytes,
@@ -71,7 +87,13 @@ function stripMarkdownFences(text: string): string {
 
 type InferPayload = {
 	designMd: string;
-	components?: Array<{ name: string; description?: string; html: string }>;
+	components?: Array<{
+		name?: string;
+		starterKey?: string;
+		description?: string;
+		props?: string[];
+		html: string;
+	}>;
 };
 
 function parseInferPayload(raw: string): InferPayload {
@@ -91,39 +113,22 @@ function parseInferPayload(raw: string): InferPayload {
 	}
 }
 
-async function chatCompletion(messages: Array<{ role: 'system' | 'user'; content: string }>) {
-	if (!env.OPENROUTER_API_KEY) {
-		throw new Error('OPENROUTER_API_KEY is not configured');
-	}
+export type InferProgressEvent =
+	| { stage: 'preparing'; message: string }
+	| { stage: 'fetching'; message: string }
+	| { stage: 'calling_model'; message: string; model: string }
+	| { stage: 'delta'; delta: string; chars: number }
+	| { stage: 'saving'; message: string }
+	| { stage: 'done'; message: string }
+	| { stage: 'error'; message: string }
+	| { stage: 'cancelled'; message: string };
 
-	const response = await fetch(`${env.OPENROUTER_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-			'Content-Type': 'application/json',
-			'HTTP-Referer': env.HOST_URL,
-			'X-Title': 'Owlery'
-		},
-		body: JSON.stringify({
-			model: env.OPENROUTER_MODEL,
-			messages
-		})
-	});
-
-	if (!response.ok) {
-		const body = await response.text().catch(() => '');
-		throw new Error(`OpenRouter request failed (${response.status}): ${body.slice(0, 500)}`);
-	}
-
-	const data = (await response.json()) as {
-		choices?: Array<{ message?: { content?: string } }>;
-	};
-	const content = data.choices?.[0]?.message?.content;
-	if (!content?.trim()) {
-		throw new Error('OpenRouter returned empty content');
-	}
-	return content;
-}
+export type InferDesignOptions = {
+	teamId: number;
+	rawUrl: string;
+	signal?: AbortSignal;
+	onProgress?: (event: InferProgressEvent) => void;
+};
 
 async function downloadLogoAndFonts(
 	teamId: number,
@@ -184,50 +189,221 @@ async function downloadLogoAndFonts(
 }
 
 export async function inferDesignSystemFromUrl(
-	teamId: number,
-	rawUrl: string
+	teamIdOrOpts: number | InferDesignOptions,
+	rawUrlMaybe?: string
 ): Promise<{ system: DesignSystem; componentsCreated: number; assetsDownloaded: number }> {
-	const url = assertSafeUrl(rawUrl.trim());
+	const opts: InferDesignOptions =
+		typeof teamIdOrOpts === 'number'
+			? { teamId: teamIdOrOpts, rawUrl: String(rawUrlMaybe ?? '') }
+			: teamIdOrOpts;
+	const emit = (event: InferProgressEvent) => opts.onProgress?.(event);
+
+	emit({ stage: 'preparing', message: 'Preparing design inference…' });
+	const url = assertSafeUrl(opts.rawUrl.trim());
+	emit({ stage: 'fetching', message: `Fetching ${url.toString()}…` });
 	const { raw, text: pageText } = await fetchPageHtml(url);
+	const starterList = STARTER_DESIGN_COMPONENTS.map(
+		(component) =>
+			`- ${component.starterKey} (${component.name}) props=[${component.props.join(', ')}]`
+	).join('\n');
 
 	const systemPrompt = [
 		'You extract a brand design system suitable for email templates from a website page.',
 		'Return ONLY valid JSON (no markdown fences) with this shape:',
-		'{ "designMd": string, "components": [ { "name": string, "description": string, "html": string } ] }',
+		'{ "designMd": string, "components": [ { "starterKey": string, "name": string, "description": string, "props"?: string[], "html": string } ] }',
 		'designMd must be a markdown document covering: brand voice, colors (hex), typography, spacing, buttons, links, logo usage, and email-friendly layout notes.',
-		'components should be 2–6 reusable email HTML snippets (inline CSS, table-friendly) inspired by the site (e.g. Primary Button, Footer, Header).',
-		'Use {{variable}} placeholders where dynamic text belongs.'
+		'components must be styled versions of the provided starter email components, not an open-ended component set.',
+		'Keep component names and starterKey values aligned to the supplied starter kit.',
+		'Each component should be valid Svelte email component source with only a single $props() script block, inline CSS, and table-friendly markup.',
+		'Use the starter kit prop names for dynamic values.'
 	].join(' ');
 
 	const userPrompt = [
 		`Source URL: ${url.toString()}`,
 		'',
+		'Starter email component kit to brand and refine:',
+		starterList,
+		'',
 		'Page content (scripts/styles removed, truncated):',
 		pageText
 	].join('\n');
 
-	const rawAi = await chatCompletion([
-		{ role: 'system', content: systemPrompt },
-		{ role: 'user', content: userPrompt }
-	]);
+	const model = openRouterModel();
+	emit({
+		stage: 'calling_model',
+		message: `Streaming design system from ${model}…`,
+		model
+	});
+
+	const rawAi = await openRouterChat(
+		[
+			{ role: 'system', content: systemPrompt },
+			{ role: 'user', content: userPrompt }
+		],
+		{
+			signal: opts.signal,
+			stream: true,
+			onDelta: (delta, chars) => {
+				emit({ stage: 'delta', delta, chars });
+			}
+		}
+	);
+
+	if (!rawAi?.trim()) {
+		throw new Error('OpenRouter returned empty content');
+	}
+
+	emit({ stage: 'saving', message: 'Parsing response and saving design system…' });
 
 	const payload = parseInferPayload(rawAi);
-	const system = upsertDesignMd(teamId, payload.designMd.trim());
+	const system = upsertDesignMd(opts.teamId, payload.designMd.trim());
+	ensureStarterComponents(opts.teamId);
+	const existingStarterByKey = new Map(
+		listComponents(opts.teamId)
+			.filter((component) => component.kind === 'starter' && component.starterKey)
+			.map((component) => [component.starterKey, component])
+	);
 
 	let componentsCreated = 0;
 	for (const component of payload.components ?? []) {
-		const name = component.name?.trim();
+		const starter =
+			(component.starterKey && getStarterDesignComponentByKey(component.starterKey)) ||
+			(component.name && getStarterDesignComponentByName(component.name)) ||
+			null;
+		if (!starter) continue;
+
+		const existing = existingStarterByKey.get(starter.starterKey) ?? null;
 		const html = component.html?.trim();
-		if (!name || !html) continue;
-		upsertComponent(teamId, {
-			name,
-			description: component.description?.trim() || null,
+		if (!html) continue;
+
+		const props =
+			Array.isArray(component.props) && component.props.length > 0
+				? component.props.map(String)
+				: existing
+					? parseComponentProps(existing)
+					: starter.props;
+
+		upsertComponent(opts.teamId, {
+			id: existing?.id,
+			name: starter.name,
+			kind: 'starter',
+			role: starter.role,
+			description: component.description?.trim() || starter.description,
+			props,
+			starterKey: starter.starterKey,
 			html
 		});
 		componentsCreated += 1;
 	}
 
-	const assetsDownloaded = await downloadLogoAndFonts(teamId, raw, url);
+	const assetsDownloaded = await downloadLogoAndFonts(opts.teamId, raw, url);
 
+	emit({
+		stage: 'done',
+		message: `Saved design system (${componentsCreated} components, ${assetsDownloaded} assets).`
+	});
 	return { system, componentsCreated, assetsDownloaded };
+}
+
+export type ReapplyProgressEvent =
+	| { stage: 'preparing'; message: string }
+	| { stage: 'calling_model'; message: string; model: string }
+	| { stage: 'delta'; delta: string; chars: number }
+	| { stage: 'saving'; message: string }
+	| { stage: 'done'; message: string }
+	| { stage: 'error'; message: string }
+	| { stage: 'cancelled'; message: string };
+
+export type ReapplyDesignOptions = {
+	teamId: number;
+	componentId: string;
+	signal?: AbortSignal;
+	onProgress?: (event: ReapplyProgressEvent) => void;
+};
+
+/**
+ * Restyle one library component so its visuals match the current design.md,
+ * while preserving structure, props, and email-safe markup.
+ */
+export async function reapplyDesignSystemToComponent(
+	teamIdOrOpts: number | ReapplyDesignOptions,
+	componentIdMaybe?: string
+): Promise<DesignComponent> {
+	const opts: ReapplyDesignOptions =
+		typeof teamIdOrOpts === 'number'
+			? { teamId: teamIdOrOpts, componentId: String(componentIdMaybe ?? '') }
+			: teamIdOrOpts;
+	const emit = (event: ReapplyProgressEvent) => opts.onProgress?.(event);
+
+	emit({ stage: 'preparing', message: 'Loading component and design.md…' });
+	const component = getComponent(opts.componentId, opts.teamId);
+	const system = getDesignSystem(opts.teamId);
+	const designMd = system?.designMd?.trim() ?? '';
+	if (!designMd) {
+		throw new Error('Save design.md before reapplying the design system');
+	}
+
+	const props = parseComponentProps(component);
+	const systemPrompt = [
+		'You restyle a single reusable email component so it matches a brand design system.',
+		'Return ONLY the full updated Svelte email component source — no markdown fences, no explanation.',
+		'Keep a single $props() script block, inline CSS, and table-friendly markup.',
+		'Preserve prop names and defaults. Update colors, typography, spacing, radii, buttons, links, and other visual tokens to match design.md.',
+		'Always wrap <tr> inside <tbody>/<thead>/<tfoot>.'
+	].join(' ');
+
+	const userPrompt = [
+		`Component name: ${component.name}`,
+		component.description ? `Description: ${component.description}` : null,
+		component.starterKey ? `starterKey: ${component.starterKey}` : null,
+		props.length > 0 ? `props: [${props.join(', ')}]` : null,
+		'',
+		'## design.md',
+		designMd,
+		'',
+		'## Current component source',
+		component.html
+	]
+		.filter((line): line is string => line != null)
+		.join('\n');
+
+	const model = openRouterModel();
+	emit({
+		stage: 'calling_model',
+		message: `Streaming restyle from ${model}…`,
+		model
+	});
+
+	const rawAi = await openRouterChat(
+		[
+			{ role: 'system', content: systemPrompt },
+			{ role: 'user', content: userPrompt }
+		],
+		{
+			signal: opts.signal,
+			stream: true,
+			onDelta: (delta, chars) => {
+				emit({ stage: 'delta', delta, chars });
+			}
+		}
+	);
+
+	emit({ stage: 'saving', message: 'Saving updated component…' });
+	const html = stripMarkdownFences(rawAi).trim();
+	if (!html) {
+		throw new Error('AI returned empty component HTML');
+	}
+
+	const updated = upsertComponent(opts.teamId, {
+		id: component.id,
+		name: component.name,
+		kind: component.kind === 'starter' ? 'starter' : 'custom',
+		role: component.role,
+		description: component.description,
+		props,
+		starterKey: component.starterKey,
+		html
+	});
+	emit({ stage: 'done', message: 'Component updated.' });
+	return updated;
 }

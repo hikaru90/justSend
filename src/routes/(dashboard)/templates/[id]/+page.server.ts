@@ -1,11 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
-import { generateTemplateHtml } from '$lib/server/service/ai-template-service';
+import { generateScaffold } from '$lib/server/service/ai-template-service';
 import {
 	addAsset,
 	getAsset,
+	getComponent,
 	getDesignSystemBundle,
-	upsertComponent
+	parseComponentProps
 } from '$lib/server/service/design-system-service';
 import { getDomain } from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
@@ -18,18 +19,24 @@ import {
 	createElement,
 	deleteElement,
 	listElements,
+	reorderElements,
 	updateElement
 } from '$lib/server/service/template-element-service';
 import {
-	hasTemplateComponents,
-	listComponents,
-	updateComponentSource
-} from '$lib/server/service/template-component-service';
-import { validateComponentSource } from '$lib/server/service/template-compile-service';
-import { renderTemplateHtml } from '$lib/server/service/template-render-service';
+	composeEmailHtml,
+	parseScaffoldContent,
+	serializeScaffoldContent
+} from '$lib/server/service/template-compose-service';
+import {
+	documentFromComposedHtml,
+	parseEmailBuilderContent,
+	renderEmailHtml,
+	serializeEmailBuilderContent,
+	EMPTY_DOCUMENT
+} from '$lib/email-builder/render';
 import { deleteTemplate, getTemplate, updateTemplate } from '$lib/server/service/template-service';
 import { templateElementTypes, type TemplateElementType } from '$lib/server/db/schema';
-import { pickEmailLogos } from '$lib/design/extractTokens';
+import { pickEmailLogos, extractDesignTokens, hexForColorInput } from '$lib/design/extractTokens';
 import { isPiConfigured } from '$lib/server/service/pi-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -42,6 +49,12 @@ function configFromForm(type: TemplateElementType, form: FormData): TemplateElem
 	const text = String(form.get('text') ?? '').trim();
 	const url = String(form.get('url') ?? '').trim();
 	const assetId = String(form.get('assetId') ?? '').trim();
+	const designComponentId = String(form.get('designComponentId') ?? '').trim();
+
+	if (type === 'component') {
+		if (designComponentId) config.designComponentId = designComponentId;
+		return config;
+	}
 
 	if (type === 'text' || LINKISH_TYPES.has(type)) {
 		if (text) config.text = text;
@@ -129,25 +142,14 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 				kind: a.kind as 'logo' | 'image'
 			}));
 
-		const components = listComponents(template.id, teamId, domainId);
-		const componentBacked = components.length > 0;
-		const legacyHtmlOnly = Boolean(template.html?.trim()) && !componentBacked;
-
-		let renderedPreviewHtml: string | null = null;
-		let renderError: string | null = null;
-		if (componentBacked) {
-			try {
-				renderedPreviewHtml = await renderTemplateHtml({
-					templateId: template.id,
-					teamId,
-					domainId,
-					assetBaseUrl: url.origin,
-					extraProps: logoExtraProps(teamId, url.origin)
-				});
-			} catch (e) {
-				renderError = e instanceof Error ? e.message : 'Failed to render components';
-			}
-		}
+		const parsedContent = parseEmailBuilderContent(template.content);
+		const scaffold = parsedContent.scaffold.slots
+			? parsedContent.scaffold
+			: parseScaffoldContent(template.content);
+		const hasHtml = Boolean(template.html?.trim());
+		const emailDocument =
+			parsedContent.document ??
+			(template.html?.trim() ? documentFromComposedHtml(template.html) : EMPTY_DOCUMENT);
 
 		return {
 			template,
@@ -155,34 +157,41 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 				...el,
 				parsedConfig: parseElementConfig(el.config)
 			})),
-			components: components.map((c) => ({
-				id: c.id,
-				name: c.name,
-				kind: c.kind,
-				source: c.source,
-				order: c.order
-			})),
-			componentBacked,
-			legacyHtmlOnly,
-			renderedPreviewHtml,
-			renderError,
-			designReady: Boolean(
-				bundle.system?.designMd?.trim() ||
-					bundle.components.length > 0 ||
-					bundle.assets.length > 0
-			),
+			scaffold,
+			emailDocument,
+			hasHtml,
+			previewHtml: template.html ?? null,
+		designReady: Boolean(
+			bundle.system?.designMd?.trim() ||
+				bundle.components.length > 0 ||
+				bundle.assets.length > 0
+		),
+		designColors: extractDesignTokens(bundle.system?.designMd ?? '').colors.map(hexForColorInput),
 			designSummary: {
 				hasMd: Boolean(bundle.system?.designMd?.trim()),
 				assetCount: bundle.assets.length,
-				componentCount: bundle.components.length
+				componentCount: bundle.components.length,
+				starterSectionCount: bundle.components.filter((component) => component.kind === 'starter')
+					.length
 			},
+			designComponents: bundle.components.map((c) => ({
+				id: c.id,
+				name: c.name,
+				kind: c.kind,
+				role: c.role,
+				description: c.description,
+				starterKey: c.starterKey,
+				html: c.html,
+				props: parseComponentProps(c)
+			})),
 			logoAssets: visualAssets.filter((a) => a.kind === 'logo'),
 			imageAssets: visualAssets.filter((a) => a.kind === 'image'),
 			visualAssets,
 			previewFrom: domain ? `preview@${domain.name}` : null,
 			domainVerified: domain?.status === 'SUCCESS',
 			userEmail: locals.user?.email ?? null,
-			piConfigured: isPiConfigured()
+			piConfigured: isPiConfigured(),
+			assetBaseUrl: url.origin
 		};
 	} catch {
 		error(404, 'Template not found');
@@ -234,8 +243,15 @@ export const actions: Actions = {
 
 		try {
 			const config = configFromForm(elementType, form);
-			const assetId = await resolveAssetIdFromForm(teamId, elementType, form);
-			if (assetId) config.assetId = assetId;
+			if (elementType === 'component') {
+				if (!config.designComponentId) {
+					return fail(400, { error: 'Select a design-system component' });
+				}
+				getComponent(config.designComponentId, teamId);
+			} else {
+				const assetId = await resolveAssetIdFromForm(teamId, elementType, form);
+				if (assetId) config.assetId = assetId;
+			}
 
 			createElement({
 				templateId: params.id,
@@ -252,6 +268,44 @@ export const actions: Actions = {
 		return { success: true, saved: 'element' as const };
 	},
 
+	addElements: async ({ request, locals, params }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const domainId = locals.domainId ?? undefined;
+		const form = await request.formData();
+		const required = form.get('required') !== 'off';
+		const ids = form
+			.getAll('designComponentId')
+			.map((v) => String(v).trim())
+			.filter(Boolean);
+
+		if (ids.length === 0) {
+			return fail(400, { error: 'Select at least one design-system component' });
+		}
+
+		const uniqueIds = [...new Set(ids)];
+
+		try {
+			let added = 0;
+			for (const designComponentId of uniqueIds) {
+				const component = getComponent(designComponentId, teamId);
+				createElement({
+					templateId: params.id,
+					teamId,
+					domainId,
+					type: 'component',
+					label: component.name,
+					required,
+					config: serializeElementConfig({ designComponentId })
+				});
+				added += 1;
+			}
+
+			return { success: true, saved: 'element' as const, added };
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Create failed' });
+		}
+	},
+
 	updateElement: async ({ request, locals, params }) => {
 		const teamId = requireTeamId(locals.teamId);
 		const domainId = locals.domainId ?? undefined;
@@ -265,13 +319,20 @@ export const actions: Actions = {
 			if (!existing) return fail(404, { error: 'Element not found' });
 
 			const config = configFromForm(existing.type, form);
-			const assetId = await resolveAssetIdFromForm(
-				teamId,
-				existing.type,
-				form,
-				parseElementConfig(existing.config).assetId
-			);
-			if (assetId) config.assetId = assetId;
+			if (existing.type === 'component') {
+				if (!config.designComponentId) {
+					return fail(400, { error: 'Select a design-system component' });
+				}
+				getComponent(config.designComponentId, teamId);
+			} else {
+				const assetId = await resolveAssetIdFromForm(
+					teamId,
+					existing.type,
+					form,
+					parseElementConfig(existing.config).assetId
+				);
+				if (assetId) config.assetId = assetId;
+			}
 
 			updateElement(id, params.id, teamId, domainId, {
 				label: label || existing.label,
@@ -296,14 +357,31 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
-	generate: async ({ request, locals, params, url }) => {
+	reorderElements: async ({ request, locals, params }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const domainId = locals.domainId ?? undefined;
+		const form = await request.formData();
+		const orderedIds = form
+			.getAll('orderedId')
+			.map((v) => String(v).trim())
+			.filter(Boolean);
+
+		try {
+			reorderElements(params.id, teamId, domainId, orderedIds);
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Reorder failed' });
+		}
+		return { success: true, saved: 'element' as const };
+	},
+
+	scaffold: async ({ request, locals, params, url }) => {
 		const teamId = requireTeamId(locals.teamId);
 		const domainId = locals.domainId ?? undefined;
 		const form = await request.formData();
 		const prompt = String(form.get('prompt') ?? '');
 
 		try {
-			await generateTemplateHtml({
+			await generateScaffold({
 				teamId,
 				domainId,
 				templateId: params.id,
@@ -311,70 +389,110 @@ export const actions: Actions = {
 				assetBaseUrl: url.origin
 			});
 		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Generation failed' });
+			return fail(400, { error: e instanceof Error ? e.message : 'Scaffold failed' });
 		}
-		return { success: true, saved: 'generate' as const };
+		return { success: true, saved: 'scaffold' as const };
 	},
 
-	updateComponent: async ({ request, locals, params }) => {
+	saveSlots: async ({ request, locals, params }) => {
 		const teamId = requireTeamId(locals.teamId);
 		const domainId = locals.domainId ?? undefined;
 		const form = await request.formData();
-		const componentId = String(form.get('componentId') ?? '');
-		const source = String(form.get('source') ?? '');
-
-		try {
-			const component = listComponents(params.id, teamId, domainId).find(
-				(c) => c.id === componentId
-			);
-			if (!component) return fail(404, { error: 'Component not found' });
-			validateComponentSource(component.name, source);
-			updateComponentSource(componentId, params.id, teamId, domainId, source);
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
-		}
-		return { success: true, saved: 'component' as const };
-	},
-
-	saveToLibrary: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const componentId = String(form.get('componentId') ?? '');
-		const source = String(form.get('source') ?? '');
-		const libraryName = String(form.get('libraryName') ?? '').trim();
+		const preheader = String(form.get('preheader') ?? '').trim();
+		const subject = String(form.get('subject') ?? '').trim();
 
 		try {
 			const template = getTemplate(params.id, teamId, domainId);
-			const component = listComponents(params.id, teamId, domainId).find(
-				(c) => c.id === componentId
+			const existing = parseScaffoldContent(template.content);
+			const slots: Record<string, string> = { ...existing.slots };
+
+			for (const [key, value] of form.entries()) {
+				if (typeof value !== 'string') continue;
+				if (key === 'preheader' || key === 'subject' || key === 'prompt') continue;
+				if (key.startsWith('slot_')) {
+					slots[key.slice(5)] = value;
+				}
+			}
+
+			updateTemplate(
+				params.id,
+				teamId,
+				{
+					content: serializeScaffoldContent({
+						subject: subject || existing.subject,
+						preheader: preheader || existing.preheader,
+						slots
+					}),
+					...(subject ? { subject } : {})
+				},
+				domainId
 			);
-			if (!component) return fail(404, { error: 'Component not found' });
-			if (!source.trim()) return fail(400, { error: 'Component source is empty' });
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
+		}
+		return { success: true, saved: 'slots' as const };
+	},
 
-			validateComponentSource(component.name, source);
+	compose: async ({ locals, params, url }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const domainId = locals.domainId ?? undefined;
 
-			const name =
-				libraryName ||
-				(component.kind === 'root' || component.name === 'Root'
-					? `${template.name} layout`
-					: component.name);
+		try {
+			const template = getTemplate(params.id, teamId, domainId);
+			const bundle = getDesignSystemBundle(teamId);
+			const elements = listElements(params.id, teamId, domainId);
+			if (elements.length === 0) {
+				return fail(400, { error: 'Add at least one section before composing' });
+			}
 
-			const saved = upsertComponent(teamId, {
-				name,
-				description: `Svelte email component from template "${template.name}"`,
-				html: source
+			const html = composeEmailHtml({
+				template,
+				elements,
+				components: bundle.components,
+				assets: bundle.assets,
+				assetBaseUrl: url.origin,
+				extraSlots: logoExtraProps(teamId, url.origin)
 			});
 
-			return {
-				success: true,
-				saved: 'library' as const,
-				libraryName: saved.name,
-				libraryId: saved.id
-			};
+			const existing = parseEmailBuilderContent(template.content);
+			const document = documentFromComposedHtml(html);
+			const content = serializeEmailBuilderContent(document, existing.scaffold);
+			const rendered = renderEmailHtml(document);
+
+			updateTemplate(params.id, teamId, { html: rendered, content }, domainId);
 		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Could not save to library' });
+			return fail(400, { error: e instanceof Error ? e.message : 'Compose failed' });
 		}
+		return { success: true, saved: 'compose' as const };
+	},
+
+	saveHtml: async ({ request, locals, params }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const domainId = locals.domainId ?? undefined;
+		const form = await request.formData();
+		const html = String(form.get('html') ?? '');
+		const documentJson = String(form.get('document') ?? '');
+
+		try {
+			const template = getTemplate(params.id, teamId, domainId);
+			const existing = parseEmailBuilderContent(template.content);
+
+			if (documentJson.trim()) {
+				const document = JSON.parse(documentJson) as Parameters<
+					typeof serializeEmailBuilderContent
+				>[0];
+				const content = serializeEmailBuilderContent(document, existing.scaffold);
+				const rendered = html.trim() || renderEmailHtml(document);
+				updateTemplate(params.id, teamId, { html: rendered, content }, domainId);
+			} else if (html.trim()) {
+				updateTemplate(params.id, teamId, { html }, domainId);
+			} else {
+				return fail(400, { error: 'Nothing to save' });
+			}
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
+		}
+		return { success: true, saved: 'html' as const };
 	},
 
 	sendPreview: async ({ request, locals, params, url }) => {
@@ -388,9 +506,8 @@ export const actions: Actions = {
 
 		try {
 			const template = getTemplate(params.id, teamId, domainId);
-			const componentBacked = hasTemplateComponents(template.id);
-			if (!componentBacked && !template.html?.trim()) {
-				return fail(400, { error: 'Generate the template before sending a preview' });
+			if (!template.html?.trim()) {
+				return fail(400, { error: 'Compose the email before sending a preview' });
 			}
 
 			const domain = await getDomain(domainId, teamId);

@@ -1,4 +1,11 @@
-export type TemplateElementType = 'logo' | 'text' | 'button' | 'cta' | 'link' | 'image';
+export type TemplateElementType =
+	| 'logo'
+	| 'text'
+	| 'button'
+	| 'cta'
+	| 'link'
+	| 'image'
+	| 'component';
 
 export type TemplateElementConfig = {
 	/** Display / button / link text */
@@ -7,6 +14,8 @@ export type TemplateElementConfig = {
 	url?: string;
 	/** Design-asset id for logo or image */
 	assetId?: string;
+	/** Design-system component id when type is component */
+	designComponentId?: string;
 };
 
 export function parseElementConfig(raw: string | null | undefined): TemplateElementConfig {
@@ -19,6 +28,9 @@ export function parseElementConfig(raw: string | null | undefined): TemplateElem
 		if (typeof obj.text === 'string' && obj.text.trim()) config.text = obj.text.trim();
 		if (typeof obj.url === 'string' && obj.url.trim()) config.url = obj.url.trim();
 		if (typeof obj.assetId === 'string' && obj.assetId.trim()) config.assetId = obj.assetId.trim();
+		if (typeof obj.designComponentId === 'string' && obj.designComponentId.trim()) {
+			config.designComponentId = obj.designComponentId.trim();
+		}
 		return config;
 	} catch {
 		return {};
@@ -30,6 +42,7 @@ export function serializeElementConfig(config: TemplateElementConfig): string {
 	if (config.text?.trim()) cleaned.text = config.text.trim();
 	if (config.url?.trim()) cleaned.url = config.url.trim();
 	if (config.assetId?.trim()) cleaned.assetId = config.assetId.trim();
+	if (config.designComponentId?.trim()) cleaned.designComponentId = config.designComponentId.trim();
 	return JSON.stringify(cleaned);
 }
 
@@ -44,11 +57,14 @@ export function elementSlug(label: string, type: TemplateElementType): string {
 /**
  * Build send/preview variable map for one element.
  * Image-like types expose the absolute asset URL; text/link types expose text + url.
+ * Library component elements do not contribute prop values.
  */
 export function elementValueVariables(
 	el: { type: TemplateElementType; label: string; config: string },
 	opts: { assetBaseUrl?: string; assetUrlById?: Record<string, string> } = {}
 ): Record<string, string> {
+	if (el.type === 'component') return {};
+
 	const config = parseElementConfig(el.config);
 	const slug = elementSlug(el.label, el.type);
 	const vars: Record<string, string> = {};
@@ -103,10 +119,36 @@ export function elementValueVariables(
 /** Human-readable config line for the AI prompt. */
 export function formatElementConfigForPrompt(
 	el: { type: TemplateElementType; label: string; config: string },
-	opts: { assetBaseUrl?: string; assetUrlById?: Record<string, string> } = {}
+	opts: {
+		assetBaseUrl?: string;
+		assetUrlById?: Record<string, string>;
+		/** Optional lookup for library component elements */
+		designComponentById?: Record<
+			string,
+			{ name: string; starterKey?: string | null; kind?: string }
+		>;
+	} = {}
 ): string {
 	const config = parseElementConfig(el.config);
 	const parts: string[] = [];
+
+	if (el.type === 'component') {
+		const lib = config.designComponentId
+			? opts.designComponentById?.[config.designComponentId]
+			: undefined;
+		if (lib) {
+			parts.push(`library component "${lib.name}"`);
+			if (lib.starterKey) parts.push(`libraryRef=${lib.starterKey}`);
+			else parts.push(`libraryRef=${lib.name}`);
+			if (lib.kind) parts.push(`kind=${lib.kind}`);
+		} else if (config.designComponentId) {
+			parts.push(`designComponentId=${config.designComponentId}`);
+		} else {
+			parts.push('(no design-system component selected)');
+		}
+		parts.push('MUST include this library section with locked=true');
+		return parts.join('; ');
+	}
 
 	if (el.type === 'logo' || el.type === 'image') {
 		if (config.assetId) {

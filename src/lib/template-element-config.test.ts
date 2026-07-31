@@ -9,10 +9,15 @@ import {
 
 describe('parseElementConfig', () => {
 	it('parses valid config', () => {
-		expect(parseElementConfig('{"text":"Go","url":"https://x.com","assetId":"a1"}')).toEqual({
+		expect(
+			parseElementConfig(
+				'{"text":"Go","url":"https://x.com","assetId":"a1","designComponentId":"dc1"}'
+			)
+		).toEqual({
 			text: 'Go',
 			url: 'https://x.com',
-			assetId: 'a1'
+			assetId: 'a1',
+			designComponentId: 'dc1'
 		});
 	});
 
@@ -27,6 +32,44 @@ describe('serializeElementConfig', () => {
 		expect(serializeElementConfig({ text: ' Hi ', url: '', assetId: undefined })).toBe(
 			'{"text":"Hi"}'
 		);
+	});
+
+	it('keeps designComponentId', () => {
+		expect(serializeElementConfig({ designComponentId: ' dc_1 ' })).toBe(
+			'{"designComponentId":"dc_1"}'
+		);
+	});
+});
+
+describe('formatElementConfigForPrompt', () => {
+	it('includes concrete src for images', () => {
+		const line = formatElementConfigForPrompt(
+			{
+				type: 'image',
+				label: 'Hero',
+				config: serializeElementConfig({ assetId: 'img_1' })
+			},
+			{ assetBaseUrl: 'https://app.example' }
+		);
+		expect(line).toContain('src="https://app.example/api/design-asset/img_1"');
+	});
+
+	it('describes library component elements', () => {
+		const line = formatElementConfigForPrompt(
+			{
+				type: 'component',
+				label: 'Hero',
+				config: serializeElementConfig({ designComponentId: 'dc_hero' })
+			},
+			{
+				designComponentById: {
+					dc_hero: { name: 'Hero', starterKey: 'hero', kind: 'starter' }
+				}
+			}
+		);
+		expect(line).toContain('library component "Hero"');
+		expect(line).toContain('libraryRef=hero');
+		expect(line).toContain('MUST include');
 	});
 });
 
@@ -65,18 +108,14 @@ describe('elementValueVariables', () => {
 		expect(vars.headline).toBe('Welcome back');
 		expect(elementSlug('Headline', 'text')).toBe('headline');
 	});
-});
 
-describe('formatElementConfigForPrompt', () => {
-	it('includes concrete src for images', () => {
-		const line = formatElementConfigForPrompt(
-			{
-				type: 'image',
+	it('returns empty props for component elements', () => {
+		expect(
+			elementValueVariables({
+				type: 'component',
 				label: 'Hero',
-				config: serializeElementConfig({ assetId: 'img_1' })
-			},
-			{ assetBaseUrl: 'https://app.example' }
-		);
-		expect(line).toContain('src="https://app.example/api/design-asset/img_1"');
+				config: serializeElementConfig({ designComponentId: 'dc_1' })
+			})
+		).toEqual({});
 	});
 });

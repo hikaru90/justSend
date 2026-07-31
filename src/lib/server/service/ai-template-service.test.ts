@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	buildPlannerMessages,
-	buildComponentMessages,
-	type ComponentPlan
-} from './ai-template-service';
+import { buildScaffoldMessages, parseScaffoldJson } from './ai-template-service';
 import type { Template } from './template-service';
 import type { TemplateElement } from './template-element-service';
 
@@ -32,101 +28,64 @@ function fakeElement(overrides: Partial<TemplateElement> = {}): TemplateElement 
 		label: 'Primary CTA',
 		required: true,
 		config: '{}',
+		order: 0,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
 		...overrides
 	};
 }
 
-const baseInput = () => ({
-	template: fakeTemplate(),
-	designMd: '# Brand\nPrimary: #111',
-	components: [
-		{ name: 'Primary Button', description: 'Filled CTA', html: '<a class="btn">{{label}}</a>' }
-	],
-	assets: [{ id: 'asset_1', kind: 'logo', name: 'Logo', filename: 'logo.png' }],
-	elements: [
-		fakeElement({
-			config: JSON.stringify({ text: 'Get started', url: 'https://example.com/start' })
-		}),
-		fakeElement({
-			id: 'el_2',
-			type: 'text',
-			label: 'Footer note',
-			required: false,
-			config: JSON.stringify({ text: 'Thanks for reading' })
-		}),
-		fakeElement({
-			id: 'el_3',
-			type: 'logo',
-			label: 'Header logo',
-			config: JSON.stringify({ assetId: 'asset_1' })
-		})
-	],
-	prompt: 'Make it warm and short',
-	assetBaseUrl: 'http://localhost:5173'
-});
-
-describe('buildPlannerMessages', () => {
-	it('asks for a JSON component plan with element props', () => {
-		const messages = buildPlannerMessages(baseInput());
-
-		expect(messages).toHaveLength(2);
-		expect(messages[0].role).toBe('system');
-		expect(messages[0].content).toContain('Svelte 5');
-		expect(messages[0].content).toContain('kind');
-		expect(messages[0].content).toContain('Root');
-
-		const user = messages[1].content;
-		expect(user).toContain('Welcome');
-		expect(user).toContain('# Brand');
-		expect(user).toContain('Primary Button');
-		expect(user).toContain('type=cta; label="Primary CTA"');
-		expect(user).toContain('props: primary_cta');
-		expect(user).toContain('Make it warm and short');
-		expect(user).toContain('/api/design-asset/asset_1');
-	});
-
-	it('handles empty design system gracefully', () => {
-		const messages = buildPlannerMessages({
+describe('buildScaffoldMessages', () => {
+	it('includes design context and allowed slots', () => {
+		const messages = buildScaffoldMessages({
 			template: fakeTemplate(),
-			designMd: null,
-			components: [],
-			assets: [],
-			elements: [],
-			prompt: '',
-			assetBaseUrl: 'http://localhost:5173'
-		});
-		expect(messages[1].content).toContain('(empty');
-		expect(messages[1].content).toContain('(none)');
-	});
-});
-
-describe('buildComponentMessages', () => {
-	it('instructs props binding and restricted script', () => {
-		const plan: ComponentPlan = {
+			designMd: '# Brand\nPrimary: #111',
 			components: [
 				{
-					name: 'Root',
-					kind: 'root',
-					role: 'layout',
-					props: ['primary_cta', 'primary_cta_url'],
-					imports: ['Header']
-				},
-				{
-					name: 'Header',
-					kind: 'component',
-					role: 'header',
-					props: ['header_logo_url']
+					id: 'dc_1',
+					name: 'Hero',
+					description: 'Hero section',
+					html: '<h1>{{headline}}</h1>',
+					kind: 'starter',
+					role: 'hero',
+					props: '["headline","body"]',
+					starterKey: 'hero'
 				}
-			]
-		};
+			],
+			assets: [{ id: 'asset_1', kind: 'logo', name: 'Logo', filename: 'logo.png' }],
+			elements: [
+				fakeElement({
+					type: 'component',
+					label: 'Hero',
+					config: JSON.stringify({ designComponentId: 'dc_1' })
+				})
+			],
+			prompt: 'Make it warm',
+			assetBaseUrl: 'http://localhost:5173',
+			expectedSlots: ['headline', 'body']
+		});
 
-		const messages = buildComponentMessages(baseInput(), plan, plan.components[0]);
-		expect(messages[0].content).toContain('$props()');
-		expect(messages[0].content).toContain('tbody');
-		expect(messages[0].content).toContain('./Header.svelte');
-		expect(messages[0].content).toContain('primary_cta');
-		expect(messages[1].content).toContain('Generate component: Root');
+		expect(messages).toHaveLength(2);
+		expect(messages[0].content).toContain('ONLY valid JSON');
+		expect(messages[1].content).toContain('# Brand');
+		expect(messages[1].content).toContain('Hero');
+		expect(messages[1].content).toContain('Make it warm');
+		expect(messages[1].content).toContain('/api/design-asset/asset_1');
+	});
+});
+
+describe('parseScaffoldJson', () => {
+	it('parses subject, preheader, and filtered slots', () => {
+		const parsed = parseScaffoldJson(
+			JSON.stringify({
+				subject: 'Sub',
+				preheader: 'Pre',
+				slots: { headline: 'H', extra: 'x' }
+			}),
+			['headline']
+		);
+		expect(parsed.subject).toBe('Sub');
+		expect(parsed.preheader).toBe('Pre');
+		expect(parsed.slots).toEqual({ headline: 'H' });
 	});
 });

@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, max } from 'drizzle-orm';
 import { cuid, nowIso } from '$lib/utils';
 import { db } from '../db';
 import { templateElements, type TemplateElementType } from '../db/schema';
@@ -16,7 +16,7 @@ export function listElements(
 		.select()
 		.from(templateElements)
 		.where(eq(templateElements.templateId, templateId))
-		.orderBy(asc(templateElements.createdAt))
+		.orderBy(asc(templateElements.order), asc(templateElements.createdAt))
 		.all();
 }
 
@@ -50,6 +50,15 @@ export type CreateElementInput = {
 	config?: string;
 };
 
+function nextElementOrder(templateId: string): number {
+	const row = db
+		.select({ maxOrder: max(templateElements.order) })
+		.from(templateElements)
+		.where(eq(templateElements.templateId, templateId))
+		.get();
+	return (row?.maxOrder ?? -1) + 1;
+}
+
 export function createElement(input: CreateElementInput): TemplateElement {
 	getTemplate(input.templateId, input.teamId, input.domainId);
 
@@ -61,7 +70,8 @@ export function createElement(input: CreateElementInput): TemplateElement {
 			type: input.type,
 			label: input.label,
 			required: input.required ?? true,
-			config: input.config ?? '{}'
+			config: input.config ?? '{}',
+			order: nextElementOrder(input.templateId)
 		})
 		.returning()
 		.get();
@@ -97,4 +107,29 @@ export function updateElement(
 		.where(eq(templateElements.id, element.id))
 		.returning()
 		.get();
+}
+
+export function reorderElements(
+	templateId: string,
+	teamId: number,
+	domainId: number | undefined,
+	orderedIds: string[]
+): TemplateElement[] {
+	getTemplate(templateId, teamId, domainId);
+	const existing = listElements(templateId, teamId, domainId);
+	const existingIds = new Set(existing.map((el) => el.id));
+
+	if (orderedIds.length !== existing.length || orderedIds.some((id) => !existingIds.has(id))) {
+		throw new Error('Invalid element order');
+	}
+
+	const updatedAt = nowIso();
+	for (const [index, id] of orderedIds.entries()) {
+		db.update(templateElements)
+			.set({ order: index, updatedAt })
+			.where(and(eq(templateElements.id, id), eq(templateElements.templateId, templateId)))
+			.run();
+	}
+
+	return listElements(templateId, teamId, domainId);
 }

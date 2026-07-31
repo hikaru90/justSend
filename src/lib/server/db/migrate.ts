@@ -306,7 +306,11 @@ CREATE TABLE IF NOT EXISTS design_components (
   id TEXT PRIMARY KEY NOT NULL,
   team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'custom',
+  role TEXT NOT NULL DEFAULT 'section',
   description TEXT,
+  props TEXT NOT NULL DEFAULT '[]',
+  starter_key TEXT,
   html TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -319,6 +323,7 @@ CREATE TABLE IF NOT EXISTS template_elements (
   label TEXT NOT NULL,
   required INTEGER NOT NULL DEFAULT 1,
   config TEXT NOT NULL DEFAULT '{}',
+  "order" INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -328,6 +333,9 @@ CREATE TABLE IF NOT EXISTS template_components (
   template_id TEXT NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   kind TEXT NOT NULL DEFAULT 'component',
+  source_type TEXT NOT NULL DEFAULT 'custom',
+  design_component_id TEXT REFERENCES design_components(id) ON DELETE SET NULL,
+  locked INTEGER NOT NULL DEFAULT 0,
   source TEXT NOT NULL DEFAULT '',
   "order" INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -435,6 +443,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS idempotency_team_key_idx ON idempotency_keys(t
 	addColumnIfMissing('templates', 'domain_id', 'INTEGER REFERENCES domains(id) ON DELETE CASCADE');
 	addColumnIfMissing('templates', 'prompt', 'TEXT');
 	addColumnIfMissing('templates', 'design_snapshot', 'TEXT');
+	addColumnIfMissing('design_components', 'kind', "TEXT NOT NULL DEFAULT 'custom'");
+	addColumnIfMissing('design_components', 'role', "TEXT NOT NULL DEFAULT 'section'");
+	addColumnIfMissing('design_components', 'props', "TEXT NOT NULL DEFAULT '[]'");
+	addColumnIfMissing('design_components', 'starter_key', 'TEXT');
+	addColumnIfMissing('template_components', 'source_type', "TEXT NOT NULL DEFAULT 'custom'");
+	addColumnIfMissing(
+		'template_components',
+		'design_component_id',
+		'TEXT REFERENCES design_components(id) ON DELETE SET NULL'
+	);
+	addColumnIfMissing('template_components', 'locked', 'INTEGER NOT NULL DEFAULT 0');
 	addColumnIfMissing(
 		'contact_books',
 		'domain_id',
@@ -445,6 +464,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idempotency_team_key_idx ON idempotency_keys(t
 		'domain_id',
 		'INTEGER REFERENCES domains(id) ON DELETE CASCADE'
 	);
+	addColumnIfMissing('template_elements', 'order', 'INTEGER NOT NULL DEFAULT 0');
 
 	rawDb.exec(`
 CREATE INDEX IF NOT EXISTS templates_team_domain_idx ON templates(team_id, domain_id);
@@ -455,6 +475,7 @@ CREATE INDEX IF NOT EXISTS suppression_team_domain_idx ON suppression_list(team_
 	backfillDomainIds('templates');
 	backfillDomainIds('contact_books');
 	backfillDomainIds('suppression_list');
+	backfillTemplateElementOrders();
 
 	db.run(sql`SELECT 1`);
 	console.log('Database migrated');
@@ -463,7 +484,32 @@ CREATE INDEX IF NOT EXISTS suppression_team_domain_idx ON suppression_list(team_
 function addColumnIfMissing(table: string, column: string, definition: string) {
 	const columns = rawDb.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
 	if (columns.some((c) => c.name === column)) return;
-	rawDb.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+	rawDb.exec(`ALTER TABLE ${table} ADD COLUMN "${column}" ${definition}`);
+}
+
+function backfillTemplateElementOrders() {
+	const needsBackfill = rawDb
+		.prepare(
+			`SELECT 1 AS ok FROM template_elements
+			 GROUP BY template_id
+			 HAVING COUNT(*) > 1 AND COUNT(DISTINCT "order") = 1
+			 LIMIT 1`
+		)
+		.get() as { ok: number } | undefined;
+	if (!needsBackfill) return;
+
+	rawDb.exec(`
+UPDATE template_elements
+SET "order" = (
+  SELECT COUNT(*) - 1
+  FROM template_elements AS te2
+  WHERE te2.template_id = template_elements.template_id
+    AND (
+      te2.created_at < template_elements.created_at
+      OR (te2.created_at = template_elements.created_at AND te2.id <= template_elements.id)
+    )
+)
+`);
 }
 
 function backfillDomainIds(table: string) {
