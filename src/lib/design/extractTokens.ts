@@ -370,7 +370,6 @@ export function previewSampleValues(overrides?: Record<string, string>): Record<
 		company: 'Acme Inc',
 		email: 'alex@example.com',
 		unsubscribe_label: 'Unsubscribe',
-		unsubscribe_url: 'https://example.com/unsubscribe',
 		logo: PLACEHOLDER_LOGO,
 		logo_url: PLACEHOLDER_LOGO,
 		logo_light: PLACEHOLDER_LOGO,
@@ -396,6 +395,10 @@ function resolvePreviewSample(
 		for (const [overrideKey, value] of Object.entries(overrides)) {
 			if (overrideKey.toLowerCase() === lower) return value;
 		}
+	}
+	// Keep unsubscribe merge tags intact — they are filled with a signed URL at send time.
+	if (lower.includes('unsubscribe')) {
+		return `{{${key}}}`;
 	}
 	if (lower.includes('url') || lower.includes('href') || lower.includes('link')) {
 		return 'https://example.com';

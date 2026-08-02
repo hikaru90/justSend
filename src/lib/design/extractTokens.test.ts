@@ -90,6 +90,16 @@ describe('substitutePreviewPlaceholders', () => {
 		const html = 'Hi {{firstName}}';
 		expect(substitutePreviewPlaceholders(html, { firstName: 'Ada' })).toBe('Hi Ada');
 	});
+
+	it('leaves unsubscribe merge tags intact instead of example.com', () => {
+		const html =
+			'<a href="{{owlery_unsubscribe_url}}">{{unsubscribe_label}}</a>' +
+			'<a href="{{unsubscribe_url}}">Unsub</a>';
+		expect(substitutePreviewPlaceholders(html)).toBe(
+			'<a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>' +
+				'<a href="{{unsubscribe_url}}">Unsub</a>'
+		);
+	});
 });
 
 describe('renderSvelteComponentPreview', () => {
