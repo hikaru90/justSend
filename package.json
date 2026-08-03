@@ -79,21 +79,21 @@
 		"vitest": "^3.2.7"
 	},
 	"dependencies": {
-		"@aws-sdk/client-sesv2": "^3.1095.0",
-		"@aws-sdk/client-sns": "^3.1095.0",
-		"@aws-sdk/client-sts": "^3.1095.0",
-		"@earendil-works/pi-coding-agent": "^0.82.1",
-		"@lucide/svelte": "^1.27.0",
+		"@aws-sdk/client-sesv2": "^3.1100.0",
+		"@aws-sdk/client-sns": "^3.1100.0",
+		"@aws-sdk/client-sts": "^3.1100.0",
+		"@earendil-works/pi-coding-agent": "^0.83.0",
+		"@lucide/svelte": "^1.28.0",
 		"@sveltejs/adapter-node": "^5.5.7",
 		"@xyflow/svelte": "^1.6.2",
 		"arctic": "^3.7.0",
-		"better-sqlite3": "^13.0.1",
+		"better-sqlite3": "^13.0.2",
 		"bits-ui": "^2.18.1",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"dotenv": "^17.4.2",
 		"drizzle-orm": "^0.45.2",
-		"isomorphic-dompurify": "^3.19.0",
+		"isomorphic-dompurify": "^3.20.0",
 		"juice": "^12.1.1",
 		"marked": "^18.0.7",
 		"mode-watcher": "^1.1.0",
@@ -101,7 +101,7 @@
 		"nodemailer": "^9.0.3",
 		"sonner": "^2.0.7",
 		"tailwind-merge": "^3.6.0",
-		"tldts": "^7.4.9",
+		"tldts": "^7.4.10",
 		"zod": "^4.4.3"
 	}
 }
