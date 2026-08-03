@@ -41,13 +41,13 @@ See [docs/deployment.md](./docs/deployment.md) for SES/SNS setup, reverse proxie
 ## Quick start (development)
 
 ```sh
-pnpm install
+npm install
 cp .env.example .env
 # Edit .env — set AUTH_SECRET, HOST_URL, AWS credentials, ADMIN_EMAIL
 
-pnpm db:migrate
-pnpm db:seed   # optional — seeds a local example domain after first signup
-pnpm dev:all
+npm run db:migrate
+npm run db:seed   # optional — seeds a local example domain after first signup
+npm run dev:all
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
@@ -56,19 +56,19 @@ Open [http://localhost:5173](http://localhost:5173).
 
 | Script | Description |
 |--------|-------------|
-| `pnpm dev` | SvelteKit dev server only |
-| `pnpm dev:worker` | Background queue worker only |
-| `pnpm dev:all` | App + worker concurrently |
-| `pnpm worker` | Run worker (dev / local via tsx) |
-| `pnpm worker:prod` | Run compiled worker (`build/worker.js`) |
-| `pnpm db:migrate` | Apply SQLite migrations |
-| `pnpm db:seed` | Dev seed helpers |
-| `pnpm build` | Production build (adapter-node + worker bundle) |
-| `pnpm start` | Run production supervisor (web + worker) |
-| `pnpm start:web` | Run web server only |
-| `pnpm test` | Run Vitest suite |
-| `pnpm check` | Typecheck with svelte-check |
-| `pnpm lint` / `pnpm format` | Prettier check / write |
+| `npm run dev` | SvelteKit dev server only |
+| `npm run dev:worker` | Background queue worker only |
+| `npm run dev:all` | App + worker concurrently |
+| `npm run worker` | Run worker (dev / local via tsx) |
+| `npm run worker:prod` | Run compiled worker (`build/worker.js`) |
+| `npm run db:migrate` | Apply SQLite migrations |
+| `npm run db:seed` | Dev seed helpers |
+| `npm run build` | Production build (adapter-node + worker bundle) |
+| `npm run start` | Run production supervisor (web + worker) |
+| `npm run start:web` | Run web server only |
+| `npm test` | Run Vitest suite |
+| `npm run check` | Typecheck with svelte-check |
+| `npm run lint` / `npm run format` | Prettier check / write |
 
 ## Authentication
 

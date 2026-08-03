@@ -3,8 +3,8 @@
  * Export selected DB parts to a zip pack.
  *
  * Usage:
- *   pnpm db:export-parts --parts=templates,design --team=1 --out=pack.zip
- *   pnpm db:export-parts --parts=ses --out=ses.zip
+ *   npm run db:export-parts -- --parts=templates,design --team=1 --out=pack.zip
+ *   npm run db:export-parts -- --parts=ses --out=ses.zip
  */
 import 'dotenv/config';
 import { writeFileSync } from 'node:fs';
@@ -37,7 +37,7 @@ function parseArgs(argv: string[]) {
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help || !args.parts || !args.out) {
-	console.log(`Usage: pnpm db:export-parts --parts=templates,design --team=1 --out=pack.zip
+	console.log(`Usage: npm run db:export-parts -- --parts=templates,design --team=1 --out=pack.zip
 
 Parts: ses, domains, templates, design
 team is required for team-scoped parts (domains, templates, design).`);

@@ -44,10 +44,10 @@ Operators who want **SES economics** with a full product UI and API, without Saa
                                  Amazon SES / SNS
 ```
 
-Production entrypoint `pnpm start` runs `scripts/supervisor.mjs`, which keeps **web** (`build/index.js`) and **worker** (`build/worker.js`) alive. Admins can pause/stop/restart the worker from the dashboard via `app_settings`.
+Production entrypoint `npm run start` runs `scripts/supervisor.mjs`, which keeps **web** (`build/index.js`) and **worker** (`build/worker.js`) alive. Admins can pause/stop/restart the worker from the dashboard via `app_settings`.
 
 ## Quick start
 
-See the root [README](../README.md): `pnpm install` → configure `.env` → `pnpm db:migrate` → `pnpm dev:all`.
+See the root [README](../README.md): `npm install` → configure `.env` → `npm run db:migrate` → `npm run dev:all`.
 
-Requirements: Node 22+, pnpm, AWS SES, and a public `HOST_URL` reachable by SNS for delivery webhooks.
+Requirements: Node 22+, npm, AWS SES, and a public `HOST_URL` reachable by SNS for delivery webhooks.

@@ -1,10 +1,9 @@
 {
 	"name": "owlery",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Self-hosted email infrastructure for transactional and marketing email via Amazon SES",
 	"type": "module",
-	"packageManager": "pnpm@11.10.0",
 	"license": "MIT",
 	"homepage": "https://github.com/hikaru90/owlery#readme",
 	"repository": {
@@ -35,7 +34,7 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"dev:worker": "tsx watch src/server/worker.ts",
-		"dev:all": "concurrently -n app,worker -c blue,green \"pnpm dev\" \"pnpm dev:worker\"",
+		"dev:all": "concurrently -n app,worker -c blue,green \"npm run dev\" \"npm run dev:worker\"",
 		"worker": "tsx src/server/worker.ts",
 		"worker:prod": "node build/worker.js",
 		"db:generate": "drizzle-kit generate",
@@ -74,7 +73,7 @@
 		"svelte-check": "^4.7.4",
 		"tailwindcss": "^4.3.3",
 		"tsx": "^4.23.1",
-		"typescript": "^7.0.2",
+		"typescript": "~6.0.3",
 		"vite": "^8.2.0",
 		"vitest": "^4.1.10"
 	},

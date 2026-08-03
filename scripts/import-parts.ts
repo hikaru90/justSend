@@ -3,8 +3,8 @@
  * Import selected DB parts from a zip pack.
  *
  * Usage:
- *   pnpm db:import-parts --parts=templates,design --team=1 --file=pack.zip
- *   pnpm db:import-parts --parts=ses --file=ses.zip
+ *   npm run db:import-parts -- --parts=templates,design --team=1 --file=pack.zip
+ *   npm run db:import-parts -- --parts=ses --file=ses.zip
  */
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
@@ -37,7 +37,7 @@ function parseArgs(argv: string[]) {
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help || !args.parts || !args.file) {
-	console.log(`Usage: pnpm db:import-parts --parts=templates,design --team=1 --file=pack.zip
+	console.log(`Usage: npm run db:import-parts -- --parts=templates,design --team=1 --file=pack.zip
 
 Only the listed parts present in the pack are written; everything else is left alone.`);
 	process.exit(args.help ? 0 : 1);

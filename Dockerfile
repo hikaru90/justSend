@@ -3,13 +3,11 @@
 FROM node:26-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
-RUN corepack enable pnpm
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN pnpm install --frozen-lockfile
+COPY package.json package-lock.json ./
+RUN npm ci
 
 FROM node:26-alpine AS builder
 WORKDIR /app
-# pnpm 10+ aborts module purge/reinstall without a TTY unless CI or confirm-modules-purge is set.
 ENV CI=true
 ENV NODE_ENV=production
 # Cap the V8 heap below total host RAM. Coolify builders often share a 2–4GB VPS with
@@ -18,15 +16,14 @@ ENV NODE_ENV=production
 #   docker build --build-arg NODE_MAX_OLD_SPACE_SIZE=3072 .
 ARG NODE_MAX_OLD_SPACE_SIZE=2048
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}
-RUN corepack enable pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Invoke tools directly: `pnpm build` re-runs lockfile/supply-chain checks and spikes RAM
-# before Vite starts. Sync first so $types exist after COPY.
+# Invoke tools directly: `npm run build` re-runs prepare and spikes RAM before Vite
+# starts. Sync first so $types exist after COPY.
 RUN ./node_modules/.bin/svelte-kit sync \
 	&& ./node_modules/.bin/vite build \
 	&& node scripts/build-worker.mjs
-RUN pnpm prune --prod --config.ignore-scripts=true
+RUN npm prune --omit=dev
 
 FROM node:26-alpine AS runner
 WORKDIR /app

@@ -5,6 +5,6 @@
 ## Checklist
 
 - [ ] Tests added or updated for behavior changes
-- [ ] `pnpm check` passes
-- [ ] `pnpm test` passes
+- [ ] `npm run check` passes
+- [ ] `npm test` passes
 - [ ] Docs updated if needed (README, docs/, or inline comments for non-obvious behavior)

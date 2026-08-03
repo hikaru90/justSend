@@ -4,7 +4,7 @@ Production and maintenance utilities for Owlery.
 
 ## `supervisor.mjs`
 
-Production process supervisor used as the **Docker CMD** and `pnpm start`.
+Production process supervisor used as the **Docker CMD** and `npm run start`.
 
 Spawns and keeps alive:
 
@@ -17,7 +17,7 @@ Behavior:
 - Polls `app_settings` key `worker:control` every 2 seconds so the admin dashboard can pause, stop, or restart the worker
 - Handles `SIGINT` / `SIGTERM` for graceful shutdown
 
-Requires a prior `pnpm build` (or Docker image build) so both entry files exist.
+Requires a prior `npm run build` (or Docker image build) so both entry files exist.
 
 ## `build-worker.mjs`
 
@@ -25,7 +25,7 @@ Bundles `src/server/worker.ts` into `build/worker.js` using esbuild.
 
 Invoked automatically by:
 
-- `pnpm build`
+- `npm run build`
 - Dockerfile build stage
 
 The worker bundle is ESM, targets Node 22, and keeps npm packages external (same as the web build).
@@ -37,15 +37,15 @@ The worker bundle is ESM, targets Node 22, and keeps npm packages external (same
 Downloads a production SQLite snapshot from a remote Owlery instance's admin endpoint into the local `DATABASE_URL` path.
 
 ```sh
-pnpm db:pull https://mail.example.com
+npm run db:pull -- https://mail.example.com
 ```
 
 Requires an admin session cookie (`owlery_session`) for the user matching `ADMIN_EMAIL`:
 
 ```sh
-OWLERY_SESSION='owlery_session=...' pnpm db:pull https://mail.example.com
+OWLERY_SESSION='owlery_session=...' npm run db:pull -- https://mail.example.com
 # or
-pnpm db:pull https://mail.example.com --cookie 'owlery_session=...'
+npm run db:pull -- https://mail.example.com --cookie 'owlery_session=...'
 ```
 
 The script fetches `/admin/database/download`, writes to a temp file, removes local `-wal`/`-shm` sidecars, and replaces the target database.
@@ -66,8 +66,8 @@ Content migration helpers for moving selected database slices between instances 
 Exposed as:
 
 ```sh
-pnpm db:export-parts --parts=templates,design --team=1 --out=pack.zip
-pnpm db:import-parts --parts=templates,design --team=1 --file=pack.zip
+npm run db:export-parts -- --parts=templates,design --team=1 --out=pack.zip
+npm run db:import-parts -- --parts=templates,design --team=1 --file=pack.zip
 ```
 
 ### Parts

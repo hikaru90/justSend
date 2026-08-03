@@ -67,17 +67,17 @@
 
 ## Phase 3 — CI/CD & automation
 
-- [ ] **3.1** `.github/workflows/ci.yml` — Node 22, pnpm cache; run `pnpm check` → `pnpm test` → `pnpm build` on PRs and pushes to `main`.
+- [ ] **3.1** `.github/workflows/ci.yml` — Node 22, npm cache; run `npm run check` → `npm test` → `npm run build` on PRs and pushes to `main`.
 - [ ] **3.2** `.github/workflows/docker.yml` — build & push `ghcr.io/<owner>/owlery:<tag>` + `:latest` on version tags; document the prebuilt image in compose (biggest single usability win: users stop building from source).
 - [ ] **3.3** `.github/dependabot.yml` — npm, docker, github-actions ecosystems; weekly, grouped PRs.
 - [ ] **3.4** Issue templates (bug report with version/env/SES-region fields; feature request) + PR template (tests / check / docs checklist).
 
 ## Phase 4 — Engineering robustness for external operators
 
-- [ ] **4.1** ⭐ **Versioned database migrations** — the most important technical item. `drizzle-kit generate` from `schema.ts`; commit SQL under `drizzle/`; replace the boot-time `migrate()` blob with Drizzle's migrator; baseline `0000` must match the current schema so existing installs upgrade cleanly; keep the `pnpm db:migrate` UX. Without this, every release risks operator data loss.
-- [ ] **4.2** Prettier + `prettier-plugin-svelte` + `prettier-plugin-tailwindcss` (tabs, matching current style); add `pnpm lint` / `pnpm format`; one-time format pass in its own commit; enforce in CI.
+- [ ] **4.1** ⭐ **Versioned database migrations** — the most important technical item. `drizzle-kit generate` from `schema.ts`; commit SQL under `drizzle/`; replace the boot-time `migrate()` blob with Drizzle's migrator; baseline `0000` must match the current schema so existing installs upgrade cleanly; keep the `npm run db:migrate` UX. Without this, every release risks operator data loss.
+- [ ] **4.2** Prettier + `prettier-plugin-svelte` + `prettier-plugin-tailwindcss` (tabs, matching current style); add `npm run lint` / `npm run format`; one-time format pass in its own commit; enforce in CI.
 - [ ] **4.3** Dockerfile `HEALTHCHECK` against `/api/health`; document the `/app/data` volume and backup story.
-- [ ] **4.4** Wire the existing `dev-seed.ts` as `pnpm db:seed` so new contributors get a populated UI without AWS.
+- [ ] **4.4** Wire the existing `dev-seed.ts` as `npm run db:seed` so new contributors get a populated UI without AWS.
 - [ ] **4.5** *(Optional)* `SES_DRY_RUN=1` mode — simulate SES sends + SNS events locally so people can try Owlery without an AWS account.
 - [ ] **4.6** Verify `src/lib/server/env.ts` fails fast with clear zod errors at boot; align `.env.example` comments with it.
 

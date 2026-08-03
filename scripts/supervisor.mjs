@@ -57,7 +57,7 @@ if (!existsSync(appEntry)) {
 	process.exit(1);
 }
 if (!existsSync(workerEntry)) {
-	console.error(`[supervisor] missing ${workerEntry} — run pnpm build`);
+	console.error(`[supervisor] missing ${workerEntry} — run npm run build`);
 	process.exit(1);
 }
 

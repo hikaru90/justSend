@@ -8,10 +8,10 @@ NODE_OPTIONS = "--max-old-space-size=2048"
 nixPkgs = ["python3", "gcc", "gnumake"]
 
 [phases.install]
-cmds = ["pnpm install --frozen-lockfile"]
+cmds = ["npm ci"]
 
 [phases.build]
-cmds = ["pnpm build"]
+cmds = ["npm run build"]
 
 [start]
 cmd = "node scripts/supervisor.mjs"

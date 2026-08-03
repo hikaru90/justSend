@@ -40,7 +40,7 @@ Legacy reference code lives in `useSend-legacy/` (Next.js / Prisma / Redis / Hon
 | **Worker** | Polls `queue_jobs`, claims with lock columns, runs handlers with retries/backoff. Heartbeats into `app_settings` for dashboard control. |
 | **Supervisor** | Spawns both; restarts on crash; stops worker when desired state is `stopped`. |
 
-Dev: `pnpm dev:all` (Vite + `tsx watch` worker). Prod: `pnpm build` then `pnpm start`.
+Dev: `npm run dev:all` (Vite + `tsx watch` worker). Prod: `npm run build` then `npm run start`.
 
 ## Database
 

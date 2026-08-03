@@ -3,9 +3,9 @@
  * Pull a remote Owlery SQLite snapshot into the local DATABASE_URL path.
  *
  * Usage:
- *   pnpm db:pull https://mail.example.com
- *   OWLERY_SESSION=<cookie> pnpm db:pull https://mail.example.com
- *   pnpm db:pull https://mail.example.com --cookie 'owlery_session=...'
+ *   npm run db:pull -- https://mail.example.com
+ *   OWLERY_SESSION=<cookie> npm run db:pull -- https://mail.example.com
+ *   npm run db:pull -- https://mail.example.com --cookie 'owlery_session=...'
  *
  * Get the session cookie from the browser while logged in as ADMIN_EMAIL
  * (DevTools → Application → Cookies → owlery_session).
@@ -40,7 +40,7 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help || !args.remote) {
-	console.log(`Usage: pnpm db:pull <remote-base-url> [--cookie owlery_session=...]
+	console.log(`Usage: npm run db:pull -- <remote-base-url> [--cookie owlery_session=...]
 
 Downloads /admin/database/download from a remote Owlery instance into DATABASE_URL
 (${process.env.DATABASE_URL ?? 'file:./data/owlery.db'}).

@@ -69,7 +69,7 @@ For scripted backups, stop the container briefly or copy via the admin download 
 
 Restore by placing the downloaded `.db` file at the path in `DATABASE_URL` (default `file:./data/owlery.db`) and restarting. Remove stale `-wal`/`-shm` sidecar files if present.
 
-For content-only migration (templates, design system, SES settings), use `pnpm db:export-parts` / `pnpm db:import-parts` — see [scripts/README.md](../scripts/README.md).
+For content-only migration (templates, design system, SES settings), use `npm run db:export-parts` / `npm run db:import-parts` — see [scripts/README.md](../scripts/README.md).
 
 ## SES and SNS setup
 
@@ -223,4 +223,4 @@ Full list: [`.env.example`](../.env.example).
 
 ## Optional: separate worker
 
-The default image runs web + worker together via `scripts/supervisor.mjs`. To scale workers separately, switch the app to `pnpm start:web` and uncomment the dedicated `worker` service in `docker-compose.yml` (both must share the same `/app/data` volume).
+The default image runs web + worker together via `scripts/supervisor.mjs`. To scale workers separately, switch the app to `npm run start:web` and uncomment the dedicated `worker` service in `docker-compose.yml` (both must share the same `/app/data` volume).

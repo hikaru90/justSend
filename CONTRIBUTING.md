@@ -5,13 +5,13 @@ Thank you for your interest in contributing! This document covers local developm
 ## Development setup
 
 ```sh
-pnpm install
+npm install
 cp .env.example .env
 # Edit .env — set AUTH_SECRET, HOST_URL, AWS credentials, ADMIN_EMAIL
 
-pnpm db:migrate
-pnpm db:seed
-pnpm dev:all
+npm run db:migrate
+npm run db:seed
+npm run dev:all
 ```
 
 Open [http://localhost:5173](http://localhost:5173). The first user to sign up creates the team.
@@ -33,7 +33,7 @@ For a deeper overview of how the app is structured, see [docs/architecture.md](d
 Run the suite with:
 
 ```sh
-pnpm test
+npm test
 ```
 
 ## Project conventions
@@ -53,8 +53,8 @@ See also [AGENTS.md](AGENTS.md) for additional agent-oriented guidance.
 Before requesting review, confirm:
 
 - [ ] Tests added or updated for behavior changes
-- [ ] `pnpm check` passes
-- [ ] `pnpm test` passes
+- [ ] `npm run check` passes
+- [ ] `npm test` passes
 - [ ] Docs updated if the change affects setup, API, or architecture
 
 ## Code of conduct
