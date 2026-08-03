@@ -35,6 +35,7 @@
 	let newName = $state('');
 	let newDescription = $state('');
 	let newSlots = $state<ComponentSlot[]>([]);
+	let newHtml = $state('');
 	let newBuilderKey = $state(0);
 	let savingNewComponent = $state(false);
 	let newSaveError = $state<string | null>(null);
@@ -44,6 +45,7 @@
 	let editDescription = $state('');
 	let editDocument = $state<TEditorConfiguration>(cloneDocument(EMPTY_DOCUMENT));
 	let editSlots = $state<ComponentSlot[]>([]);
+	let editHtml = $state('');
 	let editBuilderKey = $state(0);
 	let savingEditComponent = $state(false);
 	let editSaveError = $state<string | null>(null);
@@ -238,6 +240,7 @@
 		description: string;
 		document: TEditorConfiguration;
 		slots: ComponentSlot[];
+		html: string;
 	}): Promise<void> {
 		const body = new FormData();
 		if (input.id) body.append('id', input.id);
@@ -245,6 +248,7 @@
 		body.append('description', input.description.trim());
 		body.append('document', JSON.stringify(input.document));
 		body.append('slots', JSON.stringify(input.slots.filter((s) => s.name.trim())));
+		body.append('html', input.html);
 		const res = await fetch('?/saveComponent', {
 			method: 'POST',
 			body,
@@ -308,10 +312,12 @@
 				description: newDescription,
 				document: payload.document,
 				slots: newSlots,
+				html: payload.html,
 			});
 			newName = '';
 			newDescription = '';
 			newSlots = [];
+			newHtml = '';
 			newBuilderKey += 1;
 		} catch (e) {
 			newSaveError = e instanceof Error ? e.message : 'Save failed';
@@ -334,6 +340,7 @@
 				description: editDescription,
 				document: payload.document,
 				slots: editSlots,
+				html: payload.html,
 			});
 			cancelEdit();
 		} catch (e) {
@@ -348,6 +355,7 @@
 		name: string;
 		description: string | null;
 		document?: string | null;
+		html?: string;
 		parsedSlots?: ComponentSlot[];
 	}) {
 		editSaveError = null;
@@ -356,6 +364,7 @@
 		editDescription = component.description ?? '';
 		editDocument = parseComponentDocumentField(component);
 		editSlots = [...(component.parsedSlots ?? [])];
+		editHtml = component.html?.trim() ?? '';
 		editBuilderKey += 1;
 	}
 
@@ -365,6 +374,7 @@
 		editDescription = '';
 		editDocument = cloneDocument(EMPTY_DOCUMENT);
 		editSlots = [];
+		editHtml = '';
 		editSaveError = null;
 	}
 
@@ -522,6 +532,8 @@
 		document: TEditorConfiguration;
 		slots: ComponentSlot[];
 		mode: 'create' | 'edit' | 'validate';
+		approach: 'blocks' | 'html';
+		html?: string;
 		name?: string;
 		description?: string | null;
 		signal: AbortSignal;
@@ -534,8 +546,15 @@
 			isError?: boolean;
 			document?: TEditorConfiguration;
 			slots?: ComponentSlot[];
+			html?: string;
+			approach?: 'blocks' | 'html';
 		}) => void;
-	}): Promise<{ document: TEditorConfiguration; slots: ComponentSlot[] } | null> {
+	}): Promise<{
+		document: TEditorConfiguration;
+		slots: ComponentSlot[];
+		html?: string;
+		approach?: 'blocks' | 'html';
+	} | null> {
 		const res = await fetch(resolve('/design-system/pi-edit'), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
@@ -544,6 +563,8 @@
 				document: args.document,
 				slots: args.slots,
 				mode: args.mode,
+				approach: args.approach,
+				html: args.html,
 				name: args.name,
 				description: args.description,
 			}),
@@ -558,7 +579,12 @@
 		const reader = res.body.getReader();
 		const decoder = new TextDecoder();
 		let buffer = '';
-		let result: { document: TEditorConfiguration; slots: ComponentSlot[] } | null = null;
+		let result: {
+			document: TEditorConfiguration;
+			slots: ComponentSlot[];
+			html?: string;
+			approach?: 'blocks' | 'html';
+		} | null = null;
 
 		while (true) {
 			const { done, value } = await reader.read();
@@ -584,6 +610,8 @@
 					isError?: boolean;
 					document?: TEditorConfiguration;
 					slots?: ComponentSlot[];
+					html?: string;
+					approach?: 'blocks' | 'html';
 				};
 				try {
 					event = JSON.parse(line.slice(5).trim()) as typeof event;
@@ -597,6 +625,8 @@
 						result = {
 							document: cloneDocument(event.document),
 							slots: Array.isArray(event.slots) ? event.slots : args.slots,
+							html: typeof event.html === 'string' ? event.html : undefined,
+							approach: event.approach === 'html' || event.approach === 'blocks' ? event.approach : args.approach,
 						};
 					}
 					args.onEvent({
@@ -604,6 +634,8 @@
 						message: event.message,
 						document: result?.document,
 						slots: result?.slots,
+						html: result?.html,
+						approach: result?.approach,
 					});
 					continue;
 				}
@@ -617,6 +649,8 @@
 					isError: event.isError,
 					document: event.document,
 					slots: event.slots,
+					html: event.html,
+					approach: event.approach,
 				});
 			}
 		}
@@ -1157,11 +1191,13 @@
 				previewOverrides={previewPropOverrides}
 				onUploadAsset={uploadBuilderAsset}
 				saving={savingNewComponent}
+				saveLabel="Save component"
 				onSave={saveNewComponent}
 				aiEnabled={data.piConfigured}
 				aiName={newName}
 				aiDescription={newDescription}
 				aiSlots={newSlots}
+				aiHtml={newHtml}
 				onAiEdit={(args) =>
 					runComponentAiEdit({
 						...args,
@@ -1170,6 +1206,7 @@
 					})}
 				onAiResult={(result) => {
 					newSlots = result.slots;
+					if (result.html != null) newHtml = result.html;
 				}}
 			/>
 		{/key}
@@ -1334,11 +1371,13 @@
 					previewOverrides={previewPropOverrides}
 					onUploadAsset={uploadBuilderAsset}
 					saving={savingEditComponent}
+					saveLabel="Save component"
 					onSave={saveEditComponent}
 					aiEnabled={data.piConfigured}
 					aiName={editName}
 					aiDescription={editDescription}
 					aiSlots={editSlots}
+					aiHtml={editHtml}
 					onAiEdit={(args) =>
 						runComponentAiEdit({
 							...args,
@@ -1348,6 +1387,7 @@
 					onAiResult={(result) => {
 						editDocument = cloneDocument(result.document);
 						editSlots = result.slots;
+						if (result.html != null) editHtml = result.html;
 					}}
 				/>
 			{/key}

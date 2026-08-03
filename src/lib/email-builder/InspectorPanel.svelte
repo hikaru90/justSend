@@ -37,6 +37,7 @@
 		backgroundColor?: string | null;
 		borderColor?: string | null;
 		borderRadius?: number | null;
+		color?: string | null;
 		padding?: { top: number; bottom: number; left: number; right: number } | null;
 		backgroundImage?: string | null;
 		backgroundSize?: 'cover' | 'contain' | null;
@@ -317,6 +318,55 @@
 					value={urlValue}
 					oninput={(e) => setProps({ url: e.currentTarget.value })}
 				/>
+			</label>
+			<label class="block space-y-1 text-xs">
+				<span class="text-[hsl(var(--muted-foreground))]">Button background</span>
+				<input
+					type="color"
+					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
+					value={hexColor(
+						String(
+							(block.data.props as { buttonBackgroundColor?: string })?.buttonBackgroundColor ?? '',
+						) || null,
+						'#000000',
+					)}
+					oninput={(e) => setProps({ buttonBackgroundColor: e.currentTarget.value })}
+				/>
+				{@render colorSwatches(
+					(block.data.props as { buttonBackgroundColor?: string })?.buttonBackgroundColor ?? null,
+					(color) => setProps({ buttonBackgroundColor: color ?? '#000000' }),
+				)}
+			</label>
+			<label class="block space-y-1 text-xs">
+				<span class="text-[hsl(var(--muted-foreground))]">Button text</span>
+				<input
+					type="color"
+					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
+					value={hexColor(
+						String(
+							(block.data.props as { buttonTextColor?: string })?.buttonTextColor ?? '',
+						) || null,
+						'#FFFFFF',
+					)}
+					oninput={(e) => setProps({ buttonTextColor: e.currentTarget.value })}
+				/>
+				{@render colorSwatches(
+					(block.data.props as { buttonTextColor?: string })?.buttonTextColor ?? null,
+					(color) => setProps({ buttonTextColor: color ?? '#FFFFFF' }),
+				)}
+			</label>
+		{/if}
+
+		{#if block.type === 'Heading' || block.type === 'Text'}
+			<label class="block space-y-1 text-xs">
+				<span class="text-[hsl(var(--muted-foreground))]">Text color</span>
+				<input
+					type="color"
+					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
+					value={hexColor(blockStyle.color ?? null, '#262626')}
+					oninput={(e) => setStyle({ color: e.currentTarget.value })}
+				/>
+				{@render colorSwatches(blockStyle.color ?? null, (color) => setStyle({ color }))}
 			</label>
 		{/if}
 

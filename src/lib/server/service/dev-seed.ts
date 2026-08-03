@@ -48,7 +48,7 @@ export function ensureDevDomain(teamId: number): typeof domains.$inferSelect | n
 }
 
 /**
- * CLI entry for `pnpm db:seed`. Applies migrations, then seeds a verified
+ * CLI entry for `npm run db:seed`. Applies migrations, then seeds a verified
  * localhost.dev domain on the first team (if any) so the UI is usable without AWS.
  */
 export function seed() {
@@ -57,7 +57,7 @@ export function seed() {
 	const team = db.select({ id: teams.id, name: teams.name }).from(teams).limit(1).get();
 	if (!team) {
 		console.log(
-			'[seed] No teams yet. Sign up in the app first, then re-run `pnpm db:seed` — or just use the app (dev auto-seeds a domain on first login).',
+			'[seed] No teams yet. Sign up in the app first, then re-run `npm run db:seed` — or just use the app (dev auto-seeds a domain on first login).',
 		);
 		return;
 	}

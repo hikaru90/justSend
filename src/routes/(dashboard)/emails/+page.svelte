@@ -60,7 +60,7 @@
 		<p class="mt-3 text-sm text-[hsl(var(--destructive))]">
 			Emails stay QUEUED until the worker is up. In production the container supervisor starts it
 			automatically — use Start below, or run
-			<code class="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-xs">pnpm worker</code>
+			<code class="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-xs">npm run worker</code>
 			locally.
 		</p>
 	{:else if worker.status === 'paused'}
@@ -71,7 +71,7 @@
 		<p class="mt-3 text-sm text-[hsl(var(--muted-foreground))]">
 			Worker is stopped. Click Start to launch it again (requires the production supervisor or a
 			manual
-			<code class="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-xs">pnpm worker</code>).
+			<code class="rounded bg-[hsl(var(--muted))] px-1.5 py-0.5 text-xs">npm run worker</code>).
 		</p>
 	{/if}
 

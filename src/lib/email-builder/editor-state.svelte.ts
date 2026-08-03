@@ -1,5 +1,9 @@
 import {
-	BLOCK_FACTORIES,
+	createFactoryBlock,
+	themeEmptyDocument,
+	type BlockTheme,
+} from './block-theme';
+import {
 	EMPTY_DOCUMENT,
 	newBlockId,
 	type TEditorBlock,
@@ -50,9 +54,12 @@ export class EmailEditorState {
 	/** Preview-only: force light/dark email color scheme (ignores OS preference). */
 	colorScheme = $state<'light' | 'dark'>('light');
 	inspectorOpen = $state(true);
+	/** Brand colors from design.md — applied to new basic blocks. */
+	theme = $state<BlockTheme | null>(null);
 
 	load(doc: TEditorConfiguration | null | undefined) {
-		this.document = cloneDocument(doc && Object.keys(doc).length ? doc : EMPTY_DOCUMENT);
+		const next = cloneDocument(doc && Object.keys(doc).length ? doc : EMPTY_DOCUMENT);
+		this.document = themeEmptyDocument(next, this.theme);
 		this.selectedBlockId = null;
 	}
 
@@ -72,10 +79,9 @@ export class EmailEditorState {
 	}
 
 	insertBlock(parentId: string, index: number, factoryType: string) {
-		const factory = BLOCK_FACTORIES.find((f) => f.type === factoryType);
-		if (!factory) return;
+		const block = createFactoryBlock(factoryType, this.theme);
+		if (!block) return;
 		const blockId = newBlockId();
-		const block = factory.create();
 		const parent = this.document[parentId];
 		if (!parent) return;
 
@@ -117,9 +123,9 @@ export class EmailEditorState {
 	}
 
 	insertBlockIntoList(parentId: string, childrenIds: string[], index: number, factoryType: string) {
-		const factory = BLOCK_FACTORIES.find((f) => f.type === factoryType);
-		if (!factory) return;
-		this.insertBlockAt(parentId, childrenIds, index, factory.create());
+		const block = createFactoryBlock(factoryType, this.theme);
+		if (!block) return;
+		this.insertBlockAt(parentId, childrenIds, index, block);
 	}
 
 	/** Insert any block (built-in factory or design-system Html) at index. */

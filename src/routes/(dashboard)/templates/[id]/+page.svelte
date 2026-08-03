@@ -4,7 +4,9 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import EmailBuilder from '$lib/email-builder/EmailBuilder.svelte';
-	import type { TEditorConfiguration } from '$lib/email-builder/types';
+	import { cloneDocument } from '$lib/email-builder/render';
+	import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
+	import type { EditApproach } from '$lib/email-builder/edit-approach';
 	import { deserialize, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -453,6 +455,138 @@
 			kind: a.kind,
 		})),
 	);
+
+	async function runEmailAiEdit(args: {
+		instruction: string;
+		document: TEditorConfiguration;
+		slots: ComponentSlot[];
+		mode: 'create' | 'edit' | 'validate';
+		approach: EditApproach;
+		html?: string;
+		signal: AbortSignal;
+		onEvent: (event: {
+			type: string;
+			message?: string;
+			delta?: string;
+			tool?: string;
+			toolCallId?: string;
+			isError?: boolean;
+			document?: TEditorConfiguration;
+			slots?: ComponentSlot[];
+			html?: string;
+			approach?: EditApproach;
+		}) => void;
+	}): Promise<{
+		document: TEditorConfiguration;
+		slots: ComponentSlot[];
+		html?: string;
+		approach?: EditApproach;
+	} | null> {
+		const res = await fetch(resolve('/design-system/pi-edit'), {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+			body: JSON.stringify({
+				instruction: args.instruction,
+				document: args.document,
+				slots: args.slots,
+				mode: args.mode,
+				approach: args.approach,
+				html: args.html,
+				name: data.template.name,
+				description: 'Template email document',
+			}),
+			signal: args.signal,
+		});
+
+		if (!res.ok || !res.body) {
+			const text = await res.text().catch(() => '');
+			throw new Error(text || `Pi edit request failed (${res.status})`);
+		}
+
+		const reader = res.body.getReader();
+		const decoder = new TextDecoder();
+		let buffer = '';
+		let result: {
+			document: TEditorConfiguration;
+			slots: ComponentSlot[];
+			html?: string;
+			approach?: EditApproach;
+		} | null = null;
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			const chunks = buffer.split('\n\n');
+			buffer = chunks.pop() ?? '';
+
+			for (const chunk of chunks) {
+				const line = chunk
+					.split('\n')
+					.map((l) => l.trim())
+					.find((l) => l.startsWith('data:'));
+				if (!line) continue;
+				let event: {
+					type?: string;
+					message?: string;
+					delta?: string;
+					toolName?: string;
+					tool?: string;
+					toolCallId?: string;
+					detail?: string;
+					isError?: boolean;
+					document?: TEditorConfiguration;
+					slots?: ComponentSlot[];
+					html?: string;
+					approach?: EditApproach;
+				};
+				try {
+					event = JSON.parse(line.slice(5).trim()) as typeof event;
+				} catch {
+					continue;
+				}
+
+				const type = event.type ?? '';
+				if (type === 'done') {
+					if (event.document?.root?.type === 'EmailLayout') {
+						result = {
+							document: cloneDocument(event.document),
+							slots: Array.isArray(event.slots) ? event.slots : args.slots,
+							html: typeof event.html === 'string' ? event.html : undefined,
+							approach:
+								event.approach === 'html' || event.approach === 'blocks'
+									? event.approach
+									: args.approach,
+						};
+					}
+					args.onEvent({
+						type: 'done',
+						message: event.message,
+						document: result?.document,
+						slots: result?.slots,
+						html: result?.html,
+						approach: result?.approach,
+					});
+					continue;
+				}
+
+				args.onEvent({
+					type,
+					message: event.message ?? event.detail,
+					delta: event.delta,
+					tool: event.tool ?? event.toolName,
+					toolCallId: event.toolCallId,
+					isError: event.isError,
+					document: event.document,
+					slots: event.slots,
+					html: event.html,
+					approach: event.approach,
+				});
+			}
+		}
+
+		return result;
+	}
 </script>
 
 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -463,7 +597,7 @@
 		>
 		<h1 class="mt-1 text-2xl font-semibold">{data.template.name}</h1>
 		<p class="text-sm text-[hsl(var(--muted-foreground))]">
-			Build the email here. AI and sections are optional helpers below.
+			Build the email here. Use the AI assistant tab in the builder, or the helpers below.
 		</p>
 	</div>
 	<form method="POST" action="?/delete" use:enhance>
@@ -606,6 +740,11 @@
 		onUploadAsset={uploadBuilderAsset}
 		saving={savingHtml}
 		onSave={saveEmailBuilder}
+		aiEnabled={data.piConfigured}
+		aiName={data.template.name}
+		aiDescription="Template email — edits use your design system (blocks or HTML)."
+		aiHtml={data.template.html ?? ''}
+		onAiEdit={runEmailAiEdit}
 	/>
 </div>
 

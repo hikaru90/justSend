@@ -1,14 +1,18 @@
 import { error } from '@sveltejs/kit';
+import { applyHtmlToComponentDocument, resolveEditApproach } from '$lib/email-builder/edit-approach';
+import { renderEmailHtml } from '$lib/email-builder/render';
+import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
+import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
 import { requireTeamId } from '$lib/server/dashboard';
 import { env } from '$lib/server/env';
+import { isEmptyComponentDocument } from '$lib/server/service/design-workspace-context';
 import {
 	disposePiSession,
 	editComponentTreeWithPiStream,
+	editHtmlWithPiStream,
 	isPiConfigured,
 	type PiEditStreamEvent,
 } from '$lib/server/service/pi-service';
-import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
-import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
 import type { RequestHandler } from './$types';
 
 function sse(data: Record<string, unknown>): string {
@@ -29,6 +33,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		name?: string;
 		description?: string;
 		mode?: string;
+		approach?: string;
+		html?: string;
 	};
 	try {
 		body = (await request.json()) as typeof body;
@@ -49,6 +55,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const name = String(body.name ?? '').trim();
 	const description = String(body.description ?? '').trim() || null;
 	const mode = body.mode;
+	const storedHtml = String(body.html ?? '').trim();
+	const approach = resolveEditApproach({
+		approach: body.approach,
+		instruction,
+		document,
+		html: storedHtml,
+	});
 	const assetBaseUrl = env.HOST_URL.replace(/\/$/, '');
 
 	const encoder = new TextEncoder();
@@ -60,6 +73,53 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			};
 
 			try {
+				if (approach === 'html') {
+					send({ type: 'step', message: 'Using raw HTML edit…' });
+
+					let sourceHtml = storedHtml;
+					if (!sourceHtml && !isEmptyComponentDocument(document)) {
+						try {
+							sourceHtml = renderEmailHtml(document);
+						} catch {
+							sourceHtml = '';
+						}
+					}
+
+					const edited = await editHtmlWithPiStream({
+						teamId,
+						html: sourceHtml,
+						instruction,
+						mode,
+						assetBaseUrl,
+						filename: 'component.html',
+						context: {
+							kind: 'component',
+							name: name || undefined,
+							description,
+						},
+						signal: request.signal,
+						onEvent: send,
+					});
+
+					const applied = applyHtmlToComponentDocument({
+						document,
+						slots,
+						html: edited.html,
+					});
+
+					send({
+						type: 'done',
+						document: applied.document,
+						slots: applied.slots,
+						html: applied.html,
+						approach: 'html',
+						message: 'Edit complete.',
+					});
+					return;
+				}
+
+				send({ type: 'step', message: 'Using block-tree edit…' });
+
 				const edited = await editComponentTreeWithPiStream({
 					teamId,
 					instruction,
@@ -73,11 +133,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					onEvent: send,
 				});
 
+				let html = '';
+				try {
+					html = renderEmailHtml(edited.document);
+				} catch {
+					html = '';
+				}
+
 				send({
 					type: 'done',
 					document: edited.document,
 					slots: edited.slots,
+					html,
 					mode: edited.mode,
+					approach: 'blocks',
 					message: 'Edit complete.',
 				});
 			} catch (e) {

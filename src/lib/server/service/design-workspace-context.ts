@@ -7,6 +7,12 @@
  * peer components, and the target artifact — with mode-specific instructions.
  */
 import { pickEmailLogos } from '$lib/design/extractTokens';
+import {
+	inferEditApproach,
+	isEmptyComponentDocument,
+	resolveEditApproach,
+	type EditApproach,
+} from '$lib/email-builder/edit-approach';
 import { renderEmailHtml } from '$lib/email-builder/render';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import type { DesignAssetKind } from '../db/schema';
@@ -19,6 +25,9 @@ import {
 	type DesignAsset,
 	type DesignComponent,
 } from './design-system-service';
+
+export type { EditApproach };
+export { inferEditApproach, isEmptyComponentDocument, resolveEditApproach };
 
 export type DesignWorkspaceMode = 'create' | 'edit' | 'validate';
 
@@ -119,11 +128,6 @@ export type DesignWorkspacePiFilesInput = {
 	assetBaseUrl?: string;
 	excludeComponentName?: string | null;
 };
-
-export function isEmptyComponentDocument(document: TEditorConfiguration): boolean {
-	const children = document.root?.data?.childrenIds;
-	return !Array.isArray(children) || children.length === 0;
-}
 
 /**
  * Resolve mode from an explicit client value, otherwise:

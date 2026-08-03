@@ -619,6 +619,8 @@ export type PiEditStreamEvent =
 			/** Present after component-tree JSON edits. */
 			document?: import('$lib/email-builder/types').TEditorConfiguration;
 			slots?: import('$lib/email-builder/types').ComponentSlot[];
+			mode?: DesignWorkspaceMode;
+			approach?: import('$lib/email-builder/edit-approach').EditApproach;
 	  }
 	| { type: 'error'; message: string }
 	| { type: 'cancelled'; message: string };
@@ -1201,7 +1203,7 @@ export type EditComponentTreeWithPiResult = {
 };
 
 const COMPONENT_TREE_SYSTEM = [
-	'You create, edit, or validate reusable email design-system components as email-builder JSON documents.',
+	'You create, edit, or validate email-builder JSON documents (design-system components or full template emails).',
 	'Return ONLY valid JSON (no markdown fences) with this exact shape:',
 	'{ "document": <TEditorConfiguration>, "slots": <ComponentSlot[]> }',
 	'',
@@ -1211,9 +1213,9 @@ const COMPONENT_TREE_SYSTEM = [
 	'',
 	'Block data shapes:',
 	'- EmailLayout data: { backdropColor, canvasColor, textColor, fontFamily, childrenIds: string[] }',
-	'- Heading data: { props: { text, level? }, style?: { padding } }',
-	'- Text data: { props: { text, markdown: true }, style?: { padding, fontWeight } } — text supports Markdown (**bold**, *italic*, links, lists)',
-	'- Button data: { props: { text, url }, style?: { padding } }',
+	'- Heading data: { props: { text, level? }, style?: { padding, color?, fontSize?, fontWeight? } }',
+	'- Text data: { props: { text, markdown: true }, style?: { padding, color?, fontWeight? } } — text supports Markdown (**bold**, *italic*, links, lists)',
+	'- Button data: { props: { text, url, buttonBackgroundColor?, buttonTextColor? }, style?: { padding } } — use brand primary from design.md for buttonBackgroundColor',
 	'- Image data: { props: { url, alt, contentAlignment?, linkHref?, width? }, style?: { padding } }',
 	'- Divider data: { props: { lineColor }, style?: { padding } }',
 	'- Spacer data: { props: { height } }',
@@ -1221,9 +1223,11 @@ const COMPONENT_TREE_SYSTEM = [
 	'- Container data: { props: { childrenIds }, style?: { padding, backgroundColor, borderColor, borderRadius } }',
 	'- ColumnsContainer data: { props: { columnsCount, columnsGap, columns: [{ childrenIds }] }, style?: { padding } }',
 	'',
+	'When creating or restyling blocks, apply brand colors from design.md (primary CTA fill, text, muted divider).',
+	'',
 	'ComponentSlot: { name, blockId, prop, type: "text"|"url"|"asset"|"color", label? }',
 	'prop is a path under block.data, e.g. "props.text", "props.url", "style.backgroundColor".',
-	'Every slot.blockId must exist in document. Prefer marking copy/image fields as slots.',
+	'Every slot.blockId must exist in document. Prefer marking copy/image fields as slots. For full template emails, slots may be empty.',
 	'',
 	'Follow the Mode rules in the user message (create / edit / validate).',
 	'Use design.md, email formatting rules, assets, and peer library components from the user message as authoritative context.',

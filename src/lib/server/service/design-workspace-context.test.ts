@@ -11,6 +11,7 @@ import {
 	toPiDesignContext,
 	type DesignWorkspaceContext,
 } from './design-workspace-context';
+import { inferEditApproach } from '$lib/email-builder/edit-approach';
 
 describe('inferDesignWorkspaceMode', () => {
 	it('honors explicit mode', () => {
@@ -63,6 +64,17 @@ describe('inferDesignWorkspaceMode', () => {
 describe('isEmptyComponentDocument', () => {
 	it('treats EMPTY_DOCUMENT as empty', () => {
 		expect(isEmptyComponentDocument(EMPTY_DOCUMENT)).toBe(true);
+	});
+});
+
+describe('inferEditApproach re-export', () => {
+	it('is available via design workspace context surface', () => {
+		expect(
+			inferEditApproach({
+				instruction: 'custom html dark and light button',
+				document: EMPTY_DOCUMENT,
+			}),
+		).toBe('html');
 	});
 });
 

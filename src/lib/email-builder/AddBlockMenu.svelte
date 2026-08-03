@@ -14,6 +14,7 @@
 		legacyHtmlBlock,
 		parseLibraryComponentDocument,
 	} from './design-component-render';
+	import { createFactoryBlock } from './block-theme';
 	import { renderEmailHtml } from './render';
 
 	let {
@@ -77,9 +78,9 @@
 	}
 
 	function addFactory(type: string) {
-		const factory = BLOCK_FACTORIES.find((f) => f.type === type);
-		if (!factory) return;
-		insert(factory.create());
+		const block = createFactoryBlock(type, editor.theme);
+		if (!block) return;
+		insert(block);
 	}
 
 	function addComponent(component: DesignLibraryComponent) {

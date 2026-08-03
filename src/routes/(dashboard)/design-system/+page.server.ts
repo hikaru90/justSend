@@ -143,6 +143,7 @@ export const actions: Actions = {
 		const description = String(form.get('description') ?? '').trim() || null;
 		const documentRaw = String(form.get('document') ?? '').trim();
 		const slotsRaw = String(form.get('slots') ?? '').trim();
+		const htmlRaw = String(form.get('html') ?? '');
 
 		if (!name) return fail(400, { error: 'Component name is required' });
 		if (!documentRaw) return fail(400, { error: 'Component document is required' });
@@ -164,7 +165,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			upsertComponent(teamId, { id, name, description, document, slots });
+			upsertComponent(teamId, { id, name, description, document, slots, html: htmlRaw });
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
 		}

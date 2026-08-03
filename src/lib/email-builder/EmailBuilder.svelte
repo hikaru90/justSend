@@ -7,6 +7,8 @@
 	import type { DesignLibraryAsset, DesignLibraryComponent } from './library';
 	import type { ComponentSlot, TEditorConfiguration } from './types';
 	import { renderEmailHtml } from './render';
+	import { inferEditApproach, type EditApproach } from './edit-approach';
+	import { resolveBlockTheme, themeEmptyDocument } from './block-theme';
 	import {
 		applyPreviewColorScheme,
 		substitutePreviewPlaceholders,
@@ -32,6 +34,8 @@
 		isError?: boolean;
 		document?: TEditorConfiguration;
 		slots?: ComponentSlot[];
+		html?: string;
+		approach?: EditApproach;
 	};
 
 	let {
@@ -43,10 +47,12 @@
 		onUploadAsset = null,
 		onSave,
 		saving = false,
+		saveLabel = 'Save',
 		aiEnabled = false,
 		aiName,
 		aiDescription,
 		aiSlots,
+		aiHtml = '',
 		onAiEdit,
 		onAiResult,
 	}: {
@@ -59,22 +65,34 @@
 			((file: File) => Promise<{ id: string; name: string; kind: string } | null>) | null;
 		onSave?: (payload: { document: TEditorConfiguration; html: string }) => void | Promise<void>;
 		saving?: boolean;
+		saveLabel?: string;
 		aiEnabled?: boolean;
 		aiName?: string;
 		aiDescription?: string | null;
 		aiSlots?: ComponentSlot[];
+		/** Stored component html (legacy / last render) for approach inference + HTML edits. */
+		aiHtml?: string;
 		onAiEdit?: (args: {
 			instruction: string;
 			document: TEditorConfiguration;
 			slots: ComponentSlot[];
 			mode: 'create' | 'edit' | 'validate';
+			approach: EditApproach;
+			html?: string;
 			signal: AbortSignal;
 			onEvent: (event: AiEditEvent) => void;
 		}) => Promise<{
 			document: TEditorConfiguration;
 			slots: ComponentSlot[];
+			html?: string;
+			approach?: EditApproach;
 		} | null>;
-		onAiResult?: (result: { document: TEditorConfiguration; slots: ComponentSlot[] }) => void;
+		onAiResult?: (result: {
+			document: TEditorConfiguration;
+			slots: ComponentSlot[];
+			html?: string;
+			approach?: EditApproach;
+		}) => void;
 	} = $props();
 
 	const editor = new Editor();
@@ -88,10 +106,14 @@
 		library.colors = designColors;
 		library.assets = designAssets;
 		library.onUploadAsset = onUploadAsset;
+		const theme = resolveBlockTheme(designColors);
+		editor.theme = theme;
+		editor.document = themeEmptyDocument(editor.document, theme);
 	});
 
 	let aiInstruction = $state('');
 	let aiMode = $state<'create' | 'edit' | 'validate'>('create');
+	let aiApproachOverride = $state<EditApproach | null>(null);
 	let aiEditing = $state(false);
 	let aiStatus = $state('');
 	let aiError = $state<string | null>(null);
@@ -107,8 +129,18 @@
 			editor.load(initialDocument);
 			const empty = (editor.document.root?.data?.childrenIds?.length ?? 0) === 0;
 			aiMode = empty ? 'create' : 'edit';
+			aiApproachOverride = null;
 		}
 	});
+
+	const inferredApproach = $derived(
+		inferEditApproach({
+			instruction: aiInstruction,
+			document: editor.document,
+			html: aiHtml,
+		}),
+	);
+	const aiApproach = $derived(aiApproachOverride ?? inferredApproach);
 
 	function appendAiFeed(line: Omit<AiFeedLine, 'id'>): number {
 		const id = ++aiFeedId;
@@ -215,6 +247,8 @@
 				document: editor.document,
 				slots: aiSlots ?? [],
 				mode: aiMode,
+				approach: aiApproach,
+				html: aiHtml,
 				signal: controller.signal,
 				onEvent: (event) => handleAiEvent(event, openTools),
 			});
@@ -223,6 +257,7 @@
 				editor.load(result.document);
 				onAiResult?.(result);
 				aiInstruction = '';
+				aiApproachOverride = null;
 				aiStatus = 'Done.';
 				editor.tab = 'editor';
 			}
@@ -358,7 +393,7 @@
 			{/if}
 			{#if onSave}
 				<Button type="button" size="sm" disabled={saving} onclick={() => void save()}>
-					{saving ? 'Saving…' : 'Save email'}
+					{saving ? 'Saving…' : saveLabel}
 				</Button>
 			{/if}
 		</div>
@@ -412,17 +447,18 @@
 					class="flex h-full min-h-[420px] flex-col bg-[hsl(var(--card))] p-3 sm:min-h-[640px] sm:p-4"
 				>
 					<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
-						Create, edit, or validate this component using the full design system (brand tokens,
-						assets, and peer components).
+						Create, edit, or validate using the full design system (brand tokens, assets, and peer
+						components). Basic blocks pick up brand colors automatically; AI can restyle or rebuild
+						them.
 						{#if aiName}
-							<span class="mt-1 block text-xs opacity-80">Component: {aiName}</span>
+							<span class="mt-1 block text-xs opacity-80">{aiName}</span>
 						{/if}
 						{#if aiDescription}
 							<span class="mt-0.5 block text-xs opacity-80">{aiDescription}</span>
 						{/if}
 					</p>
 
-					<div class="mb-3 flex flex-wrap gap-1" role="group" aria-label="AI mode">
+					<div class="mb-2 flex flex-wrap gap-1" role="group" aria-label="AI mode">
 						{#each ['create', 'edit', 'validate'] as modeOption (modeOption)}
 							<button
 								type="button"
@@ -437,6 +473,35 @@
 								{modeOption}
 							</button>
 						{/each}
+					</div>
+
+					<div class="mb-3 flex flex-wrap items-center gap-2">
+						<div class="flex flex-wrap gap-1" role="group" aria-label="AI approach">
+							{#each [{ id: 'blocks', label: 'Blocks' }, { id: 'html', label: 'HTML' }] as option (option.id)}
+								<button
+									type="button"
+									disabled={aiEditing}
+									class="rounded px-2 py-1 text-xs {aiApproach === option.id
+										? 'bg-[hsl(var(--secondary))] font-medium'
+										: 'hover:bg-[hsl(var(--muted))]'} disabled:opacity-50"
+									onclick={() => {
+										aiApproachOverride = option.id as EditApproach;
+									}}
+								>
+									{option.label}
+								</button>
+							{/each}
+						</div>
+						<p class="text-xs text-[hsl(var(--muted-foreground))]">
+							{#if aiApproach === 'html'}
+								Raw HTML — custom markup, dark/light CTAs, media queries.
+							{:else}
+								Blocks — Heading, Text, Button, Image, slots.
+							{/if}
+							{#if aiApproachOverride == null}
+								<span class="opacity-70"> (auto)</span>
+							{/if}
+						</p>
 					</div>
 
 					<div
@@ -515,11 +580,15 @@
 						<textarea
 							bind:value={aiInstruction}
 							disabled={aiEditing}
-							placeholder={aiMode === 'validate'
-								? 'e.g. Check logos, spacing, and slots against the design system'
-								: aiMode === 'edit'
-									? 'e.g. Use the dark logo variant in the header'
-									: 'e.g. Hero with logo, headline, and primary CTA'}
+							placeholder={aiApproach === 'html'
+								? aiMode === 'validate'
+									? 'e.g. Check dark/light markup and asset URLs'
+									: 'e.g. Dark/light CTA button with prefers-color-scheme'
+								: aiMode === 'validate'
+									? 'e.g. Check logos, spacing, and slots against the design system'
+									: aiMode === 'edit'
+										? 'e.g. Use the dark logo variant in the header'
+										: 'e.g. Hero with logo, headline, and primary CTA'}
 							rows="3"
 							class="w-full resize-y rounded-md border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:ring-1 focus:ring-[hsl(var(--ring))] focus:outline-none disabled:opacity-50"
 						></textarea>
