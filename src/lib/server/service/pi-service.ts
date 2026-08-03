@@ -24,13 +24,25 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { cuid } from '$lib/utils';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
-import { BLOCK_FACTORIES } from '$lib/email-builder/types';
+import { BLOCK_FACTORIES, EMPTY_DOCUMENT } from '$lib/email-builder/types';
 import { validateComponentTree } from '$lib/email-builder/validate-component-tree';
 import type { DesignAssetKind, TemplateComponentKind } from '../db/schema';
 import { EMAIL_FORMATTING_RULES } from '../email-formatting-rules';
 import { env } from '../env';
+import {
+	buildDesignWorkspaceContext,
+	buildDesignWorkspaceUserPrompt,
+	formatDesignAssetsForPrompt,
+	inferDesignWorkspaceMode,
+	toPiDesignContext,
+	type DesignAssetPromptRef,
+	type DesignWorkspaceMode,
+} from './design-workspace-context';
 import { openRouterChat, openRouterModel } from './openrouter';
-import { assetDiskPath, getDesignSystemBundle, type DesignAsset } from './design-system-service';
+import { assetDiskPath, type DesignAsset } from './design-system-service';
+
+export type { DesignAssetPromptRef, DesignWorkspaceMode };
+export { formatDesignAssetsForPrompt };
 
 export type PiSessionHandle = {
 	id: string;
@@ -59,8 +71,10 @@ const HTML_EDIT_SYSTEM_PROMPT = [
 	'Your job is to edit the email/component HTML file in the current working directory using your tools (read, edit, write, ls).',
 	'Apply the user instruction to that file.',
 	'Prefer editing the target file first — it often already reflects the brand from generation.',
+	'Change ONLY what the instruction asks for. Do not rewrite unrelated markup, copy, structure, or styles.',
 	'When the instruction needs brand tokens, patterns, or images, open design.md, components/, or assets/README.md yourself.',
 	'For images/logos in HTML, use the embed URLs listed in assets/README.md (not local file paths).',
+	'For light/dark logo or image variants, use the matching [logo/light] or [logo/dark] embed URL from assets/README.md.',
 	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
@@ -73,8 +87,10 @@ const EMAIL_TREE_EDIT_SYSTEM_PROMPT = [
 	'Apply the user instruction across one or more files in email/ as needed.',
 	'Root.svelte composes the email; section components are sibling .svelte files imported by Root.',
 	'You may create new section .svelte files and update Root imports; you may remove unused section files.',
+	'Change ONLY what the instruction asks for. Do not rewrite unrelated markup, copy, structure, or styles.',
 	'When the instruction needs brand tokens, patterns, or images, open design.md, components/, or assets/README.md yourself.',
 	'For images/logos in HTML, use the embed URLs listed in assets/README.md (not local file paths).',
+	'For light/dark logo or image variants, use the matching [logo/light] or [logo/dark] embed URL from assets/README.md.',
 	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
@@ -192,6 +208,8 @@ export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 			'Uploaded logos, images, and fonts for this brand.',
 			'Use the **embed URL** in HTML `src` / CSS — not the local file path.',
 			'',
+			formatDesignAssetsForPrompt(assets, assetBaseUrl),
+			'',
 			'| kind | name | mime | size | local file | embed URL |',
 			'| --- | --- | --- | --- | --- | --- |',
 		];
@@ -267,6 +285,11 @@ export function buildPiAgentsMd(opts: {
 		...(opts.metaLines.length ? ['## Meta', ...opts.metaLines, ''] : []),
 		...designSection,
 		'## Rules',
+		'- Follow the Mode in Meta (create / edit / validate).',
+		'- create: build from the instruction using the design library.',
+		'- edit: change ONLY what the instruction asks for — do not rewrite unrelated markup.',
+		'- validate: fix only concrete problems; leave good markup unchanged.',
+		'- Before inventing colors, logos, or layout patterns, read design.md, components/, and assets/README.md.',
 		'- Keep email-safe HTML (tables + inline CSS) unless asked otherwise.',
 		'- Always wrap `<tr>` in `<tbody>`/`<thead>`/`<tfoot>` — never put `<tr>` directly under `<table>`.',
 		'- Preserve `{{placeholders}}` unless asked to change them.',
@@ -740,6 +763,8 @@ export type EditHtmlWithPiInput = {
 	assetBaseUrl?: string;
 	/** Override work-file name (default email.html / component.html). */
 	filename?: string;
+	/** create | edit | validate — inferred from empty html when omitted */
+	mode?: DesignWorkspaceMode | string | null;
 	context?: {
 		kind?: 'component' | 'template';
 		name?: string;
@@ -828,25 +853,33 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 		await mkdir(workDir, { recursive: true });
 		await writeFile(filePath, input.html.trim() ? input.html : '<!-- empty -->\n', 'utf8');
 
-		const bundle = getDesignSystemBundle(input.teamId);
-		const design: PiDesignContext = {
-			designMd: bundle.system?.designMd ?? null,
-			components: bundle.components.map((c) => ({
-				name: c.name,
-				description: c.description,
-				html: c.html,
-			})),
-			assets: bundle.assets.map((a) => ({
-				id: a.id,
-				kind: a.kind,
-				name: a.name,
-				filename: a.filename,
-				mime: a.mime,
-				size: a.size,
-			})),
+		const mode = inferDesignWorkspaceMode({
+			mode: input.mode,
+			instruction,
+			document: input.html.trim()
+				? {
+						root: {
+							type: 'EmailLayout',
+							data: { childrenIds: ['_existing'] },
+						},
+					}
+				: EMPTY_DOCUMENT,
+		});
+
+		const workspace = buildDesignWorkspaceContext({
+			teamId: input.teamId,
+			mode,
 			assetBaseUrl,
-			excludeComponentName: input.context?.name ?? null,
-		};
+			target: {
+				kind: 'component-tree',
+				name: input.context?.name,
+				description: input.context?.description,
+				document: EMPTY_DOCUMENT,
+				slots: [],
+				excludeComponentName: input.context?.name,
+			},
+		});
+		const design: PiDesignContext = toPiDesignContext(workspace);
 
 		const designFiles = buildPiDesignWorkspaceFiles(design);
 		for (const file of designFiles) {
@@ -854,9 +887,10 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 			await mkdir(dirname(absolute), { recursive: true });
 			await writeFile(absolute, file.content, 'utf8');
 		}
-		await copyPiDesignAssetsToWorkDir(workDir, input.teamId, bundle.assets);
+		await copyPiDesignAssetsToWorkDir(workDir, input.teamId, workspace.assetRows);
 
 		const metaLines = [
+			`- mode: ${mode}`,
 			input.context?.kind ? `- kind: ${input.context.kind}` : null,
 			input.context?.name ? `- name: ${input.context.name}` : null,
 			input.context?.description ? `- description: ${input.context.description}` : null,
@@ -869,6 +903,10 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 			'utf8',
 		);
 
+		emit({
+			type: 'step',
+			message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components (${mode}).`,
+		});
 		emit({ type: 'step', message: 'Starting Pi…' });
 
 		handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
@@ -1034,24 +1072,17 @@ export async function editTemplateTreeWithPi(
 		);
 	}
 
-	const bundle = getDesignSystemBundle(input.teamId);
-	const design: PiDesignContext = {
-		designMd: bundle.system?.designMd ?? null,
-		components: bundle.components.map((c) => ({
-			name: c.name,
-			description: c.description,
-			html: c.html,
-		})),
-		assets: bundle.assets.map((a) => ({
-			id: a.id,
-			kind: a.kind,
-			name: a.name,
-			filename: a.filename,
-			mime: a.mime,
-			size: a.size,
-		})),
+	const workspace = buildDesignWorkspaceContext({
+		teamId: input.teamId,
+		mode: 'edit',
 		assetBaseUrl,
-	};
+		target: {
+			kind: 'component-tree',
+			document: EMPTY_DOCUMENT,
+			slots: [],
+		},
+	});
+	const design: PiDesignContext = toPiDesignContext(workspace);
 
 	const designFiles = buildPiDesignWorkspaceFiles(design);
 	for (const file of designFiles) {
@@ -1059,10 +1090,11 @@ export async function editTemplateTreeWithPi(
 		await mkdir(dirname(absolute), { recursive: true });
 		await writeFile(absolute, file.content, 'utf8');
 	}
-	await copyPiDesignAssetsToWorkDir(workDir, input.teamId, bundle.assets);
+	await copyPiDesignAssetsToWorkDir(workDir, input.teamId, workspace.assetRows);
 
 	const metaLines = [
 		'- kind: email-tree',
+		'- mode: edit',
 		`- components: ${stagedFiles.length}`,
 		input.subject ? `- subject: ${input.subject}` : null,
 	].filter((line): line is string => Boolean(line));
@@ -1073,6 +1105,10 @@ export async function editTemplateTreeWithPi(
 		'utf8',
 	);
 
+	emit({
+		type: 'step',
+		message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components.`,
+	});
 	emit({ type: 'step', message: 'Starting Pi…' });
 
 	const handle = await spawnPiSession({ purpose: 'email-tree-edit', cwd: workDir });
@@ -1145,12 +1181,15 @@ export async function editTemplateTreeWithPiStream(
 }
 
 export type EditComponentTreeWithPiInput = {
+	teamId: number;
 	instruction: string;
 	document: TEditorConfiguration;
 	slots: ComponentSlot[];
 	name?: string;
 	description?: string | null;
-	designMd?: string;
+	/** create | edit | validate — inferred when omitted */
+	mode?: DesignWorkspaceMode | string | null;
+	assetBaseUrl?: string;
 	signal?: AbortSignal;
 	onEvent?: (event: PiEditStreamEvent) => void;
 };
@@ -1158,10 +1197,11 @@ export type EditComponentTreeWithPiInput = {
 export type EditComponentTreeWithPiResult = {
 	document: TEditorConfiguration;
 	slots: ComponentSlot[];
+	mode: DesignWorkspaceMode;
 };
 
 const COMPONENT_TREE_SYSTEM = [
-	'You author reusable email design-system components as email-builder JSON documents.',
+	'You create, edit, or validate reusable email design-system components as email-builder JSON documents.',
 	'Return ONLY valid JSON (no markdown fences) with this exact shape:',
 	'{ "document": <TEditorConfiguration>, "slots": <ComponentSlot[]> }',
 	'',
@@ -1184,36 +1224,51 @@ const COMPONENT_TREE_SYSTEM = [
 	'ComponentSlot: { name, blockId, prop, type: "text"|"url"|"asset"|"color", label? }',
 	'prop is a path under block.data, e.g. "props.text", "props.url", "style.backgroundColor".',
 	'Every slot.blockId must exist in document. Prefer marking copy/image fields as slots.',
-	'Preserve existing block ids when editing unless the instruction asks to rebuild.',
+	'',
+	'Follow the Mode rules in the user message (create / edit / validate).',
+	'Use design.md, email formatting rules, assets, and peer library components from the user message as authoritative context.',
+	'Never invent asset URLs — only use embed URLs listed under Assets.',
 	'Follow email-safe layout: ~600px canvas, clear hierarchy, one primary CTA when relevant.',
 ].join('\n');
 
 /**
- * Edit a design-system component block tree via OpenRouter JSON mode
- * (no file workdir — returns validated document + slots).
+ * Edit a design-system component block tree via OpenRouter JSON mode.
+ * Context always comes from {@link buildDesignWorkspaceContext} (create/edit/validate).
  */
 export async function editComponentTreeWithPi(
 	input: EditComponentTreeWithPiInput,
 ): Promise<EditComponentTreeWithPiResult> {
 	const emit = (event: PiEditStreamEvent) => input.onEvent?.(event);
+
+	const mode = inferDesignWorkspaceMode({
+		mode: input.mode,
+		instruction: input.instruction,
+		document: input.document,
+	});
+
+	emit({ type: 'step', message: `Preparing ${mode} context…` });
+
+	const workspace = buildDesignWorkspaceContext({
+		teamId: input.teamId,
+		mode,
+		assetBaseUrl: input.assetBaseUrl,
+		target: {
+			kind: 'component-tree',
+			name: input.name,
+			description: input.description,
+			document: input.document,
+			slots: input.slots,
+			excludeComponentName: input.name,
+		},
+	});
+
+	emit({
+		type: 'step',
+		message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components.`,
+	});
 	emit({ type: 'step', message: `Calling ${openRouterModel()} (JSON mode)…` });
 
-	const userPrompt = [
-		input.name ? `Component name: ${input.name}` : null,
-		input.description ? `Description: ${input.description}` : null,
-		'',
-		'## Instruction',
-		input.instruction,
-		'',
-		input.designMd?.trim() ? `## design.md\n${input.designMd.trim()}\n` : null,
-		'## Current document',
-		JSON.stringify(input.document, null, 2),
-		'',
-		'## Current slots',
-		JSON.stringify(input.slots, null, 2),
-	]
-		.filter((line): line is string => line != null)
-		.join('\n');
+	const userPrompt = buildDesignWorkspaceUserPrompt(workspace, input.instruction);
 
 	const raw = await openRouterChat(
 		[
@@ -1241,7 +1296,7 @@ export async function editComponentTreeWithPi(
 	}
 
 	emit({ type: 'step', message: 'Validated document and slots.' });
-	return { document: validated.document, slots: validated.slots };
+	return { document: validated.document, slots: validated.slots, mode };
 }
 
 export async function editComponentTreeWithPiStream(

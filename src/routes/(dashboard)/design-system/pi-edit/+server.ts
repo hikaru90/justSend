@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
-import { getDesignSystem } from '$lib/server/service/design-system-service';
+import { env } from '$lib/server/env';
 import {
 	disposePiSession,
 	editComponentTreeWithPiStream,
@@ -28,6 +28,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		slots?: ComponentSlot[];
 		name?: string;
 		description?: string;
+		mode?: string;
 	};
 	try {
 		body = (await request.json()) as typeof body;
@@ -47,7 +48,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const slots = Array.isArray(body.slots) ? body.slots : [];
 	const name = String(body.name ?? '').trim();
 	const description = String(body.description ?? '').trim() || null;
-	const designMd = getDesignSystem(teamId)?.designMd ?? '';
+	const mode = body.mode;
+	const assetBaseUrl = env.HOST_URL.replace(/\/$/, '');
 
 	const encoder = new TextEncoder();
 
@@ -59,12 +61,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 			try {
 				const edited = await editComponentTreeWithPiStream({
+					teamId,
 					instruction,
 					document,
 					slots,
 					name,
 					description,
-					designMd,
+					mode,
+					assetBaseUrl,
 					signal: request.signal,
 					onEvent: send,
 				});
@@ -73,6 +77,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					type: 'done',
 					document: edited.document,
 					slots: edited.slots,
+					mode: edited.mode,
 					message: 'Edit complete.',
 				});
 			} catch (e) {

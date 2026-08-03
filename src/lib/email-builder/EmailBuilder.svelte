@@ -67,6 +67,7 @@
 			instruction: string;
 			document: TEditorConfiguration;
 			slots: ComponentSlot[];
+			mode: 'create' | 'edit' | 'validate';
 			signal: AbortSignal;
 			onEvent: (event: AiEditEvent) => void;
 		}) => Promise<{
@@ -89,22 +90,25 @@
 		library.onUploadAsset = onUploadAsset;
 	});
 
-	let lastLoaded = $state<string | null>(null);
-	$effect(() => {
-		const key = initialDocument ? JSON.stringify(initialDocument) : '';
-		if (key !== lastLoaded) {
-			lastLoaded = key;
-			editor.load(initialDocument);
-		}
-	});
-
 	let aiInstruction = $state('');
+	let aiMode = $state<'create' | 'edit' | 'validate'>('create');
 	let aiEditing = $state(false);
 	let aiStatus = $state('');
 	let aiError = $state<string | null>(null);
 	let aiAbort = $state<AbortController | null>(null);
 	let aiFeed = $state<AiFeedLine[]>([]);
 	let aiFeedId = 0;
+
+	let lastLoaded = $state<string | null>(null);
+	$effect(() => {
+		const key = initialDocument ? JSON.stringify(initialDocument) : '';
+		if (key !== lastLoaded) {
+			lastLoaded = key;
+			editor.load(initialDocument);
+			const empty = (editor.document.root?.data?.childrenIds?.length ?? 0) === 0;
+			aiMode = empty ? 'create' : 'edit';
+		}
+	});
 
 	function appendAiFeed(line: Omit<AiFeedLine, 'id'>): number {
 		const id = ++aiFeedId;
@@ -210,6 +214,7 @@
 				instruction,
 				document: editor.document,
 				slots: aiSlots ?? [],
+				mode: aiMode,
 				signal: controller.signal,
 				onEvent: (event) => handleAiEvent(event, openTools),
 			});
@@ -407,8 +412,8 @@
 					class="flex h-full min-h-[420px] flex-col bg-[hsl(var(--card))] p-3 sm:min-h-[640px] sm:p-4"
 				>
 					<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
-						Describe the component to generate or how to change the current blocks. Example: hero
-						with image, headline, and CTA button.
+						Create, edit, or validate this component using the full design system (brand tokens,
+						assets, and peer components).
 						{#if aiName}
 							<span class="mt-1 block text-xs opacity-80">Component: {aiName}</span>
 						{/if}
@@ -416,6 +421,23 @@
 							<span class="mt-0.5 block text-xs opacity-80">{aiDescription}</span>
 						{/if}
 					</p>
+
+					<div class="mb-3 flex flex-wrap gap-1" role="group" aria-label="AI mode">
+						{#each ['create', 'edit', 'validate'] as modeOption (modeOption)}
+							<button
+								type="button"
+								disabled={aiEditing}
+								class="rounded px-2 py-1 text-xs capitalize {aiMode === modeOption
+									? 'bg-[hsl(var(--secondary))] font-medium'
+									: 'hover:bg-[hsl(var(--muted))]'} disabled:opacity-50"
+								onclick={() => {
+									aiMode = modeOption as 'create' | 'edit' | 'validate';
+								}}
+							>
+								{modeOption}
+							</button>
+						{/each}
+					</div>
 
 					<div
 						class="mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.35)]"
@@ -493,7 +515,11 @@
 						<textarea
 							bind:value={aiInstruction}
 							disabled={aiEditing}
-							placeholder="e.g. Add a hero section with logo, headline, and primary CTA button"
+							placeholder={aiMode === 'validate'
+								? 'e.g. Check logos, spacing, and slots against the design system'
+								: aiMode === 'edit'
+									? 'e.g. Use the dark logo variant in the header'
+									: 'e.g. Hero with logo, headline, and primary CTA'}
 							rows="3"
 							class="w-full resize-y rounded-md border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:ring-1 focus:ring-[hsl(var(--ring))] focus:outline-none disabled:opacity-50"
 						></textarea>
@@ -502,7 +528,7 @@
 								<Button type="button" size="sm" variant="outline" onclick={stopAiEdit}>Stop</Button>
 							{:else}
 								<Button type="submit" size="sm" disabled={!aiInstruction.trim() || !onAiEdit}>
-									Generate
+									{aiMode === 'validate' ? 'Validate' : aiMode === 'edit' ? 'Apply edit' : 'Generate'}
 								</Button>
 							{/if}
 						</div>

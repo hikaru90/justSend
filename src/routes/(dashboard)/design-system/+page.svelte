@@ -521,6 +521,7 @@
 		instruction: string;
 		document: TEditorConfiguration;
 		slots: ComponentSlot[];
+		mode: 'create' | 'edit' | 'validate';
 		name?: string;
 		description?: string | null;
 		signal: AbortSignal;
@@ -542,6 +543,7 @@
 				instruction: args.instruction,
 				document: args.document,
 				slots: args.slots,
+				mode: args.mode,
 				name: args.name,
 				description: args.description,
 			}),

@@ -9,6 +9,7 @@ import {
 	buildPiEmailTreeAgentsMd,
 	disposeAllPiSessions,
 	disposePiSession,
+	formatDesignAssetsForPrompt,
 	getPiModelId,
 	getPiSession,
 	isPiConfigured,
@@ -198,12 +199,23 @@ describe('buildPiDesignWorkspaceFiles', () => {
 					mime: 'image/png',
 					size: 1200,
 				},
+				{
+					id: 'asset2',
+					kind: 'logo',
+					name: 'Dark logo',
+					filename: 'logo-dark.png',
+					mime: 'image/png',
+					size: 1100,
+				},
 			],
 		});
 		expect(files.map((f) => f.relativePath)).toEqual(['assets/README.md']);
 		expect(files[0].content).toContain('assets/logo/asset1-logo.png');
 		expect(files[0].content).toContain('http://localhost:5173/api/design-asset/asset1');
 		expect(files[0].content).toContain('Light logo');
+		expect(files[0].content).toContain('[logo/light]');
+		expect(files[0].content).toContain('[logo/dark]');
+		expect(files[0].content).toContain('http://localhost:5173/api/design-asset/asset2');
 	});
 
 	it('writes design.md, components, and assets together', () => {
@@ -338,6 +350,22 @@ describe('readPiEmailTree', () => {
 		await expect(readPiEmailTree(join(tmpdir(), 'missing-email-dir-xyz'))).rejects.toThrow(
 			/email\/ directory is missing/,
 		);
+	});
+});
+
+describe('formatDesignAssetsForPrompt', () => {
+	it('labels light and dark logo embed URLs', () => {
+		const text = formatDesignAssetsForPrompt(
+			[
+				{ id: 'l1', kind: 'logo', name: 'Brand', filename: 'logo.png' },
+				{ id: 'd1', kind: 'logo', name: 'Brand dark', filename: 'logo-dark.png' },
+				{ id: 'h1', kind: 'image', name: 'Hero', filename: 'hero.jpg' },
+			],
+			'https://owlery.test',
+		);
+		expect(text).toContain('[logo/light] Brand → https://owlery.test/api/design-asset/l1');
+		expect(text).toContain('[logo/dark] Brand dark → https://owlery.test/api/design-asset/d1');
+		expect(text).toContain('[image] Hero → https://owlery.test/api/design-asset/h1');
 	});
 });
 
