@@ -91,8 +91,10 @@ export function serializeScaffoldContent(content: ScaffoldContent): string {
 	});
 }
 
+import { designAssetUrl } from '$lib/design-asset-urls';
+
 function assetUrl(assetBaseUrl: string, assetId: string): string {
-	return `${assetBaseUrl.replace(/\/$/, '')}/api/design-asset/${assetId}`;
+	return designAssetUrl(assetId, assetBaseUrl);
 }
 
 function buildLogoSlots(

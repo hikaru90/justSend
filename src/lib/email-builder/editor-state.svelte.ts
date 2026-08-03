@@ -41,6 +41,8 @@ export class EmailEditorState {
 	selectedBlockId = $state<string | null>(null);
 	tab = $state<EditorTab>('editor');
 	screen = $state<'desktop' | 'mobile'>('desktop');
+	/** Preview-only: force light/dark email color scheme (ignores OS preference). */
+	colorScheme = $state<'light' | 'dark'>('light');
 	inspectorOpen = $state(true);
 
 	load(doc: TEditorConfiguration | null | undefined) {

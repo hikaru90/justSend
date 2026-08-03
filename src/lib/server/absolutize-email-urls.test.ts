@@ -28,10 +28,21 @@ describe('absolutizeEmailAssetUrls', () => {
 		).toBe('style="background-image:url(\'https://mail.example.com/api/design-asset/bg2\')"');
 	});
 
-	it('leaves already-absolute URLs alone', () => {
+	it('leaves non-design-asset absolute URLs alone', () => {
 		const html =
 			'<img src="https://cdn.example/x.png" style="display:block;max-width:100%;height:auto;" />';
 		expect(absolutizeEmailAssetUrls(html, base)).toBe(html);
+	});
+
+	it('rewrites localhost design-asset URLs onto the send base', () => {
+		expect(
+			absolutizeEmailAssetUrls(
+				'<img src="http://localhost:5173/api/design-asset/abc" alt="" />',
+				base
+			)
+		).toBe(
+			'<img style="display:block;max-width:100%;height:auto;border:0;" src="https://mail.example.com/api/design-asset/abc" alt="" />'
+		);
 	});
 
 	it('strips trailing slash on base', () => {

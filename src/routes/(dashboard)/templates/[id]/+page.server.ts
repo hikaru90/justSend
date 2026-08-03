@@ -28,6 +28,7 @@ import {
 	parseScaffoldContent,
 	serializeScaffoldContent
 } from '$lib/server/service/template-compose-service';
+import { relativizeDesignAssetUrls } from '$lib/design-asset-urls';
 import {
 	documentFromComposedHtml,
 	documentFromComposedSections,
@@ -107,14 +108,19 @@ async function resolveAssetIdFromForm(
 	return asset.id;
 }
 
-function logoExtraProps(teamId: number, origin: string): Record<string, string> {
+function logoExtraProps(teamId: number, origin = ''): Record<string, string> {
 	const extra: Record<string, string> = {};
 	const pair = pickEmailLogos(
 		getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo')
 	);
 	if (pair) {
-		const light = `${origin}/api/design-asset/${pair.light.id}`;
-		const dark = `${origin}/api/design-asset/${pair.dark.id}`;
+		const base = origin.replace(/\/$/, '');
+		const light = base
+			? `${base}/api/design-asset/${pair.light.id}`
+			: `/api/design-asset/${pair.light.id}`;
+		const dark = base
+			? `${base}/api/design-asset/${pair.dark.id}`
+			: `/api/design-asset/${pair.dark.id}`;
 		extra.logo = light;
 		extra.logo_url = light;
 		extra.logo_light = light;
@@ -144,17 +150,19 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 				kind: a.kind as 'logo' | 'image'
 			}));
 
-		const parsedContent = parseEmailBuilderContent(template.content);
+		const content = relativizeDesignAssetUrls(template.content ?? '');
+		const html = template.html ? relativizeDesignAssetUrls(template.html) : template.html;
+		const parsedContent = parseEmailBuilderContent(content);
 		const scaffold = parsedContent.scaffold.slots
 			? parsedContent.scaffold
-			: parseScaffoldContent(template.content);
-		const hasHtml = Boolean(template.html?.trim());
+			: parseScaffoldContent(content);
+		const hasHtml = Boolean(html?.trim());
 		const emailDocument =
 			parsedContent.document ??
-			(template.html?.trim() ? documentFromComposedHtml(template.html) : EMPTY_DOCUMENT);
+			(html?.trim() ? documentFromComposedHtml(html) : EMPTY_DOCUMENT);
 
 		return {
-			template,
+			template: { ...template, content, html },
 			elements: listElements(template.id, teamId, domainId).map((el) => ({
 				...el,
 				parsedConfig: parseElementConfig(el.config)
@@ -162,7 +170,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			scaffold,
 			emailDocument,
 			hasHtml,
-			previewHtml: template.html ?? null,
+			previewHtml: html ?? null,
 		designReady: Boolean(
 			bundle.system?.designMd?.trim() ||
 				bundle.components.length > 0 ||
@@ -412,7 +420,7 @@ export const actions: Actions = {
 				if (typeof value !== 'string') continue;
 				if (key === 'preheader' || key === 'subject' || key === 'prompt') continue;
 				if (key.startsWith('slot_')) {
-					slots[key.slice(5)] = value;
+					slots[key.slice(5)] = relativizeDesignAssetUrls(value);
 				}
 			}
 
@@ -435,7 +443,7 @@ export const actions: Actions = {
 		return { success: true, saved: 'slots' as const };
 	},
 
-	compose: async ({ locals, params, url }) => {
+	compose: async ({ locals, params }) => {
 		const teamId = requireTeamId(locals.teamId);
 		const domainId = locals.domainId ?? undefined;
 
@@ -452,8 +460,9 @@ export const actions: Actions = {
 				elements,
 				components: bundle.components,
 				assets: bundle.assets,
-				assetBaseUrl: url.origin,
-				extraSlots: logoExtraProps(teamId, url.origin)
+				// Persist root-relative asset URLs so templates work across prod/dev.
+				assetBaseUrl: '',
+				extraSlots: logoExtraProps(teamId)
 			};
 			const sections = composeEmailSections(composeInput);
 			const existing = parseEmailBuilderContent(template.content);
@@ -480,14 +489,18 @@ export const actions: Actions = {
 			const existing = parseEmailBuilderContent(template.content);
 
 			if (documentJson.trim()) {
-				const document = JSON.parse(documentJson) as Parameters<
-					typeof serializeEmailBuilderContent
-				>[0];
-				const content = serializeEmailBuilderContent(document, existing.scaffold);
-				const rendered = html.trim() || renderEmailHtml(document);
+				const document = JSON.parse(
+					relativizeDesignAssetUrls(documentJson)
+				) as Parameters<typeof serializeEmailBuilderContent>[0];
+				const content = relativizeDesignAssetUrls(
+					serializeEmailBuilderContent(document, existing.scaffold)
+				);
+				const rendered = relativizeDesignAssetUrls(
+					html.trim() || renderEmailHtml(document)
+				);
 				updateTemplate(params.id, teamId, { html: rendered, content }, domainId);
 			} else if (html.trim()) {
-				updateTemplate(params.id, teamId, { html }, domainId);
+				updateTemplate(params.id, teamId, { html: relativizeDesignAssetUrls(html) }, domainId);
 			} else {
 				return fail(400, { error: 'Nothing to save' });
 			}

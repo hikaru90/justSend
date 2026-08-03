@@ -7,7 +7,10 @@
 	import type { DesignLibraryAsset, DesignLibraryComponent } from './library';
 	import type { ComponentSlot, TEditorConfiguration } from './types';
 	import { renderEmailHtml } from './render';
-	import { substitutePreviewPlaceholders } from '$lib/design/extractTokens';
+	import {
+		applyPreviewColorScheme,
+		substitutePreviewPlaceholders
+	} from '$lib/design/extractTokens';
 	import BuilderCanvas from './BuilderCanvas.svelte';
 	import InspectorPanel from './InspectorPanel.svelte';
 
@@ -241,7 +244,10 @@
 	}
 
 	const previewHtml = $derived(
-		substitutePreviewPlaceholders(renderEmailHtml(editor.document), previewOverrides)
+		applyPreviewColorScheme(
+			substitutePreviewPlaceholders(renderEmailHtml(editor.document), previewOverrides),
+			editor.colorScheme
+		)
 	);
 </script>
 
@@ -316,6 +322,32 @@
 						Mobile
 					</button>
 				</div>
+				{#if editor.tab === 'preview'}
+					<div
+						class="flex rounded border border-[hsl(var(--border))] text-xs"
+						role="group"
+						aria-label="Preview color scheme"
+					>
+						<button
+							type="button"
+							class="px-2 py-1 {editor.colorScheme === 'light'
+								? 'bg-[hsl(var(--secondary))]'
+								: ''}"
+							onclick={() => (editor.colorScheme = 'light')}
+						>
+							Light
+						</button>
+						<button
+							type="button"
+							class="px-2 py-1 {editor.colorScheme === 'dark'
+								? 'bg-[hsl(var(--secondary))]'
+								: ''}"
+							onclick={() => (editor.colorScheme = 'dark')}
+						>
+							Dark
+						</button>
+					</div>
+				{/if}
 				<Button
 					type="button"
 					size="sm"
@@ -334,7 +366,12 @@
 	</div>
 
 	<div class="flex min-h-[420px] flex-col sm:min-h-[640px] lg:flex-row">
-		<div class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f5f5f5]">
+		<div
+			class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto {editor.tab === 'preview' &&
+			editor.colorScheme === 'dark'
+				? 'bg-[#0a0a0a]'
+				: 'bg-[#f5f5f5]'}"
+		>
 			{#if editor.tab === 'editor'}
 				<div
 					class="box-border p-2 sm:p-4 {editor.screen === 'mobile'
@@ -351,7 +388,10 @@
 				>
 					<iframe
 						title="Email preview"
-						class="block min-h-[480px] w-full max-w-full rounded border border-[hsl(var(--border))] bg-white sm:min-h-[600px]"
+						class="block min-h-[480px] w-full max-w-full rounded border border-[hsl(var(--border))] sm:min-h-[600px] {editor.colorScheme ===
+						'dark'
+							? 'bg-[#111]'
+							: 'bg-white'}"
 						sandbox="allow-same-origin"
 						srcdoc={previewHtml}
 					></iframe>

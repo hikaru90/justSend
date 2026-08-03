@@ -129,18 +129,14 @@
 	}
 
 	function designAssetUrl(assetId: string): string {
-		const origin =
-			typeof window !== 'undefined' ? window.location.origin : '';
-		return origin
-			? `${origin}/api/design-asset/${assetId}`
-			: resolve(`/api/design-asset/${assetId}`);
+		// Root-relative so saved documents work across localhost and production.
+		return resolve(`/api/design-asset/${assetId}`);
 	}
 
 	function isSelectedAssetUrl(current: string, assetId: string): boolean {
 		if (!current) return false;
-		const absolute = designAssetUrl(assetId);
-		const relative = resolve(`/api/design-asset/${assetId}`);
-		return current === absolute || current === relative || current.endsWith(`/api/design-asset/${assetId}`);
+		const relative = designAssetUrl(assetId);
+		return current === relative || current.endsWith(`/api/design-asset/${assetId}`);
 	}
 
 	function pickLibraryAsset(assetId: string) {

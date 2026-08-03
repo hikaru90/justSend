@@ -267,6 +267,10 @@ export function pickEmailLogos<T extends { id: string; name: string; filename: s
 /**
  * Force light/dark for in-app preview (OS prefers-color-scheme cannot be toggled on {@html}).
  * Rewrites a copy only — never mutate stored template HTML.
+ *
+ * Dark mode approximates phone clients that auto-darken light emails:
+ * unwrap author `@media (prefers-color-scheme: dark)` rules, swap logos, and
+ * rewrite light backgrounds / dark text colors in inline styles.
  */
 export function applyPreviewColorScheme(html: string, scheme: 'light' | 'dark'): string {
 	const darkMediaRe = /@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)\s*\{/gi;
@@ -277,14 +281,89 @@ export function applyPreviewColorScheme(html: string, scheme: 'light' | 'dark'):
 			: unwrapPrefersColorSchemeBlocks(html, darkMediaRe, 'strip');
 
 	if (scheme === 'dark') {
+		result = simulateClientAutoDarken(result);
 		result +=
-			'<style data-owlery-preview-scheme>.logo-light{display:none!important}.logo-dark{display:inline-block!important}</style>';
+			'<style data-owlery-preview-scheme>:root{color-scheme:dark!important}.logo-light{display:none!important}.logo-dark{display:inline-block!important}</style>';
 	} else {
 		result +=
-			'<style data-owlery-preview-scheme>.logo-dark{display:none!important}.logo-light{display:inline-block!important}</style>';
+			'<style data-owlery-preview-scheme>:root{color-scheme:light!important}.logo-dark{display:none!important}.logo-light{display:inline-block!important}</style>';
 	}
 
 	return result;
+}
+
+function parseHexRgb(hex: string): [number, number, number] | null {
+	let h = hex.slice(1);
+	if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+	if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
+	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function relativeLuminance(rgb: [number, number, number]): number {
+	const lin = (c: number) => {
+		const s = c / 255;
+		return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+	};
+	return 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+}
+
+function formatHex(r: number, g: number, b: number): string {
+	return (
+		'#' +
+		[r, g, b]
+			.map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0'))
+			.join('')
+	);
+}
+
+/** Near-white / light gray backgrounds → dark (Gmail / Apple Mail-ish). */
+function darkenLightBackground(hex: string): string {
+	const rgb = parseHexRgb(hex);
+	if (!rgb) return hex;
+	const L = relativeLuminance(rgb);
+	if (L < 0.55) return hex;
+	const v = Math.round(12 + (1 - L) * 48);
+	return formatHex(v, v, v);
+}
+
+/** Dark / muted text → light. Leave mid/brand colors alone. */
+function lightenDarkForeground(hex: string): string {
+	const rgb = parseHexRgb(hex);
+	if (!rgb) return hex;
+	const L = relativeLuminance(rgb);
+	if (L > 0.45) return hex;
+	return formatHex(255 - rgb[0], 255 - rgb[1], 255 - rgb[2]);
+}
+
+/**
+ * Approximate inbox auto-darkening for inline styles / bgcolor.
+ * Does not touch images or already-dark accents.
+ */
+function simulateClientAutoDarken(html: string): string {
+	let out = html.replace(/\bbgcolor\s*=\s*(["']?)(#[0-9a-fA-F]{3,8})\1/gi, (_, q: string, hex: string) => {
+		return `bgcolor=${q}${darkenLightBackground(hex)}${q}`;
+	});
+
+	out = out.replace(
+		/style\s*=\s*("([^"]*)"|'([^']*)')/gi,
+		(full, _quoted: string, dbl?: string, sgl?: string) => {
+			const quote = dbl != null ? '"' : "'";
+			const style = dbl ?? sgl ?? '';
+			const next = style.replace(
+				/(background(?:-color)?\s*:\s*)(#[0-9a-fA-F]{3,8})\b/gi,
+				(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex)
+			).replace(
+				/(border(?:-(?:top|right|bottom|left))?(?:-color)?\s*:\s*[^;#]*?)(#[0-9a-fA-F]{3,8})\b/gi,
+				(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex)
+			).replace(
+				/(?<![\w-])color\s*:\s*(#[0-9a-fA-F]{3,8})\b/gi,
+				(_m, hex: string) => `color:${lightenDarkForeground(hex)}`
+			);
+			return `style=${quote}${next}${quote}`;
+		}
+	);
+
+	return out;
 }
 
 /**

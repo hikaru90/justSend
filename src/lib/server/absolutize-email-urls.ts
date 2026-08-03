@@ -1,23 +1,15 @@
 import { fluidifyEmailHtml } from '$lib/email/fluidify-email-html';
+import { rewriteDesignAssetUrls } from '$lib/design-asset-urls';
 
 /**
- * Rewrite root-relative design-asset URLs to absolute ones so email clients
+ * Rewrite design-asset URLs to absolute ones so email clients
  * (which have no page origin) can fetch images, and fluidify fixed-width markup
  * so the layout can shrink on mobile (Gmail Android, etc.).
+ *
+ * Also remaps already-absolute design-asset URLs from other hosts (e.g. localhost
+ * baked in during local editing) onto the current base — so prod/dev share DB data.
  */
 export function absolutizeEmailAssetUrls(html: string, baseUrl: string): string {
-	const origin = baseUrl.replace(/\/$/, '');
 	if (!html) return html;
-
-	const withAbsolute = !origin
-		? html
-		: html
-				.replace(/(\bsrc=["'])\/(api\/design-asset\/[^"']+)/gi, `$1${origin}/$2`)
-				.replace(/(\bhref=["'])\/(api\/design-asset\/[^"']+)/gi, `$1${origin}/$2`)
-				.replace(
-					/url\(\s*(["']?)\/(api\/design-asset\/[^"')\s]+)\1\s*\)/gi,
-					`url($1${origin}/$2$1)`
-				);
-
-	return fluidifyEmailHtml(withAbsolute);
+	return fluidifyEmailHtml(rewriteDesignAssetUrls(html, baseUrl));
 }

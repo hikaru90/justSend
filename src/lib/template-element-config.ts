@@ -1,3 +1,5 @@
+import { designAssetUrl } from '$lib/design-asset-urls';
+
 export type TemplateElementType =
 	| 'logo'
 	| 'text'
@@ -72,8 +74,8 @@ export function elementValueVariables(
 	if (el.type === 'logo' || el.type === 'image') {
 		const url =
 			(config.assetId && opts.assetUrlById?.[config.assetId]) ||
-			(config.assetId && opts.assetBaseUrl
-				? `${opts.assetBaseUrl.replace(/\/$/, '')}/api/design-asset/${config.assetId}`
+			(config.assetId && opts.assetBaseUrl !== undefined
+				? designAssetUrl(config.assetId, opts.assetBaseUrl)
 				: undefined);
 		if (url) {
 			vars[slug] = url;
@@ -153,8 +155,8 @@ export function formatElementConfigForPrompt(
 		if (config.assetId) {
 			const url =
 				opts.assetUrlById?.[config.assetId] ||
-				(opts.assetBaseUrl
-					? `${opts.assetBaseUrl.replace(/\/$/, '')}/api/design-asset/${config.assetId}`
+				(opts.assetBaseUrl !== undefined
+					? designAssetUrl(config.assetId, opts.assetBaseUrl)
 					: undefined);
 			if (url) parts.push(`src="${url}"`);
 			else parts.push(`assetId=${config.assetId}`);

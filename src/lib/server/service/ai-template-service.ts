@@ -1,3 +1,4 @@
+import { relativizeDesignAssetUrls } from '$lib/design-asset-urls';
 import { eq } from 'drizzle-orm';
 import { nowIso } from '$lib/utils';
 import { pickEmailLogos } from '$lib/design/extractTokens';
@@ -302,12 +303,16 @@ export async function generateScaffold(opts: GenerateScaffoldOptions): Promise<{
 	const logoAssets = bundle.assets.filter((a) => a.kind === 'logo');
 	const logoPair = pickEmailLogos(logoAssets);
 	if (logoPair) {
-		const light = `${assetBaseUrl}/api/design-asset/${logoPair.light.id}`;
-		const dark = `${assetBaseUrl}/api/design-asset/${logoPair.dark.id}`;
+		// Persist relative paths — absolutize only at send time.
+		const light = `/api/design-asset/${logoPair.light.id}`;
+		const dark = `/api/design-asset/${logoPair.dark.id}`;
 		if (!scaffold.slots.logo_url) scaffold.slots.logo_url = light;
 		if (!scaffold.slots.logo) scaffold.slots.logo = light;
 		if (!scaffold.slots.logo_dark_url) scaffold.slots.logo_dark_url = dark;
 		if (!scaffold.slots.logo_dark) scaffold.slots.logo_dark = dark;
+	}
+	for (const [key, value] of Object.entries(scaffold.slots)) {
+		if (typeof value === 'string') scaffold.slots[key] = relativizeDesignAssetUrls(value);
 	}
 
 	const existingParsed = parseEmailBuilderContent(template.content);

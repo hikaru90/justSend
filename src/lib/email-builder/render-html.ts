@@ -287,6 +287,8 @@ table{border-collapse:collapse;}
 @media (prefers-color-scheme:dark){
 .logo-light{display:none!important;max-height:0!important;overflow:hidden!important;}
 .logo-dark{display:inline-block!important;max-height:none!important;overflow:visible!important;}
+body,.owl-email-backdrop,td.owl-email-pad{background-color:#111111!important;}
+.owl-email-canvas{background-color:#1c1c1c!important;color:#f2f2f2!important;}
 }
 @media only screen and (max-width:620px){
 .owl-email-pad{padding:16px 8px!important;}
@@ -297,9 +299,9 @@ table{border-collapse:collapse;}
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
 <body style="margin:0;padding:0;width:100%;background-color:${escapeAttr(backdrop)};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(backdrop)}" style="width:100%;background-color:${escapeAttr(backdrop)};">
+<table role="presentation" class="owl-email-backdrop" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(backdrop)}" style="width:100%;background-color:${escapeAttr(backdrop)};">
 <tr>
-<td align="center" class="owl-email-pad" style="padding:32px 12px;">
+<td align="center" class="owl-email-pad" style="padding:32px 12px;background-color:${escapeAttr(backdrop)};">
 <table role="presentation" class="owl-email-canvas" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(canvas)}" style="margin:0 auto;max-width:600px;width:100%;background-color:${escapeAttr(canvas)};color:${escapeAttr(textColor)};font-family:${escapeAttr(font)};font-size:16px;line-height:1.5;">
 <tr><td style="width:100%;">${kids}</td></tr>
 </table>

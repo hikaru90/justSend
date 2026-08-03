@@ -83,9 +83,27 @@ describe('email-service', () => {
 				html: '<img src="/api/design-asset/asset_abc" alt="logo" />'
 			});
 
-			expect(email.html).toBe(
-				'<img src="http://localhost:5173/api/design-asset/asset_abc" alt="logo" />'
+			expect(email.html).toContain(
+				'src="http://localhost:5173/api/design-asset/asset_abc"'
 			);
+		});
+
+		it('rewrites localhost design-asset URLs onto HOST_URL', async () => {
+			const { team, domain } = setupTeamWithDomain();
+
+			const email = await sendEmail({
+				teamId: team.id,
+				from: `noreply@${domain.name}`,
+				to: 'recipient@test.com',
+				subject: 'With image',
+				html: '<img src="http://127.0.0.1:9999/api/design-asset/asset_abc" alt="logo" />',
+				assetBaseUrl: 'https://send.example.com'
+			});
+
+			expect(email.html).toContain(
+				'src="https://send.example.com/api/design-asset/asset_abc"'
+			);
+			expect(email.html).not.toContain('127.0.0.1');
 		});
 
 		it('requires text or html content', async () => {

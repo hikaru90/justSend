@@ -175,6 +175,7 @@ body { background: #fff; color: #111; }
 		expect(out).not.toContain('background: #111');
 		expect(out).toContain('background: #fff');
 		expect(out).toContain('.logo-dark{display:none!important}');
+		expect(out).toContain('color-scheme:light');
 	});
 
 	it('unwraps dark media queries in dark mode', () => {
@@ -182,5 +183,23 @@ body { background: #fff; color: #111; }
 		expect(out).not.toContain('prefers-color-scheme');
 		expect(out).toContain('background: #111');
 		expect(out).toContain('.logo-light{display:none!important}');
+		expect(out).toContain('color-scheme:dark');
+	});
+
+	it('darkens light inline backgrounds and lightens dark text (client auto-darken)', () => {
+		const email = `<body style="background-color:#F5F5F5;color:#262626" bgcolor="#F5F5F5">
+<table bgcolor="#FFFFFF" style="background-color:#FFFFFF;color:#111111">
+<a style="background-color:#000000;color:#FFFFFF">CTA</a>
+</table></body>`;
+		const out = applyPreviewColorScheme(email, 'dark');
+		expect(out).toContain('background-color:#101010');
+		expect(out).toContain('background-color:#0c0c0c');
+		expect(out).toContain('bgcolor="#101010"');
+		expect(out).toContain('bgcolor="#0c0c0c"');
+		expect(out).toContain('color:#d9d9d9');
+		expect(out).toContain('color:#eeeeee');
+		// Dark CTA fill / light label stay put
+		expect(out).toContain('background-color:#000000');
+		expect(out).toContain('color:#FFFFFF');
 	});
 });
