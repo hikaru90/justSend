@@ -3,7 +3,7 @@
 FROM node:26-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
 FROM node:26-alpine AS builder
