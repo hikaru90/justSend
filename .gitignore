@@ -9,8 +9,6 @@ useSend-legacy/
 /.svelte-kit
 /build
 /data/*
-!/data/justsend.db
-!/data/design/
 
 # OS
 .DS_Store

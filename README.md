@@ -63,6 +63,8 @@ docker compose up --build
 The container runs a supervisor that keeps both the web app and queue worker alive.
 Admins can pause / stop / restart the worker from **Queue** in the dashboard.
 
+Production `vite build` is memory-heavy (client + SSR). On a 2–4GB Coolify/VPS host, add a few GB of swap (or raise free RAM) before deploying; otherwise the kernel OOM-kills the build with exit **255** and truncated logs. The image defaults to `NODE_OPTIONS=--max-old-space-size=2048` (override with build-arg `NODE_MAX_OLD_SPACE_SIZE` on larger builders).
+
 ## API
 
 REST API lives at `/api/v1/*`. Authenticate with `Authorization: Bearer us_...` API keys created in the dashboard.

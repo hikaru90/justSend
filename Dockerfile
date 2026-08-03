@@ -11,12 +11,21 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 # pnpm 10+ aborts module purge/reinstall without a TTY unless CI or confirm-modules-purge is set.
 ENV CI=true
-# Vite SSR+client on small Coolify builders OOMs without a larger heap (exit 255 / killed).
-ENV NODE_OPTIONS=--max-old-space-size=4096
+ENV NODE_ENV=production
+# Cap the V8 heap below total host RAM. Coolify builders often share a 2–4GB VPS with
+# Docker/Coolify overhead; --max-old-space-size=4096 invites the OOM killer (exit 255,
+# no Vite error in logs). Override at build time if the builder has more headroom:
+#   docker build --build-arg NODE_MAX_OLD_SPACE_SIZE=3072 .
+ARG NODE_MAX_OLD_SPACE_SIZE=2048
+ENV NODE_OPTIONS=--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}
 RUN corepack enable pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN pnpm build
+# Invoke tools directly: `pnpm build` re-runs lockfile/supply-chain checks and spikes RAM
+# before Vite starts. Sync first so $types exist after COPY.
+RUN ./node_modules/.bin/svelte-kit sync \
+	&& ./node_modules/.bin/vite build \
+	&& node scripts/build-worker.mjs
 RUN pnpm prune --prod --config.ignore-scripts=true
 
 FROM node:22-alpine AS runner

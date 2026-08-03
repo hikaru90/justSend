@@ -9,5 +9,6 @@ Self-hosted email infrastructure for transactional and marketing email via Amazo
 | [Design decisions](./design-decisions.md) | Explicit product and technical choices |
 | [Features](./features.md) | Product capabilities by area |
 | [Implementation plan](./implementation-plan.md) | Planned gaps (e.g. Inbox QA) |
+| [Open-source readiness plan](./open-source-readiness-plan.md) | Audit + phased plan to publish Owlery as an open-source repo |
 
 Related root docs: [`README.md`](../README.md), [`AGENTS.md`](../AGENTS.md), [`email-formatting-rules.md`](../email-formatting-rules.md).

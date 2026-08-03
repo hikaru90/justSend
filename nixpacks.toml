@@ -1,6 +1,8 @@
 [variables]
 NIXPACKS_NODE_VERSION = "22"
 NIXPACKS_PKGS = "python3 gcc gnumake"
+# Keep below host RAM so the OOM killer does not SIGKILL Vite (exit 255).
+NODE_OPTIONS = "--max-old-space-size=2048"
 
 [phases.setup]
 nixPkgs = ["python3", "gcc", "gnumake"]
