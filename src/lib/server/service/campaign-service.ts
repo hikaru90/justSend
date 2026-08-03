@@ -12,7 +12,7 @@ import {
 	emails,
 	emailEvents,
 	type EmailStatus,
-	type UnsubscribeReason
+	type UnsubscribeReason,
 } from '../db/schema';
 import { renderEmailHtml } from '$lib/email-editor/renderer';
 import { enqueue } from '../queue';
@@ -32,23 +32,23 @@ const BUILT_IN_CONTACT_VARIABLES = ['email', 'firstName', 'lastName'] as const;
 const CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS = [
 	'unsubscribe_url',
 	'unsend_unsubscribe_url',
-	'owlery_unsubscribe_url'
+	'owlery_unsubscribe_url',
 ] as const;
 
 const CAMPAIGN_UNSUB_PLACEHOLDER_REGEXES = CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS.map(
-	(token) => new RegExp(`\\{\\{\\s*${token}\\s*\\}\\}`, 'i')
+	(token) => new RegExp(`\\{\\{\\s*${token}\\s*\\}\\}`, 'i'),
 );
 
 function campaignHasUnsubscribePlaceholder(...sources: Array<string | null | undefined>): boolean {
 	return CAMPAIGN_UNSUB_PLACEHOLDER_REGEXES.some((regex) =>
-		sources.some((source) => (source ? regex.test(source) : false))
+		sources.some((source) => (source ? regex.test(source) : false)),
 	);
 }
 
 function replaceUnsubscribePlaceholders(html: string, url: string): string {
 	return CAMPAIGN_UNSUB_PLACEHOLDER_REGEXES.reduce(
 		(acc, regex) => acc.replace(new RegExp(regex.source, 'gi'), url),
-		html
+		html,
 	);
 }
 
@@ -75,12 +75,12 @@ function getContactValue(contact: Contact, key: string): string | undefined {
 function buildContactVariables(
 	contact: Contact,
 	allowedVariables: string[],
-	unsubscribeUrl: string
+	unsubscribeUrl: string,
 ): Record<string, string> {
 	const variables: Record<string, string> = {
 		email: contact.email,
 		firstName: contact.firstName ?? '',
-		lastName: contact.lastName ?? ''
+		lastName: contact.lastName ?? '',
 	};
 
 	for (const variable of allowedVariables) {
@@ -113,7 +113,10 @@ export function createOneClickUnsubUrl(contactId: string, campaignId: string): s
 	return `${env.HOST_URL}/api/unsubscribe-oneclick?id=${unsubId}&hash=${unsubHash}`;
 }
 
-function verifyUnsubscribeLink(id: string, hash: string): { contactId: string; campaignId: string } {
+function verifyUnsubscribeLink(
+	id: string,
+	hash: string,
+): { contactId: string; campaignId: string } {
 	const [contactId, campaignId] = id.split('-');
 	if (!contactId || !campaignId) {
 		throw new Error('Invalid unsubscribe link');
@@ -163,7 +166,7 @@ function renderCampaignHtmlForContact(params: {
 	if (campaign.content) {
 		return absolutizeEmailAssetUrls(
 			renderEmailHtml(campaign.content, campaign.html, variables),
-			env.HOST_URL
+			env.HOST_URL,
 		);
 	}
 
@@ -215,7 +218,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
 			bcc: jsonArray(sanitizeAddressList(input.bcc)),
 			domainId: domain.id,
 			status: 'DRAFT',
-			...(typeof input.batchSize === 'number' ? { batchSize: input.batchSize } : {})
+			...(typeof input.batchSize === 'number' ? { batchSize: input.batchSize } : {}),
 		})
 		.returning()
 		.get();
@@ -272,7 +275,7 @@ export async function createCampaignFromApi(input: {
 			: null;
 		domain = await validateApiKeyDomainAccess(input.from, input.teamId, {
 			...apiKeyRow,
-			domain: apiKeyDomain
+			domain: apiKeyDomain,
 		});
 	} else {
 		domain = await validateDomainFromEmail(input.from, input.teamId);
@@ -303,7 +306,7 @@ export async function createCampaignFromApi(input: {
 			bcc: jsonArray(sanitizeAddressList(input.bcc)),
 			domainId: domain.id,
 			status: 'DRAFT',
-			...(typeof input.batchSize === 'number' ? { batchSize: input.batchSize } : {})
+			...(typeof input.batchSize === 'number' ? { batchSize: input.batchSize } : {}),
 		})
 		.returning()
 		.get();
@@ -327,7 +330,7 @@ export function getCampaign(campaignId: string, teamId: number, domainId?: numbe
 
 export function listCampaigns(
 	teamId: number,
-	options?: { domainId?: number; limit?: number; cursor?: string }
+	options?: { domainId?: number; limit?: number; cursor?: string },
 ): {
 	items: Campaign[];
 	nextCursor: string | null;
@@ -376,7 +379,7 @@ export type UpdateCampaignInput = {
 export async function updateCampaign(
 	campaignId: string,
 	teamId: number,
-	data: UpdateCampaignInput
+	data: UpdateCampaignInput,
 ): Promise<Campaign> {
 	const campaign = getCampaign(campaignId, teamId);
 
@@ -392,7 +395,8 @@ export async function updateCampaign(
 	if (data.cc !== undefined) updateData.cc = jsonArray(sanitizeAddressList(data.cc));
 	if (data.bcc !== undefined) updateData.bcc = jsonArray(sanitizeAddressList(data.bcc));
 	if (data.batchSize !== undefined) updateData.batchSize = data.batchSize;
-	if (data.batchWindowMinutes !== undefined) updateData.batchWindowMinutes = data.batchWindowMinutes;
+	if (data.batchWindowMinutes !== undefined)
+		updateData.batchWindowMinutes = data.batchWindowMinutes;
 
 	if (data.from !== undefined) {
 		const domain = await validateDomainFromEmail(data.from, teamId);
@@ -454,7 +458,7 @@ export async function sendCampaign(id: string): Promise<void> {
 			total,
 			scheduledAt: campaign.scheduledAt ?? nowIso(),
 			lastCursor: campaign.lastCursor ?? null,
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(campaigns.id, id))
 		.run();
@@ -462,7 +466,7 @@ export async function sendCampaign(id: string): Promise<void> {
 	enqueue(
 		QUEUES.CAMPAIGN_BATCH,
 		{ campaignId: id, teamId: campaign.teamId },
-		{ jobId: `campaign-batch:${id}:start` }
+		{ jobId: `campaign-batch:${id}:start` },
 	);
 }
 
@@ -506,7 +510,7 @@ export async function scheduleCampaign(params: {
 			total,
 			...(params.batchSize ? { batchSize: params.batchSize } : {}),
 			...(shouldResetCursor ? { lastCursor: null } : {}),
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(campaigns.id, campaign.id))
 		.run();
@@ -568,11 +572,16 @@ async function processContactEmail(params: {
 	const filteredCc = ccEmails.filter((email) => !suppressionResults[email]);
 	const filteredBcc = bccEmails.filter((email) => !suppressionResults[email]);
 
-	const html = renderCampaignHtmlForContact({ campaign, contact, unsubscribeUrl, allowedVariables });
+	const html = renderCampaignHtmlForContact({
+		campaign,
+		contact,
+		unsubscribeUrl,
+		allowedVariables,
+	});
 	const subject = renderEmailHtml(
 		null,
 		campaign.subject,
-		buildContactVariables(contact, allowedVariables, unsubscribeUrl)
+		buildContactVariables(contact, allowedVariables, unsubscribeUrl),
 	);
 
 	if (contactSuppressed) {
@@ -592,7 +601,7 @@ async function processContactEmail(params: {
 				campaignId: campaign.id,
 				contactId: contact.id,
 				domainId,
-				latestStatus: 'SUPPRESSED'
+				latestStatus: 'SUPPRESSED',
 			})
 			.returning()
 			.get();
@@ -603,7 +612,7 @@ async function processContactEmail(params: {
 				emailId: email.id,
 				status: 'SUPPRESSED',
 				data: JSON.stringify({ error: 'Contact email is suppressed. No email sent.' }),
-				teamId: campaign.teamId
+				teamId: campaign.teamId,
 			})
 			.run();
 
@@ -630,7 +639,7 @@ async function processContactEmail(params: {
 			campaignId: campaign.id,
 			contactId: contact.id,
 			domainId,
-			latestStatus: 'QUEUED'
+			latestStatus: 'QUEUED',
 		})
 		.returning()
 		.get();
@@ -671,7 +680,7 @@ export async function processCampaignBatch(payload: unknown): Promise<void> {
 
 	const contactConditions = [
 		eq(contacts.contactBookId, campaign.contactBookId),
-		eq(contacts.subscribed, true)
+		eq(contacts.subscribed, true),
 	];
 	if (campaign.lastCursor) {
 		contactConditions.push(gt(contacts.id, campaign.lastCursor));
@@ -701,7 +710,7 @@ export async function processCampaignBatch(payload: unknown): Promise<void> {
 
 	const allowedVariables = [
 		...BUILT_IN_CONTACT_VARIABLES,
-		...parseJsonArray(contactBook?.variables)
+		...parseJsonArray(contactBook?.variables),
 	];
 
 	const domain = db.select().from(domains).where(eq(domains.id, campaign.domainId)).get();
@@ -722,13 +731,13 @@ export async function processCampaignBatch(payload: unknown): Promise<void> {
 				campaign,
 				allowedVariables,
 				domainId: domain.id,
-				region: domain.region
+				region: domain.region,
 			});
 		} catch (error) {
 			console.error('[campaign] Failed to process contact; skipping', {
 				contactId: contact.id,
 				campaignId,
-				error
+				error,
 			});
 		}
 	}
@@ -745,7 +754,7 @@ export async function processCampaignBatch(payload: unknown): Promise<void> {
 	enqueue(
 		QUEUES.CAMPAIGN_BATCH,
 		{ campaignId, teamId: campaign.teamId },
-		delayMs > 0 ? { delayMs } : {}
+		delayMs > 0 ? { delayMs } : {},
 	);
 }
 
@@ -756,9 +765,13 @@ export async function processCampaignBatch(payload: unknown): Promise<void> {
 export async function updateCampaignAnalytics(
 	campaignId: string,
 	emailStatus: EmailStatus,
-	hardBounce = false
+	hardBounce = false,
 ): Promise<void> {
-	const campaign = db.select({ id: campaigns.id }).from(campaigns).where(eq(campaigns.id, campaignId)).get();
+	const campaign = db
+		.select({ id: campaigns.id })
+		.from(campaigns)
+		.where(eq(campaigns.id, campaignId))
+		.get();
 	if (!campaign) {
 		throw new Error('Campaign not found');
 	}
@@ -814,7 +827,7 @@ export async function unsubscribeContact(params: {
 	const updated = await updateContactSubscription({
 		contactId: params.contactId,
 		subscribed: false,
-		unsubscribeReason: params.reason
+		unsubscribeReason: params.reason,
 	});
 
 	if (params.campaignId) {
@@ -847,7 +860,7 @@ export async function subscribeContact(id: string, hash: string): Promise<boolea
 		await updateContactSubscription({
 			contactId,
 			subscribed: true,
-			unsubscribeReason: null
+			unsubscribeReason: null,
 		});
 
 		db.update(campaigns)

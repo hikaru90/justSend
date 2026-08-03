@@ -3,7 +3,7 @@ import { listEmails } from '$lib/server/service/email-service';
 import {
 	getWorkerStatus,
 	requestWorkerAction,
-	type WorkerControlAction
+	type WorkerControlAction,
 } from '$lib/server/service/worker-status-service';
 import { requireDomainId, requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
@@ -21,7 +21,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			items: [],
 			nextCursor: null,
 			worker,
-			canControlWorker
+			canControlWorker,
 		};
 	}
 
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		needsDomain: false as const,
 		...emails,
 		worker,
-		canControlWorker
+		canControlWorker,
 	};
 };
 
@@ -48,5 +48,5 @@ export const actions: Actions = {
 		}
 		const control = requestWorkerAction(action);
 		return { ok: true as const, action, control };
-	}
+	},
 };

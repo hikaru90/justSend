@@ -16,16 +16,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 					opened: 0,
 					clicked: 0,
 					bounced: 0,
-					complained: 0
-				}
+					complained: 0,
+				},
 			},
 			reputation: {
 				delivered: 0,
 				hardBounced: 0,
 				complained: 0,
 				bounceRate: 0,
-				complaintRate: 0
-			}
+				complaintRate: 0,
+			},
 		};
 	}
 

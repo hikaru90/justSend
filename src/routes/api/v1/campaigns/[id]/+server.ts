@@ -3,18 +3,14 @@ import type { RequestHandler } from './$types';
 import { parseJsonArray } from '$lib/utils';
 import { requireApiTeam } from '$lib/server/api/auth';
 import { jsonErrorFromException } from '$lib/server/api/errors';
-import {
-	deleteCampaign,
-	getCampaign,
-	type Campaign
-} from '$lib/server/service/campaign-service';
+import { deleteCampaign, getCampaign, type Campaign } from '$lib/server/service/campaign-service';
 
 function serializeCampaign(campaign: Campaign) {
 	return {
 		...campaign,
 		replyTo: parseJsonArray(campaign.replyTo),
 		cc: parseJsonArray(campaign.cc),
-		bcc: parseJsonArray(campaign.bcc)
+		bcc: parseJsonArray(campaign.bcc),
 	};
 }
 

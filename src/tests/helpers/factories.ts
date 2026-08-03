@@ -19,7 +19,7 @@ import {
 	type DomainStatus,
 	type EmailStatus,
 	type Role,
-	type CampaignStatus
+	type CampaignStatus,
 } from '$lib/server/db/schema';
 import { addApiKey } from '$lib/server/service/api-service';
 
@@ -35,20 +35,22 @@ export function createUser(overrides: Partial<{ name: string; email: string }> =
 		.values({
 			name: overrides.name ?? `User ${n}`,
 			email: overrides.email ?? `user${n}@example.com`,
-			emailVerified: nowIso()
+			emailVerified: nowIso(),
 		})
 		.returning()
 		.get();
 }
 
-export function createTeam(overrides: Partial<{ name: string; dailyEmailLimit: number; isBlocked: boolean }> = {}) {
+export function createTeam(
+	overrides: Partial<{ name: string; dailyEmailLimit: number; isBlocked: boolean }> = {},
+) {
 	return db
 		.insert(teams)
 		.values({
 			name: overrides.name ?? `Team ${next()}`,
 			dailyEmailLimit: overrides.dailyEmailLimit ?? 10000,
 			isBlocked: overrides.isBlocked ?? false,
-			isVerified: true
+			isVerified: true,
 		})
 		.returning()
 		.get();
@@ -68,7 +70,7 @@ export function createDomain(
 		clickTracking: boolean;
 		openTracking: boolean;
 		isVerifying: boolean;
-	}> = {}
+	}> = {},
 ) {
 	const n = next();
 	return db
@@ -82,7 +84,7 @@ export function createDomain(
 			dkimSelector: 'owlery',
 			clickTracking: overrides.clickTracking ?? false,
 			openTracking: overrides.openTracking ?? false,
-			isVerifying: overrides.isVerifying ?? false
+			isVerifying: overrides.isVerifying ?? false,
 		})
 		.returning()
 		.get();
@@ -90,13 +92,13 @@ export function createDomain(
 
 export async function createApiKey(
 	teamId: number,
-	overrides: Partial<{ name: string; permission: ApiPermission; domainId: number }> = {}
+	overrides: Partial<{ name: string; permission: ApiPermission; domainId: number }> = {},
 ) {
 	const token = await addApiKey({
 		name: overrides.name ?? `Key ${next()}`,
 		permission: overrides.permission ?? 'FULL',
 		teamId,
-		domainId: overrides.domainId
+		domainId: overrides.domainId,
 	});
 	return token;
 }
@@ -110,7 +112,7 @@ export function createContactBook(
 		doubleOptInFrom: string | null;
 		doubleOptInSubject: string | null;
 		doubleOptInContent: string | null;
-	}> = {}
+	}> = {},
 ) {
 	return db
 		.insert(contactBooks)
@@ -124,7 +126,7 @@ export function createContactBook(
 			doubleOptInEnabled: overrides.doubleOptInEnabled ?? false,
 			doubleOptInFrom: overrides.doubleOptInFrom ?? null,
 			doubleOptInSubject: overrides.doubleOptInSubject ?? null,
-			doubleOptInContent: overrides.doubleOptInContent ?? null
+			doubleOptInContent: overrides.doubleOptInContent ?? null,
 		})
 		.returning()
 		.get();
@@ -139,7 +141,7 @@ export function createContact(
 		subscribed: boolean;
 		unsubscribeReason: 'BOUNCED' | 'COMPLAINED' | 'UNSUBSCRIBED' | null;
 		properties: Record<string, unknown>;
-	}> = {}
+	}> = {},
 ) {
 	const n = next();
 	return db
@@ -152,7 +154,7 @@ export function createContact(
 			lastName: overrides.lastName ?? null,
 			subscribed: overrides.subscribed ?? true,
 			unsubscribeReason: overrides.unsubscribeReason ?? null,
-			properties: JSON.stringify(overrides.properties ?? {})
+			properties: JSON.stringify(overrides.properties ?? {}),
 		})
 		.returning()
 		.get();
@@ -169,7 +171,7 @@ export function createCampaign(
 		status: CampaignStatus;
 		contactBookId: string | null;
 		scheduledAt: string | null;
-	}> = {}
+	}> = {},
 ) {
 	const n = next();
 	return db
@@ -181,12 +183,10 @@ export function createCampaign(
 			domainId,
 			from: overrides.from ?? `noreply@mail${n}.example.com`,
 			subject: overrides.subject ?? `Subject ${n}`,
-			html:
-				overrides.html ??
-				`<p>Hello</p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>`,
+			html: overrides.html ?? `<p>Hello</p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>`,
 			status: overrides.status ?? 'DRAFT',
 			contactBookId: overrides.contactBookId ?? null,
-			scheduledAt: overrides.scheduledAt ?? null
+			scheduledAt: overrides.scheduledAt ?? null,
 		})
 		.returning()
 		.get();
@@ -200,7 +200,7 @@ export function createTemplate(
 		html: string;
 		domainId: number | null;
 		tags: string[];
-	}> = {}
+	}> = {},
 ) {
 	const n = next();
 	return db
@@ -212,7 +212,7 @@ export function createTemplate(
 			name: overrides.name ?? `Template ${n}`,
 			subject: overrides.subject ?? `Hello {{name}}`,
 			html: overrides.html ?? `<p>Hi {{name}}</p>`,
-			tags: jsonArray(overrides.tags ?? [])
+			tags: jsonArray(overrides.tags ?? []),
 		})
 		.returning()
 		.get();
@@ -226,7 +226,7 @@ export function createWebhook(
 		status: 'ACTIVE' | 'PAUSED' | 'AUTO_DISABLED';
 		eventTypes: string[];
 		domainIds: number[];
-	}> = {}
+	}> = {},
 ) {
 	return db
 		.insert(webhooks)
@@ -237,23 +237,25 @@ export function createWebhook(
 			secret: overrides.secret ?? 'whsec_testsecret',
 			status: overrides.status ?? 'ACTIVE',
 			eventTypes: jsonArray(overrides.eventTypes ?? ['email.delivered']),
-			domainIds: jsonArray((overrides.domainIds ?? []).map(String))
+			domainIds: jsonArray((overrides.domainIds ?? []).map(String)),
 		})
 		.returning()
 		.get();
 }
 
-export function createSession(userId: number, overrides: Partial<{ sessionToken: string; expires: string }> = {}) {
+export function createSession(
+	userId: number,
+	overrides: Partial<{ sessionToken: string; expires: string }> = {},
+) {
 	const token = overrides.sessionToken ?? cuid();
-	const expires =
-		overrides.expires ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+	const expires = overrides.expires ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 	return db
 		.insert(sessions)
 		.values({
 			id: cuid(),
 			sessionToken: token,
 			userId,
-			expires
+			expires,
 		})
 		.returning()
 		.get();
@@ -273,7 +275,7 @@ export function createEmail(
 		scheduledAt: string | null;
 		campaignId: string | null;
 		contactId: string | null;
-	}> = {}
+	}> = {},
 ) {
 	const n = next();
 	return db
@@ -291,7 +293,7 @@ export function createEmail(
 			sesEmailId: overrides.sesEmailId ?? null,
 			scheduledAt: overrides.scheduledAt ?? null,
 			campaignId: overrides.campaignId ?? null,
-			contactId: overrides.contactId ?? null
+			contactId: overrides.contactId ?? null,
 		})
 		.returning()
 		.get();
@@ -311,7 +313,7 @@ export function createSesSetting(
 		configFullSuccess: boolean;
 		sesEmailRateLimit: number;
 		transactionalQuota: number;
-	}> = {}
+	}> = {},
 ) {
 	const n = next();
 	return db
@@ -329,7 +331,7 @@ export function createSesSetting(
 			configFull: overrides.configFull ?? 'owlery-full',
 			configFullSuccess: overrides.configFullSuccess ?? true,
 			sesEmailRateLimit: overrides.sesEmailRateLimit ?? 10,
-			transactionalQuota: overrides.transactionalQuota ?? 50
+			transactionalQuota: overrides.transactionalQuota ?? 50,
 		})
 		.returning()
 		.get();
@@ -348,7 +350,7 @@ export function createDailyUsage(
 		bounced: number;
 		complained: number;
 		hardBounced: number;
-	}> = {}
+	}> = {},
 ) {
 	return db
 		.insert(dailyEmailUsages)
@@ -363,7 +365,7 @@ export function createDailyUsage(
 			clicked: overrides.clicked ?? 0,
 			bounced: overrides.bounced ?? 0,
 			complained: overrides.complained ?? 0,
-			hardBounced: overrides.hardBounced ?? 0
+			hardBounced: overrides.hardBounced ?? 0,
 		})
 		.returning()
 		.get();
@@ -372,7 +374,7 @@ export function createDailyUsage(
 export function createCumulatedMetrics(
 	teamId: number,
 	domainId: number,
-	overrides: Partial<{ delivered: number; hardBounced: number; complained: number }> = {}
+	overrides: Partial<{ delivered: number; hardBounced: number; complained: number }> = {},
 ) {
 	return db
 		.insert(cumulatedMetrics)
@@ -381,7 +383,7 @@ export function createCumulatedMetrics(
 			domainId,
 			delivered: overrides.delivered ?? 100,
 			hardBounced: overrides.hardBounced ?? 1,
-			complained: overrides.complained ?? 0
+			complained: overrides.complained ?? 0,
 		})
 		.returning()
 		.get();
@@ -389,12 +391,12 @@ export function createCumulatedMetrics(
 
 /** Convenience: team + verified domain + FULL API key */
 export async function createTeamWithApiKey(
-	opts: Partial<{ teamName: string; domainName: string; permission: ApiPermission }> = {}
+	opts: Partial<{ teamName: string; domainName: string; permission: ApiPermission }> = {},
 ) {
 	const team = createTeam({ name: opts.teamName });
 	const domain = createDomain(team.id, {
 		name: opts.domainName ?? `mail${next()}.example.com`,
-		status: 'SUCCESS'
+		status: 'SUCCESS',
 	});
 	const apiKey = await createApiKey(team.id, { permission: opts.permission ?? 'FULL' });
 	return { team, domain, apiKey };

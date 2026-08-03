@@ -8,7 +8,7 @@ import {
 	signCookieValue,
 	SESSION_COOKIE,
 	OAUTH_STATE_COOKIE,
-	OAUTH_PROVIDER_COOKIE
+	OAUTH_PROVIDER_COOKIE,
 } from '$lib/server/auth';
 
 type GitHubUser = {
@@ -47,7 +47,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	}
 
 	const userResponse = await fetch('https://api.github.com/user', {
-		headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'Owlery' }
+		headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'Owlery' },
 	});
 	if (!userResponse.ok) {
 		throw error(400, 'Failed to fetch GitHub profile');
@@ -57,7 +57,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 	let email = ghUser.email;
 	if (!email) {
 		const emailResponse = await fetch('https://api.github.com/user/emails', {
-			headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'Owlery' }
+			headers: { Authorization: `Bearer ${accessToken}`, 'User-Agent': 'Owlery' },
 		});
 		if (emailResponse.ok) {
 			const emails = (await emailResponse.json()) as GitHubEmail[];
@@ -73,7 +73,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			email,
 			name: ghUser.name ?? ghUser.login,
 			image: ghUser.avatar_url,
-			accessToken
+			accessToken,
 		});
 	} catch (e) {
 		throw error(403, e instanceof Error ? e.message : 'Registration failed');
@@ -85,7 +85,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		httpOnly: true,
 		secure: process.env.NODE_ENV === 'production',
 		sameSite: 'lax',
-		maxAge: 60 * 60 * 24 * 30
+		maxAge: 60 * 60 * 24 * 30,
 	});
 
 	throw redirect(302, '/dashboard');

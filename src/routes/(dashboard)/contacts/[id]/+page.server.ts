@@ -29,5 +29,5 @@ export const actions: Actions = {
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Failed' });
 		}
-	}
+	},
 };

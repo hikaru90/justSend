@@ -5,12 +5,7 @@ import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/typ
 import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
 import { cuid, nowIso } from '$lib/utils';
 import { db } from '../db';
-import {
-	designAssets,
-	designComponents,
-	designSystems,
-	type DesignAssetKind
-} from '../db/schema';
+import { designAssets, designComponents, designSystems, type DesignAssetKind } from '../db/schema';
 
 export type DesignSystem = typeof designSystems.$inferSelect;
 export type DesignAsset = typeof designAssets.$inferSelect;
@@ -18,7 +13,12 @@ export type DesignComponent = typeof designComponents.$inferSelect;
 
 const DESIGN_ROOT = resolve(process.cwd(), 'data', 'design');
 
-export function assetDiskPath(teamId: number, kind: DesignAssetKind, assetId: string, filename: string) {
+export function assetDiskPath(
+	teamId: number,
+	kind: DesignAssetKind,
+	assetId: string,
+	filename: string,
+) {
 	const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
 	return join(DESIGN_ROOT, String(teamId), kind, `${assetId}-${safeName}`);
 }
@@ -43,7 +43,7 @@ export function upsertDesignMd(teamId: number, designMd: string): DesignSystem {
 		.values({
 			id: cuid(),
 			teamId,
-			designMd
+			designMd,
 		})
 		.returning()
 		.get();
@@ -83,7 +83,7 @@ export async function addAsset(
 		filename: string;
 		mime: string;
 		bytes: Uint8Array;
-	}
+	},
 ): Promise<DesignAsset> {
 	const id = cuid();
 	const path = assetDiskPath(teamId, input.kind, id, input.filename);
@@ -99,7 +99,7 @@ export async function addAsset(
 			name: input.name,
 			filename: input.filename,
 			mime: input.mime,
-			size: input.bytes.byteLength
+			size: input.bytes.byteLength,
 		})
 		.returning()
 		.get();
@@ -115,7 +115,7 @@ export async function updateAsset(
 			mime: string;
 			bytes: Uint8Array;
 		};
-	}
+	},
 ): Promise<DesignAsset> {
 	const asset = getAsset(assetId, teamId);
 	const name = input.name.trim();
@@ -131,7 +131,7 @@ export async function updateAsset(
 		size?: number;
 	} = {
 		name,
-		updatedAt: nowIso()
+		updatedAt: nowIso(),
 	};
 
 	if (input.file) {
@@ -223,7 +223,7 @@ export function normalizeSlots(slots?: ComponentSlot[]): ComponentSlot[] {
 			blockId,
 			prop,
 			type,
-			...(slot.label?.trim() ? { label: slot.label.trim() } : {})
+			...(slot.label?.trim() ? { label: slot.label.trim() } : {}),
 		});
 	}
 	return out;
@@ -234,7 +234,7 @@ export function serializeSlots(slots?: ComponentSlot[]): string {
 }
 
 export function parseComponentSlots(
-	component: Pick<DesignComponent, 'props'> & { slots?: string | null }
+	component: Pick<DesignComponent, 'props'> & { slots?: string | null },
 ): ComponentSlot[] {
 	try {
 		const parsed = JSON.parse(component.slots || '[]');
@@ -249,12 +249,14 @@ export function parseComponentSlots(
 		const legacy = JSON.parse(component.props || '[]');
 		if (Array.isArray(legacy)) {
 			return normalizeSlots(
-				legacy.map((name) => ({
-					name: String(name),
-					blockId: '',
-					prop: 'props.text',
-					type: 'text' as const
-				})).filter((s) => s.name && s.blockId === '')
+				legacy
+					.map((name) => ({
+						name: String(name),
+						blockId: '',
+						prop: 'props.text',
+						type: 'text' as const,
+					}))
+					.filter((s) => s.name && s.blockId === ''),
 			);
 		}
 	} catch {
@@ -265,21 +267,28 @@ export function parseComponentSlots(
 
 /** Slot names only (for AI prompts / expected-slot lists). */
 export function parseComponentProps(
-	component: Pick<DesignComponent, 'props'> & { slots?: string | null }
+	component: Pick<DesignComponent, 'props'> & { slots?: string | null },
 ): string[] {
 	const slots = parseComponentSlots(component);
 	if (slots.length > 0) return slots.map((s) => s.name);
 	try {
 		const parsed = JSON.parse(component.props || '[]');
 		if (!Array.isArray(parsed)) return [];
-		return [...new Set(parsed.map(String).map((v) => v.trim()).filter(Boolean))];
+		return [
+			...new Set(
+				parsed
+					.map(String)
+					.map((v) => v.trim())
+					.filter(Boolean),
+			),
+		];
 	} catch {
 		return [];
 	}
 }
 
 export function parseComponentDocument(
-	component: Pick<DesignComponent, 'document'>
+	component: Pick<DesignComponent, 'document'>,
 ): TEditorConfiguration | null {
 	const raw = component.document?.trim();
 	if (!raw) return null;
@@ -313,14 +322,16 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 				kind: 'custom',
 				role: input.role?.trim() || existing.role,
 				description: input.description ?? null,
-				props: JSON.stringify(parseComponentProps({
-					slots: slotsJson ?? existing.slots,
-					props: existing.props
-				})),
+				props: JSON.stringify(
+					parseComponentProps({
+						slots: slotsJson ?? existing.slots,
+						props: existing.props,
+					}),
+				),
 				html: input.html ?? existing.html,
 				document: documentJson || existing.document,
 				slots: slotsJson ?? existing.slots,
-				updatedAt: nowIso()
+				updatedAt: nowIso(),
 			})
 			.where(eq(designComponents.id, existing.id))
 			.returning()
@@ -341,7 +352,7 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 			starterKey: null,
 			html: input.html ?? '',
 			document: documentJson || JSON.stringify(EMPTY_DOCUMENT),
-			slots: serializeSlots(slots)
+			slots: serializeSlots(slots),
 		})
 		.returning()
 		.get();
@@ -357,6 +368,6 @@ export function getDesignSystemBundle(teamId: number) {
 	return {
 		system: getDesignSystem(teamId),
 		assets: listAssets(teamId),
-		components: listComponents(teamId)
+		components: listComponents(teamId),
 	};
 }

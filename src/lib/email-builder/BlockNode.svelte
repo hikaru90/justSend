@@ -16,12 +16,15 @@
 	const block = $derived(editor.document[blockId]);
 
 	const leafHtml = $derived(
-		block && block.type !== 'EmailLayout' && block.type !== 'Container' && block.type !== 'ColumnsContainer'
+		block &&
+			block.type !== 'EmailLayout' &&
+			block.type !== 'Container' &&
+			block.type !== 'ColumnsContainer'
 			? substitutePreviewPlaceholders(
 					renderBlockInnerHtml(editor.document, blockId),
-					library.previewOverrides
+					library.previewOverrides,
 				)
-			: ''
+			: '',
 	);
 
 	function fontFamily(name: string | undefined): string {
@@ -68,26 +71,27 @@
 		if (style.borderRadius != null) parts.push(`border-radius:${style.borderRadius}px`);
 		const p = style.padding;
 		if (p) {
-			parts.push(
-				`padding:${p.top ?? 0}px ${p.right ?? 0}px ${p.bottom ?? 0}px ${p.left ?? 0}px`
-			);
+			parts.push(`padding:${p.top ?? 0}px ${p.right ?? 0}px ${p.bottom ?? 0}px ${p.left ?? 0}px`);
 		}
 		return parts.join(';');
 	}
 
 	function containerAlignCss(style: BlockStyle | undefined): string {
 		if (!style) return '';
-		if (!style.textAlign && !style.contentAlignment && !style.backgroundImage && style.minHeight == null) {
+		if (
+			!style.textAlign &&
+			!style.contentAlignment &&
+			!style.backgroundImage &&
+			style.minHeight == null
+		) {
 			return '';
 		}
 		const parts = ['display:flex', 'flex-direction:column', 'height:100%'];
 		const h = style.textAlign ?? 'left';
-		parts.push(
-			`align-items:${h === 'center' ? 'center' : h === 'right' ? 'flex-end' : 'stretch'}`
-		);
+		parts.push(`align-items:${h === 'center' ? 'center' : h === 'right' ? 'flex-end' : 'stretch'}`);
 		const v = style.contentAlignment ?? (style.backgroundImage ? 'middle' : 'top');
 		parts.push(
-			`justify-content:${v === 'middle' ? 'center' : v === 'bottom' ? 'flex-end' : 'flex-start'}`
+			`justify-content:${v === 'middle' ? 'center' : v === 'bottom' ? 'flex-end' : 'flex-start'}`,
 		);
 		if (style.textAlign) parts.push(`text-align:${style.textAlign}`);
 		return parts.join(';');
@@ -100,7 +104,7 @@
 			columnsCount?: number;
 			columnsGap?: number;
 			contentAlignment?: string;
-		}) ?? {}
+		}) ?? {},
 	);
 	const cols = $derived(columnsProps.columns ?? []);
 	const colCount = $derived(Math.max(cols.length, 1));
@@ -110,7 +114,7 @@
 			? 'center'
 			: columnsProps.contentAlignment === 'bottom'
 				? 'end'
-				: 'start'
+				: 'start',
 	);
 </script>
 
@@ -133,7 +137,8 @@
 			cellspacing="0"
 			cellpadding="0"
 			border={0}
-			style="margin:0 auto;width:100%;max-width:600px;background-color:{block.data.canvasColor ?? '#FFFFFF'}"
+			style="margin:0 auto;width:100%;max-width:600px;background-color:{block.data.canvasColor ??
+				'#FFFFFF'}"
 		>
 			<tbody>
 				<tr style="width:100%">
@@ -150,20 +155,14 @@
 			{#if style.overlayColor}
 				<div
 					style="background-color:{style.overlayColor};height:100%;width:100%;{containerAlignCss(
-						style
+						style,
 					)}"
 				>
-					<BlockChildren
-						parentId={blockId}
-						childrenIds={getBlockChildrenIds(block)}
-					/>
+					<BlockChildren parentId={blockId} childrenIds={getBlockChildrenIds(block)} />
 				</div>
 			{:else}
 				<div style={containerAlignCss(style)}>
-					<BlockChildren
-						parentId={blockId}
-						childrenIds={getBlockChildrenIds(block)}
-					/>
+					<BlockChildren parentId={blockId} childrenIds={getBlockChildrenIds(block)} />
 				</div>
 			{/if}
 		</div>
@@ -172,7 +171,9 @@
 	<BlockWrapper {blockId}>
 		<div
 			class="grid"
-			style="{containerCss(style)};grid-template-columns:repeat({colCount},1fr);gap:{colGap}px;align-items:{alignItems}"
+			style="{containerCss(
+				style,
+			)};grid-template-columns:repeat({colCount},1fr);gap:{colGap}px;align-items:{alignItems}"
 		>
 			{#each cols as col, colIndex (colIndex)}
 				<div>

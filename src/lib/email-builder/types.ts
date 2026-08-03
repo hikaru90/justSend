@@ -59,9 +59,9 @@ export const EMPTY_DOCUMENT: TEditorConfiguration = {
 			canvasColor: '#FFFFFF',
 			textColor: '#262626',
 			fontFamily: 'MODERN_SANS',
-			childrenIds: []
-		}
-	}
+			childrenIds: [],
+		},
+	},
 };
 
 export function newBlockId(): string {
@@ -80,9 +80,9 @@ export const BLOCK_FACTORIES: Array<{
 			type: 'Heading',
 			data: {
 				props: { text: 'Hello friend' },
-				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } }
-			}
-		})
+				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } },
+			},
+		}),
 	},
 	{
 		label: 'Text',
@@ -93,10 +93,10 @@ export const BLOCK_FACTORIES: Array<{
 				props: { text: 'My new text block', markdown: true },
 				style: {
 					padding: { top: 16, bottom: 16, left: 24, right: 24 },
-					fontWeight: 'normal'
-				}
-			}
-		})
+					fontWeight: 'normal',
+				},
+			},
+		}),
 	},
 	{
 		label: 'Button',
@@ -105,9 +105,9 @@ export const BLOCK_FACTORIES: Array<{
 			type: 'Button',
 			data: {
 				props: { text: 'Button', url: 'https://example.com' },
-				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } }
-			}
-		})
+				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } },
+			},
+		}),
 	},
 	{
 		label: 'Image',
@@ -120,11 +120,11 @@ export const BLOCK_FACTORIES: Array<{
 					alt: 'Image',
 					contentAlignment: 'middle',
 					linkHref: null,
-					width: null
+					width: null,
 				},
-				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } }
-			}
-		})
+				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } },
+			},
+		}),
 	},
 	{
 		label: 'Divider',
@@ -133,17 +133,17 @@ export const BLOCK_FACTORIES: Array<{
 			type: 'Divider',
 			data: {
 				style: { padding: { top: 16, right: 0, bottom: 16, left: 0 } },
-				props: { lineColor: '#CCCCCC' }
-			}
-		})
+				props: { lineColor: '#CCCCCC' },
+			},
+		}),
 	},
 	{
 		label: 'Spacer',
 		type: 'Spacer',
 		create: () => ({
 			type: 'Spacer',
-			data: { props: { height: 16 } }
-		})
+			data: { props: { height: 16 } },
+		}),
 	},
 	{
 		label: 'Html',
@@ -154,10 +154,10 @@ export const BLOCK_FACTORIES: Array<{
 				props: { contents: '<strong>Hello world</strong>' },
 				style: {
 					fontSize: 16,
-					padding: { top: 16, bottom: 16, left: 24, right: 24 }
-				}
-			}
-		})
+					padding: { top: 16, bottom: 16, left: 24, right: 24 },
+				},
+			},
+		}),
 	},
 	{
 		label: 'Container',
@@ -166,9 +166,9 @@ export const BLOCK_FACTORIES: Array<{
 			type: 'Container',
 			data: {
 				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } },
-				props: { childrenIds: [] }
-			}
-		})
+				props: { childrenIds: [] },
+			},
+		}),
 	},
 	{
 		label: 'Columns',
@@ -179,10 +179,10 @@ export const BLOCK_FACTORIES: Array<{
 				props: {
 					columnsGap: 16,
 					columnsCount: 2,
-					columns: [{ childrenIds: [] }, { childrenIds: [] }]
+					columns: [{ childrenIds: [] }, { childrenIds: [] }],
 				},
-				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } }
-			}
-		})
-	}
+				style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } },
+			},
+		}),
+	},
 ];

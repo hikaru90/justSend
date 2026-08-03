@@ -33,10 +33,7 @@ function fluidifyTableTag(tag: string): string {
 			return `style='${s}'`;
 		});
 	} else {
-		next = next.replace(
-			/<table\b/i,
-			`<table style="width:100%;max-width:${px}px;"`
-		);
+		next = next.replace(/<table\b/i, `<table style="width:100%;max-width:${px}px;"`);
 	}
 
 	return next;
@@ -62,7 +59,7 @@ function fluidifyImgTag(tag: string): string {
 	} else {
 		next = next.replace(
 			/<img\b/i,
-			'<img style="display:block;max-width:100%;height:auto;border:0;"'
+			'<img style="display:block;max-width:100%;height:auto;border:0;"',
 		);
 	}
 

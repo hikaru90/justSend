@@ -8,7 +8,7 @@ export const QUEUES = {
 	WEBHOOK_DISPATCH: 'webhook-dispatch',
 	WEBHOOK_CLEANUP: 'webhook-cleanup',
 	FLOW_STEP: 'flow-step',
-	FLOW_WAIT: 'flow-wait'
+	FLOW_WAIT: 'flow-wait',
 } as const;
 
 export function transactionalQueueName(region: string) {

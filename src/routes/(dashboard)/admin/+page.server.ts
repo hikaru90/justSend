@@ -11,7 +11,7 @@ export const load: PageServerLoad = async () => {
 		settings: getAllSettings(),
 		defaultUrl: env.HOST_URL,
 		teams: db.select({ id: teams.id, name: teams.name }).from(teams).all(),
-		dbParts: DB_PARTS.map((p) => ({ id: p.id, label: p.label, scope: p.scope }))
+		dbParts: DB_PARTS.map((p) => ({ id: p.id, label: p.label, scope: p.scope })),
 	};
 };
 
@@ -30,5 +30,5 @@ export const actions: Actions = {
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Failed to create setting' });
 		}
-	}
+	},
 };

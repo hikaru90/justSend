@@ -17,7 +17,7 @@ function fakeTemplate(overrides: Partial<Template> = {}): Template {
 		tags: '[]',
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
-		...overrides
+		...overrides,
 	};
 }
 
@@ -32,7 +32,7 @@ function fakeElement(overrides: Partial<TemplateElement> = {}): TemplateElement 
 		order: 0,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
-		...overrides
+		...overrides,
 	};
 }
 
@@ -50,20 +50,20 @@ describe('buildScaffoldMessages', () => {
 					kind: 'starter',
 					role: 'hero',
 					props: '["headline","body"]',
-					starterKey: 'hero'
-				}
+					starterKey: 'hero',
+				},
 			],
 			assets: [{ id: 'asset_1', kind: 'logo', name: 'Logo', filename: 'logo.png' }],
 			elements: [
 				fakeElement({
 					type: 'component',
 					label: 'Hero',
-					config: JSON.stringify({ designComponentId: 'dc_1' })
-				})
+					config: JSON.stringify({ designComponentId: 'dc_1' }),
+				}),
 			],
 			prompt: 'Make it warm',
 			assetBaseUrl: 'http://localhost:5173',
-			expectedSlots: ['headline', 'body']
+			expectedSlots: ['headline', 'body'],
 		});
 
 		expect(messages).toHaveLength(2);
@@ -81,9 +81,9 @@ describe('parseScaffoldJson', () => {
 			JSON.stringify({
 				subject: 'Sub',
 				preheader: 'Pre',
-				slots: { headline: 'H', extra: 'x' }
+				slots: { headline: 'H', extra: 'x' },
 			}),
-			['headline']
+			['headline'],
 		);
 		expect(parsed.subject).toBe('Sub');
 		expect(parsed.preheader).toBe('Pre');

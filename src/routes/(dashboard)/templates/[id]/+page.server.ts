@@ -7,26 +7,26 @@ import {
 	getComponent,
 	getDesignSystemBundle,
 	parseComponentProps,
-	parseComponentSlots
+	parseComponentSlots,
 } from '$lib/server/service/design-system-service';
 import { getDomain } from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
 import {
 	parseElementConfig,
 	serializeElementConfig,
-	type TemplateElementConfig
+	type TemplateElementConfig,
 } from '$lib/template-element-config';
 import {
 	createElement,
 	deleteElement,
 	listElements,
 	reorderElements,
-	updateElement
+	updateElement,
 } from '$lib/server/service/template-element-service';
 import {
 	composeEmailSections,
 	parseScaffoldContent,
-	serializeScaffoldContent
+	serializeScaffoldContent,
 } from '$lib/server/service/template-compose-service';
 import { relativizeDesignAssetUrls } from '$lib/design-asset-urls';
 import {
@@ -35,7 +35,7 @@ import {
 	parseEmailBuilderContent,
 	renderEmailHtml,
 	serializeEmailBuilderContent,
-	EMPTY_DOCUMENT
+	EMPTY_DOCUMENT,
 } from '$lib/email-builder/render';
 import { deleteTemplate, getTemplate, updateTemplate } from '$lib/server/service/template-service';
 import { templateElementTypes, type TemplateElementType } from '$lib/server/db/schema';
@@ -75,7 +75,7 @@ async function resolveAssetIdFromForm(
 	teamId: number,
 	type: TemplateElementType,
 	form: FormData,
-	existingAssetId?: string
+	existingAssetId?: string,
 ): Promise<string | undefined> {
 	if (!IMAGE_TYPES.has(type)) return undefined;
 
@@ -90,7 +90,7 @@ async function resolveAssetIdFromForm(
 			name,
 			filename: file.name || name,
 			mime: file.type || 'application/octet-stream',
-			bytes: new Uint8Array(await file.arrayBuffer())
+			bytes: new Uint8Array(await file.arrayBuffer()),
 		});
 		return asset.id;
 	}
@@ -111,7 +111,7 @@ async function resolveAssetIdFromForm(
 function logoExtraProps(teamId: number, origin = ''): Record<string, string> {
 	const extra: Record<string, string> = {};
 	const pair = pickEmailLogos(
-		getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo')
+		getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo'),
 	);
 	if (pair) {
 		const base = origin.replace(/\/$/, '');
@@ -147,7 +147,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 				id: a.id,
 				name: a.name,
 				filename: a.filename,
-				kind: a.kind as 'logo' | 'image'
+				kind: a.kind as 'logo' | 'image',
 			}));
 
 		const content = relativizeDesignAssetUrls(template.content ?? '');
@@ -158,29 +158,26 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			: parseScaffoldContent(content);
 		const hasHtml = Boolean(html?.trim());
 		const emailDocument =
-			parsedContent.document ??
-			(html?.trim() ? documentFromComposedHtml(html) : EMPTY_DOCUMENT);
+			parsedContent.document ?? (html?.trim() ? documentFromComposedHtml(html) : EMPTY_DOCUMENT);
 
 		return {
 			template: { ...template, content, html },
 			elements: listElements(template.id, teamId, domainId).map((el) => ({
 				...el,
-				parsedConfig: parseElementConfig(el.config)
+				parsedConfig: parseElementConfig(el.config),
 			})),
 			scaffold,
 			emailDocument,
 			hasHtml,
 			previewHtml: html ?? null,
-		designReady: Boolean(
-			bundle.system?.designMd?.trim() ||
-				bundle.components.length > 0 ||
-				bundle.assets.length > 0
-		),
-		designColors: extractDesignTokens(bundle.system?.designMd ?? '').colors.map(hexForColorInput),
+			designReady: Boolean(
+				bundle.system?.designMd?.trim() || bundle.components.length > 0 || bundle.assets.length > 0,
+			),
+			designColors: extractDesignTokens(bundle.system?.designMd ?? '').colors.map(hexForColorInput),
 			designSummary: {
 				hasMd: Boolean(bundle.system?.designMd?.trim()),
 				assetCount: bundle.assets.length,
-				componentCount: bundle.components.length
+				componentCount: bundle.components.length,
 			},
 			designComponents: bundle.components.map((c) => ({
 				id: c.id,
@@ -192,7 +189,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 				html: c.html,
 				document: c.document ?? '',
 				props: parseComponentProps(c),
-				parsedSlots: parseComponentSlots(c)
+				parsedSlots: parseComponentSlots(c),
 			})),
 			logoAssets: visualAssets.filter((a) => a.kind === 'logo'),
 			imageAssets: visualAssets.filter((a) => a.kind === 'image'),
@@ -201,7 +198,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			domainVerified: domain?.status === 'SUCCESS',
 			userEmail: locals.user?.email ?? null,
 			piConfigured: isPiConfigured(),
-			assetBaseUrl: url.origin
+			assetBaseUrl: url.origin,
 		};
 	} catch {
 		error(404, 'Template not found');
@@ -270,7 +267,7 @@ export const actions: Actions = {
 				type: elementType,
 				label,
 				required,
-				config: serializeElementConfig(config)
+				config: serializeElementConfig(config),
 			});
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Create failed' });
@@ -305,7 +302,7 @@ export const actions: Actions = {
 					type: 'component',
 					label: component.name,
 					required,
-					config: serializeElementConfig({ designComponentId })
+					config: serializeElementConfig({ designComponentId }),
 				});
 				added += 1;
 			}
@@ -339,7 +336,7 @@ export const actions: Actions = {
 					teamId,
 					existing.type,
 					form,
-					parseElementConfig(existing.config).assetId
+					parseElementConfig(existing.config).assetId,
 				);
 				if (assetId) config.assetId = assetId;
 			}
@@ -347,7 +344,7 @@ export const actions: Actions = {
 			updateElement(id, params.id, teamId, domainId, {
 				label: label || existing.label,
 				required,
-				config: serializeElementConfig(config)
+				config: serializeElementConfig(config),
 			});
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
@@ -396,7 +393,7 @@ export const actions: Actions = {
 				domainId,
 				templateId: params.id,
 				prompt,
-				assetBaseUrl: url.origin
+				assetBaseUrl: url.origin,
 			});
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Scaffold failed' });
@@ -431,11 +428,11 @@ export const actions: Actions = {
 					content: serializeScaffoldContent({
 						subject: subject || existing.subject,
 						preheader: preheader || existing.preheader,
-						slots
+						slots,
 					}),
-					...(subject ? { subject } : {})
+					...(subject ? { subject } : {}),
 				},
-				domainId
+				domainId,
 			);
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
@@ -462,7 +459,7 @@ export const actions: Actions = {
 				assets: bundle.assets,
 				// Persist root-relative asset URLs so templates work across prod/dev.
 				assetBaseUrl: '',
-				extraSlots: logoExtraProps(teamId)
+				extraSlots: logoExtraProps(teamId),
 			};
 			const sections = composeEmailSections(composeInput);
 			const existing = parseEmailBuilderContent(template.content);
@@ -489,15 +486,13 @@ export const actions: Actions = {
 			const existing = parseEmailBuilderContent(template.content);
 
 			if (documentJson.trim()) {
-				const document = JSON.parse(
-					relativizeDesignAssetUrls(documentJson)
-				) as Parameters<typeof serializeEmailBuilderContent>[0];
+				const document = JSON.parse(relativizeDesignAssetUrls(documentJson)) as Parameters<
+					typeof serializeEmailBuilderContent
+				>[0];
 				const content = relativizeDesignAssetUrls(
-					serializeEmailBuilderContent(document, existing.scaffold)
+					serializeEmailBuilderContent(document, existing.scaffold),
 				);
-				const rendered = relativizeDesignAssetUrls(
-					html.trim() || renderEmailHtml(document)
-				);
+				const rendered = relativizeDesignAssetUrls(html.trim() || renderEmailHtml(document));
 				updateTemplate(params.id, teamId, { html: rendered, content }, domainId);
 			} else if (html.trim()) {
 				updateTemplate(params.id, teamId, { html: relativizeDesignAssetUrls(html) }, domainId);
@@ -544,13 +539,13 @@ export const actions: Actions = {
 				subject: template.subject,
 				templateId: template.id,
 				variables,
-				assetBaseUrl: origin
+				assetBaseUrl: origin,
 			});
 
 			if (email.latestStatus === 'SUPPRESSED') {
 				return fail(400, {
 					error: 'Recipient is on the suppression list',
-					emailId: email.id
+					emailId: email.id,
 				});
 			}
 
@@ -576,15 +571,15 @@ export const actions: Actions = {
 				name,
 				filename: file.name || name,
 				mime: file.type || 'application/octet-stream',
-				bytes: new Uint8Array(await file.arrayBuffer())
+				bytes: new Uint8Array(await file.arrayBuffer()),
 			});
 			return {
 				success: true,
 				saved: 'asset' as const,
-				asset: { id: asset.id, name: asset.name, kind: asset.kind }
+				asset: { id: asset.id, name: asset.name, kind: asset.kind },
 			};
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Upload failed' });
 		}
-	}
+	},
 };

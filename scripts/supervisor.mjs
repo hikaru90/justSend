@@ -44,7 +44,7 @@ function spawnChild(label, entry) {
 	const child = spawn(process.execPath, [entry], {
 		stdio: 'inherit',
 		env: process.env,
-		cwd: root
+		cwd: root,
 	});
 	child.on('error', (err) => {
 		console.error(`[supervisor] ${label} failed to start`, err);

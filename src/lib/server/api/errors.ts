@@ -14,8 +14,8 @@ export function jsonError(status: number, message: string, code?: string) {
 	const body: ApiErrorBody = {
 		error: {
 			message,
-			...(code ? { code } : {})
-		}
+			...(code ? { code } : {}),
+		},
 	};
 	return json(body, { status });
 }

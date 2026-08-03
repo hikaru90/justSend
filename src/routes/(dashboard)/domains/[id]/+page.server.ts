@@ -1,5 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getDomain, refreshDomainVerification, deleteDomain, updateDomain } from '$lib/server/service/domain-service';
+import {
+	getDomain,
+	refreshDomainVerification,
+	deleteDomain,
+	updateDomain,
+} from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
 import { requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
@@ -12,7 +17,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	try {
 		return {
 			domain: await getDomain(id, teamId),
-			userEmail: locals.user?.email ?? null
+			userEmail: locals.user?.email ?? null,
 		};
 	} catch {
 		error(404, 'Domain not found');
@@ -47,7 +52,7 @@ export const actions: Actions = {
 		try {
 			await updateDomain(id, {
 				clickTracking: form.get('clickTracking') === 'on',
-				openTracking: form.get('openTracking') === 'on'
+				openTracking: form.get('openTracking') === 'on',
 			});
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
@@ -76,13 +81,13 @@ export const actions: Actions = {
 				to,
 				subject: `Owlery test — ${domain.name}`,
 				text: `This is a test email from Owlery for ${domain.name} (${domain.region}).`,
-				html: `<p>This is a test email from Owlery for <strong>${domain.name}</strong> (${domain.region}).</p>`
+				html: `<p>This is a test email from Owlery for <strong>${domain.name}</strong> (${domain.region}).</p>`,
 			});
 
 			if (email.latestStatus === 'SUPPRESSED') {
 				return fail(400, {
 					error: 'Recipient is on the suppression list',
-					emailId: email.id
+					emailId: email.id,
 				});
 			}
 
@@ -90,5 +95,5 @@ export const actions: Actions = {
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Send failed' });
 		}
-	}
+	},
 };

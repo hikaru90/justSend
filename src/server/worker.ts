@@ -9,11 +9,14 @@ import { processWebhookCall } from '../lib/server/service/webhook-service';
 import { processCampaignBatch } from '../lib/server/service/campaign-service';
 import { processContactBulkAdd } from '../lib/server/service/contact-service';
 import { processFlowStep } from '../lib/server/service/flow-engine';
-import { processDomainVerification, queueDomainVerification } from '../lib/server/service/domain-verification-job';
+import {
+	processDomainVerification,
+	queueDomainVerification,
+} from '../lib/server/service/domain-verification-job';
 import {
 	beatWorkerHeartbeat,
 	getWorkerControl,
-	resetWorkerStartedAt
+	resetWorkerStartedAt,
 } from '../lib/server/service/worker-status-service';
 
 migrate();
@@ -26,16 +29,24 @@ let processingState: 'running' | 'paused' = 'running';
 let seenRestartNonce = getWorkerControl().restartNonce;
 let shuttingDown = false;
 
-function start(queue: string, handler: ConstructorParameters<typeof QueueWorker>[1], concurrency = 1) {
+function start(
+	queue: string,
+	handler: ConstructorParameters<typeof QueueWorker>[1],
+	concurrency = 1,
+) {
 	const worker = new QueueWorker(queue, handler, { concurrency, pollIntervalMs: 800 });
 	worker.start();
 	workers.push(worker);
 	activeQueues.push(queue);
 }
 
-start(QUEUES.SES_WEBHOOK, async (payload) => {
-	await parseSesHook(payload as never);
-}, 5);
+start(
+	QUEUES.SES_WEBHOOK,
+	async (payload) => {
+		await parseSesHook(payload as never);
+	},
+	5,
+);
 
 start(QUEUES.WEBHOOK_DISPATCH, processWebhookCall, 3);
 start(QUEUES.CAMPAIGN_BATCH, processCampaignBatch, 1);
@@ -44,25 +55,29 @@ start(QUEUES.FLOW_STEP, processFlowStep, 1);
 start(QUEUES.FLOW_WAIT, processFlowStep, 1);
 start(QUEUES.DOMAIN_VERIFICATION, processDomainVerification, 1);
 
-start(QUEUES.CAMPAIGN_SCHEDULER, async () => {
-	const { db } = await import('../lib/server/db');
-	const { campaigns } = await import('../lib/server/db/schema');
-	const { and, eq, lte, or, isNull } = await import('drizzle-orm');
-	const { nowIso } = await import('../lib/utils');
-	const due = db
-		.select()
-		.from(campaigns)
-		.where(
-			and(
-				eq(campaigns.status, 'SCHEDULED'),
-				or(isNull(campaigns.scheduledAt), lte(campaigns.scheduledAt, nowIso()))
+start(
+	QUEUES.CAMPAIGN_SCHEDULER,
+	async () => {
+		const { db } = await import('../lib/server/db');
+		const { campaigns } = await import('../lib/server/db/schema');
+		const { and, eq, lte, or, isNull } = await import('drizzle-orm');
+		const { nowIso } = await import('../lib/utils');
+		const due = db
+			.select()
+			.from(campaigns)
+			.where(
+				and(
+					eq(campaigns.status, 'SCHEDULED'),
+					or(isNull(campaigns.scheduledAt), lte(campaigns.scheduledAt, nowIso())),
+				),
 			)
-		)
-		.all();
-	for (const c of due) {
-		enqueue(QUEUES.CAMPAIGN_BATCH, { campaignId: c.id }, { jobId: `campaign-start-${c.id}` });
-	}
-}, 1);
+			.all();
+		for (const c of due) {
+			enqueue(QUEUES.CAMPAIGN_BATCH, { campaignId: c.id }, { jobId: `campaign-start-${c.id}` });
+		}
+	},
+	1,
+);
 
 // Region email queues from SES settings
 for (const setting of getAllSettings()) {
@@ -71,23 +86,19 @@ for (const setting of getAllSettings()) {
 		async (payload) => {
 			await executeEmail(payload as never);
 		},
-		Math.max(1, Math.floor((setting.sesEmailRateLimit * setting.transactionalQuota) / 100))
+		Math.max(1, Math.floor((setting.sesEmailRateLimit * setting.transactionalQuota) / 100)),
 	);
 	start(
 		marketingQueueName(setting.region),
 		async (payload) => {
 			await executeEmail(payload as never);
 		},
-		Math.max(1, Math.floor((setting.sesEmailRateLimit * (100 - setting.transactionalQuota)) / 100))
+		Math.max(1, Math.floor((setting.sesEmailRateLimit * (100 - setting.transactionalQuota)) / 100)),
 	);
 }
 
 enqueue(QUEUES.CAMPAIGN_SCHEDULER, {}, { jobId: 'campaign-scheduler-tick' });
-enqueue(
-	QUEUES.DOMAIN_VERIFICATION,
-	{},
-	{ jobId: 'domain-verification-tick', delayMs: 60_000 }
-);
+enqueue(QUEUES.DOMAIN_VERIFICATION, {}, { jobId: 'domain-verification-tick', delayMs: 60_000 });
 
 // Re-queue periodic jobs
 setInterval(() => {

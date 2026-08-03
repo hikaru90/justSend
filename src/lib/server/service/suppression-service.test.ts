@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('$lib/server/aws/ses', () => ({
-	deleteFromSesSuppressionList: vi.fn(async () => undefined)
+	deleteFromSesSuppressionList: vi.fn(async () => undefined),
 }));
 
 import { deleteFromSesSuppressionList } from '$lib/server/aws/ses';
@@ -14,7 +14,7 @@ import {
 	checkMultipleEmails,
 	getSuppressionList,
 	addMultipleSuppressions,
-	getSuppressionStats
+	getSuppressionStats,
 } from './suppression-service';
 import { db } from '../db';
 import { suppressionList } from '../db/schema';
@@ -33,7 +33,7 @@ describe('suppression-service', () => {
 			email: '  User@Example.COM  ',
 			teamId: team.id,
 			reason: 'MANUAL',
-			source: 'test'
+			source: 'test',
 		});
 
 		expect(first.email).toBe('user@example.com');
@@ -43,7 +43,7 @@ describe('suppression-service', () => {
 			email: 'USER@example.com',
 			teamId: team.id,
 			reason: 'HARD_BOUNCE',
-			source: 'bounce'
+			source: 'bounce',
 		});
 
 		expect(updated.email).toBe('user@example.com');
@@ -81,7 +81,7 @@ describe('suppression-service', () => {
 
 		const result = await checkMultipleEmails(
 			['A@test.com', 'b@test.com', '  a@test.com  '],
-			team.id
+			team.id,
 		);
 
 		expect(result['A@test.com']).toBe(true);
@@ -100,7 +100,7 @@ describe('suppression-service', () => {
 			search: 'alice',
 			reason: 'MANUAL',
 			limit: 10,
-			page: 1
+			page: 1,
 		});
 
 		expect(filtered.total).toBe(1);
@@ -112,7 +112,7 @@ describe('suppression-service', () => {
 			limit: 2,
 			page: 1,
 			sortBy: 'email',
-			sortOrder: 'asc'
+			sortOrder: 'asc',
 		});
 
 		expect(page.total).toBe(3);
@@ -126,7 +126,7 @@ describe('suppression-service', () => {
 		await addMultipleSuppressions(
 			team.id,
 			['Dup@test.com', 'DUP@test.com', '  dup@test.com  ', 'other@test.com'],
-			'MANUAL'
+			'MANUAL',
 		);
 
 		const rows = db.select().from(suppressionList).where(eq(suppressionList.teamId, team.id)).all();
@@ -146,7 +146,7 @@ describe('suppression-service', () => {
 		expect(stats).toEqual({
 			MANUAL: 2,
 			COMPLAINT: 1,
-			HARD_BOUNCE: 1
+			HARD_BOUNCE: 1,
 		});
 	});
 });

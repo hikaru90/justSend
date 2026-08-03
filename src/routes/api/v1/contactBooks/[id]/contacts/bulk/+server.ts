@@ -10,7 +10,7 @@ import { contacts } from '$lib/server/db/schema';
 import { getContactBook } from '$lib/server/service/contact-book-service';
 import {
 	bulkAddContacts,
-	bulkDeleteContactsInContactBook
+	bulkDeleteContactsInContactBook,
 } from '$lib/server/service/contact-service';
 
 const contactSchema = z.object({
@@ -18,16 +18,16 @@ const contactSchema = z.object({
 	firstName: z.string().optional(),
 	lastName: z.string().optional(),
 	properties: z.record(z.string(), z.unknown()).optional(),
-	subscribed: z.boolean().optional()
+	subscribed: z.boolean().optional(),
 });
 
 const bulkPostSchema = z.object({
-	contacts: z.array(contactSchema).max(1000)
+	contacts: z.array(contactSchema).max(1000),
 });
 
 const bulkDeleteSchema = z.union([
 	z.object({ contactIds: z.array(z.string()).min(1).max(1000) }),
-	z.object({ emails: z.array(z.string()).min(1).max(1000) })
+	z.object({ emails: z.array(z.string()).min(1).max(1000) }),
 ]);
 
 export const POST: RequestHandler = async ({ request, params }) => {
@@ -67,9 +67,9 @@ export const DELETE: RequestHandler = async ({ request, params }) => {
 						eq(contacts.contactBookId, params.id),
 						inArray(
 							contacts.email,
-							body.emails.map((e) => e.toLowerCase().trim())
-						)
-					)
+							body.emails.map((e) => e.toLowerCase().trim()),
+						),
+					),
 				)
 				.all();
 			contactIds = rows.map((r) => r.id);

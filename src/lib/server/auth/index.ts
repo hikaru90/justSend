@@ -9,7 +9,7 @@ import {
 	teamInvites,
 	teamUsers,
 	users,
-	verificationTokens
+	verificationTokens,
 } from '../db/schema';
 import { cuid, nowIso } from '$lib/utils';
 import { createTeam } from '../service/team-service';
@@ -37,7 +37,7 @@ export function getGoogle() {
 	return new Google(
 		env.GOOGLE_CLIENT_ID,
 		env.GOOGLE_CLIENT_SECRET,
-		`${env.HOST_URL}/api/auth/callback/google`
+		`${env.HOST_URL}/api/auth/callback/google`,
 	);
 }
 
@@ -66,9 +66,7 @@ export function createSession(userId: number, days = 30) {
 	const sessionToken = randomBytes(32).toString('hex');
 	const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 	const id = cuid();
-	db.insert(sessions)
-		.values({ id, sessionToken, userId, expires })
-		.run();
+	db.insert(sessions).values({ id, sessionToken, userId, expires }).run();
 	return { id, sessionToken, expires };
 }
 
@@ -84,7 +82,7 @@ export function getSessionUser(sessionToken: string | undefined): SessionUser | 
 			id: users.id,
 			name: users.name,
 			email: users.email,
-			image: users.image
+			image: users.image,
 		})
 		.from(sessions)
 		.innerJoin(users, eq(sessions.userId, users.id))
@@ -96,7 +94,7 @@ export function getSessionUser(sessionToken: string | undefined): SessionUser | 
 		name: row.name,
 		email: row.email,
 		image: row.image,
-		isAdmin: isAdminEmail(row.email)
+		isAdmin: isAdminEmail(row.email),
 	};
 }
 
@@ -115,7 +113,10 @@ export async function upsertOAuthUser(input: {
 		.select()
 		.from(accounts)
 		.where(
-			and(eq(accounts.provider, input.provider), eq(accounts.providerAccountId, input.providerAccountId))
+			and(
+				eq(accounts.provider, input.provider),
+				eq(accounts.providerAccountId, input.providerAccountId),
+			),
 		)
 		.get();
 
@@ -129,9 +130,7 @@ export async function upsertOAuthUser(input: {
 		throw new Error('Registration requires a team invite');
 	}
 
-	let user = email
-		? db.select().from(users).where(eq(users.email, email)).get()
-		: undefined;
+	let user = email ? db.select().from(users).where(eq(users.email, email)).get() : undefined;
 
 	const isFirstUser = !db.select({ id: users.id }).from(users).limit(1).get();
 
@@ -143,7 +142,7 @@ export async function upsertOAuthUser(input: {
 				email,
 				emailVerified: email ? nowIso() : null,
 				image: input.image ?? null,
-				createdAt: nowIso()
+				createdAt: nowIso(),
 			})
 			.returning()
 			.get();
@@ -152,11 +151,7 @@ export async function upsertOAuthUser(input: {
 		if (isFirstUser) {
 			await createTeam(user.id, 'My Team');
 		} else if (email) {
-			const invite = db
-				.select()
-				.from(teamInvites)
-				.where(eq(teamInvites.email, email))
-				.get();
+			const invite = db.select().from(teamInvites).where(eq(teamInvites.email, email)).get();
 			if (invite) {
 				db.insert(teamUsers)
 					.values({ teamId: invite.teamId, userId: user.id, role: invite.role })
@@ -175,7 +170,7 @@ export async function upsertOAuthUser(input: {
 			providerAccountId: input.providerAccountId,
 			accessToken: input.accessToken ?? null,
 			refreshToken: input.refreshToken ?? null,
-			idToken: input.idToken ?? null
+			idToken: input.idToken ?? null,
 		})
 		.run();
 
@@ -185,9 +180,7 @@ export async function upsertOAuthUser(input: {
 export function createMagicLinkToken(email: string) {
 	const token = randomBytes(32).toString('hex');
 	const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-	db.insert(verificationTokens)
-		.values({ identifier: email.toLowerCase(), token, expires })
-		.run();
+	db.insert(verificationTokens).values({ identifier: email.toLowerCase(), token, expires }).run();
 	return token;
 }
 
@@ -213,7 +206,7 @@ export async function consumeMagicLinkToken(token: string) {
 			.values({
 				email: row.identifier,
 				emailVerified: nowIso(),
-				createdAt: nowIso()
+				createdAt: nowIso(),
 			})
 			.returning()
 			.get();

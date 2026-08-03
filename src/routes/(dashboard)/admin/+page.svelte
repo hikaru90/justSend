@@ -19,7 +19,7 @@
 	const effectiveTeamId = $derived(teamId || defaultTeamId);
 
 	const needsTeam = $derived(
-		selectedParts.some((id) => data.dbParts.find((p) => p.id === id)?.scope === 'team')
+		selectedParts.some((id) => data.dbParts.find((p) => p.id === id)?.scope === 'team'),
 	);
 
 	const partsQuery = $derived(selectedParts.join(','));
@@ -53,7 +53,7 @@
 			.join(', ');
 		if (
 			!confirm(
-				`Replace these parts on this instance?\n\n${labels}\n\nOnly the selected parts are written. Everything else (including SES/domains if not selected) stays unchanged.`
+				`Replace these parts on this instance?\n\n${labels}\n\nOnly the selected parts are written. Everything else (including SES/domains if not selected) stays unchanged.`,
 			)
 		) {
 			return;
@@ -100,8 +100,14 @@
 	{#each data.settings as setting}
 		<Card title={setting.region}>
 			<dl class="grid gap-2 text-sm sm:grid-cols-2">
-				<div><dt class="text-[hsl(var(--muted-foreground))]">Callback</dt><dd class="truncate">{setting.callbackUrl}</dd></div>
-				<div><dt class="text-[hsl(var(--muted-foreground))]">Topic ARN</dt><dd class="truncate font-mono text-xs">{setting.topicArn}</dd></div>
+				<div>
+					<dt class="text-[hsl(var(--muted-foreground))]">Callback</dt>
+					<dd class="truncate">{setting.callbackUrl}</dd>
+				</div>
+				<div>
+					<dt class="text-[hsl(var(--muted-foreground))]">Topic ARN</dt>
+					<dd class="truncate font-mono text-xs">{setting.topicArn}</dd>
+				</div>
 				<div>
 					<dt class="text-[hsl(var(--muted-foreground))]">Config sets</dt>
 					<dd class="flex flex-wrap gap-1">
@@ -183,15 +189,20 @@
 			<p class="mt-2 text-sm text-[hsl(var(--destructive))]">{importError}</p>
 		{/if}
 		{#if importSummary}
-			<pre class="mt-3 max-h-48 overflow-auto rounded-md bg-[hsl(var(--muted))] p-3 text-xs">{JSON.stringify(importSummary, null, 2)}</pre>
+			<pre
+				class="mt-3 max-h-48 overflow-auto rounded-md bg-[hsl(var(--muted))] p-3 text-xs">{JSON.stringify(
+					importSummary,
+					null,
+					2,
+				)}</pre>
 		{/if}
 	</div>
 </Card>
 
 <Card title="Full database snapshot" class="mb-6">
 	<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
-		Download a consistent SQLite snapshot for local development. Stop the local app before
-		replacing your <code class="text-xs">./data/*.db</code> file.
+		Download a consistent SQLite snapshot for local development. Stop the local app before replacing
+		your <code class="text-xs">./data/*.db</code> file.
 	</p>
 	<Button href="/admin/database/download" variant="outline">Download full database</Button>
 </Card>

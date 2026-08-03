@@ -8,7 +8,7 @@ import {
 	removeHexColor,
 	replaceHexColor,
 	renderSvelteComponentPreview,
-	substitutePreviewPlaceholders
+	substitutePreviewPlaceholders,
 } from './extractTokens';
 
 describe('extractDesignTokens', () => {
@@ -65,7 +65,7 @@ describe('substitutePreviewPlaceholders', () => {
 	it('replaces known placeholders', () => {
 		const html = '<a href="{{cta_url}}">{{cta_label}}</a>';
 		expect(substitutePreviewPlaceholders(html)).toBe(
-			'<a href="https://example.com">Click here</a>'
+			'<a href="https://example.com">Click here</a>',
 		);
 	});
 
@@ -74,16 +74,14 @@ describe('substitutePreviewPlaceholders', () => {
 		expect(
 			substitutePreviewPlaceholders(html, {
 				logo: '/api/design-asset/abc',
-				logo_url: '/api/design-asset/abc'
-			})
+				logo_url: '/api/design-asset/abc',
+			}),
 		).toBe('<img src="/api/design-asset/abc" alt="/api/design-asset/abc" />');
 	});
 
 	it('replaces contact variables', () => {
 		const html = 'Hi {{firstName}} {{lastName}} &lt;{{email}}&gt;';
-		expect(substitutePreviewPlaceholders(html)).toBe(
-			'Hi Alex River &lt;alex@example.com&gt;'
-		);
+		expect(substitutePreviewPlaceholders(html)).toBe('Hi Alex River &lt;alex@example.com&gt;');
 	});
 
 	it('uses contact variable overrides', () => {
@@ -97,7 +95,7 @@ describe('substitutePreviewPlaceholders', () => {
 			'<a href="{{unsubscribe_url}}">Unsub</a>';
 		expect(substitutePreviewPlaceholders(html)).toBe(
 			'<a href="{{owlery_unsubscribe_url}}">Unsubscribe</a>' +
-				'<a href="{{unsubscribe_url}}">Unsub</a>'
+				'<a href="{{unsubscribe_url}}">Unsub</a>',
 		);
 	});
 });
@@ -128,7 +126,7 @@ describe('renderSvelteComponentPreview', () => {
 	it('prefers design-system logo overrides', () => {
 		const source = `<img src={logo_url} class="logo-light" />`;
 		const html = renderSvelteComponentPreview(source, {
-			logo_url: '/api/design-asset/logo-1'
+			logo_url: '/api/design-asset/logo-1',
 		});
 		expect(html).toContain('src="/api/design-asset/logo-1"');
 	});
@@ -138,7 +136,7 @@ describe('pickEmailLogos', () => {
 	it('pairs light and dark logos deterministically', () => {
 		const logos = [
 			{ id: 'z', name: 'Primary Logo dark', filename: 'logo-dark-whole.svg' },
-			{ id: 'a', name: 'Primary Logo', filename: 'logo-whole.svg' }
+			{ id: 'a', name: 'Primary Logo', filename: 'logo-whole.svg' },
 		];
 		const pair = pickEmailLogos(logos);
 		expect(pair?.light.id).toBe('a');

@@ -8,11 +8,11 @@ import {
 	parseComponentSlots,
 	updateAsset,
 	upsertComponent,
-	upsertDesignMd
+	upsertDesignMd,
 } from '$lib/server/service/design-system-service';
 import {
 	inferDesignSystemFromUrl,
-	reapplyDesignSystemToComponent
+	reapplyDesignSystemToComponent,
 } from '$lib/server/service/design-infer-service';
 import { designAssetKinds, type DesignAssetKind } from '$lib/server/db/schema';
 import { isPiConfigured } from '$lib/server/service/pi-service';
@@ -29,9 +29,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 		assets: bundle.assets,
 		components: bundle.components.map((c) => ({
 			...c,
-			parsedSlots: parseComponentSlots(c)
+			parsedSlots: parseComponentSlots(c),
 		})),
-		piConfigured: isPiConfigured()
+		piConfigured: isPiConfigured(),
 	};
 };
 
@@ -47,7 +47,7 @@ export const actions: Actions = {
 			return {
 				success: true,
 				saved: 'infer' as const,
-				assetsDownloaded: result.assetsDownloaded
+				assetsDownloaded: result.assetsDownloaded,
 			};
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Inference failed' });
@@ -85,12 +85,12 @@ export const actions: Actions = {
 			name,
 			filename: file.name || name,
 			mime: file.type || 'application/octet-stream',
-			bytes
+			bytes,
 		});
 		return {
 			success: true,
 			saved: 'asset' as const,
-			asset: { id: asset.id, name: asset.name, kind: asset.kind }
+			asset: { id: asset.id, name: asset.name, kind: asset.kind },
 		};
 	},
 
@@ -120,14 +120,14 @@ export const actions: Actions = {
 				? {
 						filename: file.name || name,
 						mime: file.type || 'application/octet-stream',
-						bytes: new Uint8Array(await file.arrayBuffer())
+						bytes: new Uint8Array(await file.arrayBuffer()),
 					}
 				: undefined;
 
 		try {
 			await updateAsset(id, teamId, {
 				name,
-				file: replacement
+				file: replacement,
 			});
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
@@ -193,5 +193,5 @@ export const actions: Actions = {
 			return fail(400, { error: e instanceof Error ? e.message : 'Reapply failed' });
 		}
 		return { success: true, saved: 'reapply' as const };
-	}
+	},
 };

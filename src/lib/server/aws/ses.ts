@@ -10,7 +10,7 @@ import {
 	CreateTenantResourceAssociationCommand,
 	DeleteTenantResourceAssociationCommand,
 	DeleteSuppressedDestinationCommand,
-	type EventType
+	type EventType,
 } from '@aws-sdk/client-sesv2';
 import { GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { generateKeyPairSync } from 'node:crypto';
@@ -41,12 +41,12 @@ function generateKeyPair() {
 		modulusLength: 2048,
 		publicKeyEncoding: {
 			type: 'spki',
-			format: 'pem'
+			format: 'pem',
 		},
 		privateKeyEncoding: {
 			type: 'pkcs8',
-			format: 'pem'
-		}
+			format: 'pem',
+		},
 	});
 
 	const base64PrivateKey = privateKey
@@ -66,7 +66,7 @@ export async function addDomain(
 	domain: string,
 	region: string,
 	sesTenantId?: string,
-	dkimSelector = 'owlery'
+	dkimSelector = 'owlery',
 ): Promise<string> {
 	const sesClient = getSesClient(region);
 
@@ -77,24 +77,24 @@ export async function addDomain(
 			EmailIdentity: domain,
 			DkimSigningAttributes: {
 				DomainSigningSelector: dkimSelector,
-				DomainSigningPrivateKey: privateKey
-			}
-		})
+				DomainSigningPrivateKey: privateKey,
+			},
+		}),
 	);
 
 	const emailIdentityResponse = await sesClient.send(
 		new PutEmailIdentityMailFromAttributesCommand({
 			EmailIdentity: domain,
-			MailFromDomain: `mail.${domain}`
-		})
+			MailFromDomain: `mail.${domain}`,
+		}),
 	);
 
 	if (sesTenantId) {
 		const tenantResourceAssociationResponse = await sesClient.send(
 			new CreateTenantResourceAssociationCommand({
 				TenantName: sesTenantId,
-				ResourceArn: await getIdentityArn(domain, region)
-			})
+				ResourceArn: await getIdentityArn(domain, region),
+			}),
 		);
 
 		if (tenantResourceAssociationResponse.$metadata.httpStatusCode !== 200) {
@@ -115,7 +115,7 @@ export async function addDomain(
 export async function deleteDomain(
 	domain: string,
 	region: string,
-	sesTenantId?: string
+	sesTenantId?: string,
 ): Promise<boolean> {
 	const sesClient = getSesClient(region);
 
@@ -123,8 +123,8 @@ export async function deleteDomain(
 		const tenantResourceAssociationResponse = await sesClient.send(
 			new DeleteTenantResourceAssociationCommand({
 				TenantName: sesTenantId,
-				ResourceArn: await getIdentityArn(domain, region)
-			})
+				ResourceArn: await getIdentityArn(domain, region),
+			}),
 		);
 
 		if (tenantResourceAssociationResponse.$metadata.httpStatusCode !== 200) {
@@ -134,8 +134,8 @@ export async function deleteDomain(
 
 	const response = await sesClient.send(
 		new DeleteEmailIdentityCommand({
-			EmailIdentity: domain
-		})
+			EmailIdentity: domain,
+		}),
 	);
 
 	return response.$metadata.httpStatusCode === 200;
@@ -145,8 +145,8 @@ export async function getDomainIdentity(domain: string, region: string) {
 	const sesClient = getSesClient(region);
 	return sesClient.send(
 		new GetEmailIdentityCommand({
-			EmailIdentity: domain
-		})
+			EmailIdentity: domain,
+		}),
 	);
 }
 
@@ -179,7 +179,7 @@ const RESERVED_EMAIL_HEADERS = new Set([
 	'x-envelope-to',
 	'x-google-dkim-signature',
 	'x-original-to',
-	'x-received'
+	'x-received',
 ]);
 
 const RESERVED_EMAIL_HEADER_PREFIXES = ['arc-', 'resent-', 'x-ses-', 'x-unsend-', 'x-owlery-'];
@@ -187,7 +187,7 @@ const RESERVED_EMAIL_HEADER_PREFIXES = ['arc-', 'resent-', 'x-ses-', 'x-unsend-'
 const HEADER_INJECTION_PATTERN = /[\r\n]/;
 
 function sanitizeCustomHeaders(
-	headers?: Record<string, string | null | undefined>
+	headers?: Record<string, string | null | undefined>,
 ): Record<string, string> | undefined {
 	if (!headers) return undefined;
 
@@ -217,7 +217,7 @@ export function buildHeaders({
 	headers,
 	unsubUrl,
 	isBulk,
-	inReplyToMessageId
+	inReplyToMessageId,
 }: {
 	emailId?: string;
 	headers?: Record<string, string>;
@@ -227,7 +227,7 @@ export function buildHeaders({
 }): Record<string, string> {
 	const sanitizedHeaders = sanitizeCustomHeaders(headers);
 	const sanitizedHeaderNames = new Set(
-		Object.keys(sanitizedHeaders ?? {}).map((name) => name.toLowerCase())
+		Object.keys(sanitizedHeaders ?? {}).map((name) => name.toLowerCase()),
 	);
 
 	const defaultHeaders: Record<string, string> = {};
@@ -265,7 +265,7 @@ export function buildHeaders({
 
 	return {
 		...defaultHeaders,
-		...(sanitizedHeaders ?? {})
+		...(sanitizedHeaders ?? {}),
 	};
 }
 
@@ -286,7 +286,7 @@ export async function sendRawEmail({
 	inReplyToMessageId,
 	emailId,
 	sesTenantId,
-	headers
+	headers,
 }: {
 	to?: string[];
 	from?: string;
@@ -318,7 +318,7 @@ export async function sendRawEmail({
 			attachments: attachments?.map((attachment) => ({
 				filename: attachment.filename,
 				content: attachment.content,
-				encoding: 'base64'
+				encoding: 'base64',
 			})),
 			text,
 			replyTo,
@@ -329,8 +329,8 @@ export async function sendRawEmail({
 				headers,
 				unsubUrl,
 				isBulk,
-				inReplyToMessageId
-			})
+				inReplyToMessageId,
+			}),
 		});
 
 	const chunks: Buffer[] = [];
@@ -342,11 +342,11 @@ export async function sendRawEmail({
 	const command = new SendEmailCommand({
 		Content: {
 			Raw: {
-				Data: finalMessageData
-			}
+				Data: finalMessageData,
+			},
 		},
 		ConfigurationSetName: configurationSetName,
-		TenantName: sesTenantId ? sesTenantId : undefined
+		TenantName: sesTenantId ? sesTenantId : undefined,
 	});
 
 	const response = await sesClient.send(command);
@@ -362,14 +362,14 @@ export async function addWebhookConfiguration(
 	configName: string,
 	topicArn: string,
 	eventTypes: EventType[],
-	region: string
+	region: string,
 ): Promise<boolean> {
 	const sesClient = getSesClient(region);
 
 	const configSetResponse = await sesClient.send(
 		new CreateConfigurationSetCommand({
-			ConfigurationSetName: configName
-		})
+			ConfigurationSetName: configName,
+		}),
 	);
 
 	if (configSetResponse.$metadata.httpStatusCode !== 200) {
@@ -384,10 +384,10 @@ export async function addWebhookConfiguration(
 				Enabled: true,
 				MatchingEventTypes: eventTypes,
 				SnsDestination: {
-					TopicArn: topicArn
-				}
-			}
-		})
+					TopicArn: topicArn,
+				},
+			},
+		}),
 	);
 
 	return response.$metadata.httpStatusCode === 200;
@@ -399,21 +399,25 @@ export async function addWebhookConfiguration(
  */
 export async function deleteFromSesSuppressionList(
 	email: string,
-	region: string
+	region: string,
 ): Promise<boolean> {
 	const sesClient = getSesClient(region);
 	try {
 		await sesClient.send(
 			new DeleteSuppressedDestinationCommand({
-				EmailAddress: email
-			})
+				EmailAddress: email,
+			}),
 		);
 		return true;
 	} catch (error) {
 		if (error instanceof Error && error.name === 'NotFoundException') {
 			return true;
 		}
-		console.error('[ses] Failed to remove email from SES suppression list', { email, region, error });
+		console.error('[ses] Failed to remove email from SES suppression list', {
+			email,
+			region,
+			error,
+		});
 		return false;
 	}
 }

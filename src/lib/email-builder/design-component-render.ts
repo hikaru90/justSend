@@ -4,7 +4,7 @@ import { materializeComponentDocument } from './component-document';
 
 /** Parse a library component's stored document JSON. */
 export function parseLibraryComponentDocument(
-	component: Pick<DesignLibraryComponent, 'document' | 'html'> & { document?: string }
+	component: Pick<DesignLibraryComponent, 'document' | 'html'> & { document?: string },
 ): TEditorConfiguration | null {
 	const raw = component.document?.trim();
 	if (!raw) return null;
@@ -24,7 +24,7 @@ export function parseLibraryComponentDocument(
 export function cloneComponentIntoEmail(
 	component: DesignLibraryComponent & { document?: string; parsedSlots?: ComponentSlot[] },
 	idPrefix: string,
-	slotValues: Record<string, string> = {}
+	slotValues: Record<string, string> = {},
 ): { blocks: TEditorConfiguration; childrenIds: string[] } | null {
 	const doc = parseLibraryComponentDocument(component);
 	if (!doc) return null;
@@ -33,7 +33,7 @@ export function cloneComponentIntoEmail(
 		document: doc,
 		slots,
 		slotValues,
-		idPrefix
+		idPrefix,
 	});
 }
 
@@ -43,7 +43,7 @@ export function legacyHtmlBlock(html: string, _blockId: string): TEditorBlock {
 		type: 'Html',
 		data: {
 			props: { contents: html },
-			style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
-		}
+			style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } },
+		},
 	};
 }

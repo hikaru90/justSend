@@ -1,12 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb } from '../../../tests/helpers/db';
-import { createTeam, createDomain, createContactBook, createContact } from '../../../tests/helpers/factories';
+import {
+	createTeam,
+	createDomain,
+	createContactBook,
+	createContact,
+} from '../../../tests/helpers/factories';
 import {
 	getContactBooks,
 	getContactBook,
 	createContactBook as createBook,
 	updateContactBook,
-	deleteContactBook
+	deleteContactBook,
 } from './contact-book-service';
 
 describe('contact-book-service', () => {
@@ -56,7 +61,7 @@ describe('contact-book-service', () => {
 		const updated = await updateContactBook(book.id, team.id, {
 			name: 'New Name',
 			variables: ['firstName'],
-			doubleOptInEnabled: false
+			doubleOptInEnabled: false,
 		});
 
 		expect(updated.name).toBe('New Name');
@@ -71,15 +76,15 @@ describe('contact-book-service', () => {
 		await expect(
 			updateContactBook(book.id, team.id, {
 				doubleOptInEnabled: true,
-				doubleOptInContent: '<p>Confirm your subscription</p>'
-			})
+				doubleOptInContent: '<p>Confirm your subscription</p>',
+			}),
 		).rejects.toThrow(
-			'Double opt-in email content must include the {{doubleOptInUrl}} placeholder'
+			'Double opt-in email content must include the {{doubleOptInUrl}} placeholder',
 		);
 
 		const ok = await updateContactBook(book.id, team.id, {
 			doubleOptInEnabled: true,
-			doubleOptInContent: '<p>Click {{doubleOptInUrl}} to confirm</p>'
+			doubleOptInContent: '<p>Click {{doubleOptInUrl}} to confirm</p>',
 		});
 
 		expect(ok.doubleOptInContent).toContain('{{doubleOptInUrl}}');
@@ -91,7 +96,7 @@ describe('contact-book-service', () => {
 		const book = createContactBook(team.id);
 
 		const updated = await updateContactBook(book.id, team.id, {
-			doubleOptInFrom: `noreply@${domain.name}`
+			doubleOptInFrom: `noreply@${domain.name}`,
 		});
 
 		expect(updated.doubleOptInFrom).toBe(`noreply@${domain.name}`);

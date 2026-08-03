@@ -4,7 +4,7 @@ import {
 	createTeam,
 	createDomain,
 	createDailyUsage,
-	createCumulatedMetrics
+	createCumulatedMetrics,
 } from '../../../tests/helpers/factories';
 import { getEmailTimeSeries, getReputationMetrics } from './dashboard-service';
 
@@ -29,7 +29,7 @@ describe('dashboard-service', () => {
 				opened: 2,
 				clicked: 1,
 				bounced: 0,
-				complained: 0
+				complained: 0,
 			});
 
 			const { result, totalCounts } = getEmailTimeSeries({ teamId: team.id, days: 7 });
@@ -52,7 +52,7 @@ describe('dashboard-service', () => {
 			createDailyUsage(team.id, domain.id, {
 				date: daysAgo(15),
 				sent: 5,
-				delivered: 5
+				delivered: 5,
 			});
 
 			const { result } = getEmailTimeSeries({ teamId: team.id, days: 30 });
@@ -70,7 +70,7 @@ describe('dashboard-service', () => {
 			const { totalCounts } = getEmailTimeSeries({
 				teamId: team.id,
 				days: 7,
-				domainId: domain1.id
+				domainId: domain1.id,
 			});
 			expect(totalCounts.sent).toBe(20);
 		});
@@ -85,12 +85,12 @@ describe('dashboard-service', () => {
 			createCumulatedMetrics(team.id, domain1.id, {
 				delivered: 100,
 				hardBounced: 2,
-				complained: 1
+				complained: 1,
 			});
 			createCumulatedMetrics(team.id, domain2.id, {
 				delivered: 200,
 				hardBounced: 4,
-				complained: 2
+				complained: 2,
 			});
 
 			const metrics = getReputationMetrics({ teamId: team.id });
@@ -107,7 +107,7 @@ describe('dashboard-service', () => {
 			createCumulatedMetrics(team.id, domain.id, {
 				delivered: 0,
 				hardBounced: 0,
-				complained: 0
+				complained: 0,
 			});
 
 			const metrics = getReputationMetrics({ teamId: team.id });

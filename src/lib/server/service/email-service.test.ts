@@ -6,7 +6,7 @@ import {
 	createTeam,
 	createDomain,
 	createSesSetting,
-	createEmail
+	createEmail,
 } from '../../../tests/helpers/factories';
 import {
 	sendEmail,
@@ -14,7 +14,7 @@ import {
 	getEmail,
 	cancelEmail,
 	updateEmail,
-	replaceVariables
+	replaceVariables,
 } from './email-service';
 import { addSuppression } from './suppression-service';
 import { db } from '../db';
@@ -35,7 +35,7 @@ describe('email-service', () => {
 		it('replaces placeholders with provided values', () => {
 			const result = replaceVariables('Hello {{ name }}, welcome to {{company}}!', {
 				name: 'Ada',
-				company: 'Owlery'
+				company: 'Owlery',
 			});
 
 			expect(result).toBe('Hello Ada, welcome to Owlery!');
@@ -51,7 +51,7 @@ describe('email-service', () => {
 				from: `noreply@${domain.name}`,
 				to: 'recipient@test.com',
 				subject: 'Hello',
-				text: 'Plain text body'
+				text: 'Plain text body',
 			});
 
 			expect(email.latestStatus).toBe('QUEUED');
@@ -63,8 +63,8 @@ describe('email-service', () => {
 				.where(
 					and(
 						eq(queueJobs.queue, transactionalQueueName('us-east-1')),
-						eq(queueJobs.jobId, email.id)
-					)
+						eq(queueJobs.jobId, email.id),
+					),
 				)
 				.get();
 
@@ -80,12 +80,10 @@ describe('email-service', () => {
 				from: `noreply@${domain.name}`,
 				to: 'recipient@test.com',
 				subject: 'With image',
-				html: '<img src="/api/design-asset/asset_abc" alt="logo" />'
+				html: '<img src="/api/design-asset/asset_abc" alt="logo" />',
 			});
 
-			expect(email.html).toContain(
-				'src="http://localhost:5173/api/design-asset/asset_abc"'
-			);
+			expect(email.html).toContain('src="http://localhost:5173/api/design-asset/asset_abc"');
 		});
 
 		it('rewrites localhost design-asset URLs onto HOST_URL', async () => {
@@ -97,12 +95,10 @@ describe('email-service', () => {
 				to: 'recipient@test.com',
 				subject: 'With image',
 				html: '<img src="http://127.0.0.1:9999/api/design-asset/asset_abc" alt="logo" />',
-				assetBaseUrl: 'https://send.example.com'
+				assetBaseUrl: 'https://send.example.com',
 			});
 
-			expect(email.html).toContain(
-				'src="https://send.example.com/api/design-asset/asset_abc"'
-			);
+			expect(email.html).toContain('src="https://send.example.com/api/design-asset/asset_abc"');
 			expect(email.html).not.toContain('127.0.0.1');
 		});
 
@@ -114,8 +110,8 @@ describe('email-service', () => {
 					teamId: team.id,
 					from: `noreply@${domain.name}`,
 					to: 'recipient@test.com',
-					subject: 'Empty'
-				})
+					subject: 'Empty',
+				}),
 			).rejects.toThrow('Either text or html is required');
 		});
 
@@ -124,7 +120,7 @@ describe('email-service', () => {
 			await addSuppression({
 				email: 'blocked@test.com',
 				teamId: team.id,
-				reason: 'MANUAL'
+				reason: 'MANUAL',
 			});
 
 			const email = await sendEmail({
@@ -132,7 +128,7 @@ describe('email-service', () => {
 				from: `noreply@${domain.name}`,
 				to: 'blocked@test.com',
 				subject: 'Blocked',
-				text: 'Should not send'
+				text: 'Should not send',
 			});
 
 			expect(email.latestStatus).toBe('SUPPRESSED');
@@ -158,7 +154,7 @@ describe('email-service', () => {
 				to: 'later@test.com',
 				subject: 'Scheduled',
 				html: '<p>Later</p>',
-				scheduledAt
+				scheduledAt,
 			});
 
 			expect(email.latestStatus).toBe('SCHEDULED');
@@ -171,8 +167,8 @@ describe('email-service', () => {
 					and(
 						eq(queueJobs.queue, transactionalQueueName('us-east-1')),
 						eq(queueJobs.jobId, email.id),
-						eq(queueJobs.status, 'pending')
-					)
+						eq(queueJobs.status, 'pending'),
+					),
 				)
 				.get();
 			expect(job).toBeTruthy();
@@ -183,9 +179,7 @@ describe('email-service', () => {
 		it('paginates with cursor', () => {
 			const team = createTeam();
 			const domain = createDomain(team.id);
-			const base = Date.now();
 
-			// Stagger createdAt so sort order aligns with ascending cuid ids.
 			for (let i = 0; i < 5; i++) {
 				db.insert(emails)
 					.values({
@@ -197,8 +191,8 @@ describe('email-service', () => {
 						subject: `Email ${i}`,
 						html: '<p>Hi</p>',
 						latestStatus: 'QUEUED',
-						createdAt: new Date(base - (5 - i) * 1000).toISOString(),
-						updatedAt: nowIso()
+						createdAt: nowIso(),
+						updatedAt: nowIso(),
 					})
 					.run();
 			}
@@ -206,10 +200,16 @@ describe('email-service', () => {
 			const page1 = listEmails({ teamId: team.id, limit: 2 });
 			expect(page1.items).toHaveLength(2);
 			expect(page1.nextCursor).toBeTruthy();
+			expect(page1.nextCursor).toBe(page1.items[1]!.id);
 
 			const page2 = listEmails({ teamId: team.id, limit: 2, cursor: page1.nextCursor! });
-			expect(page2.items.length).toBeGreaterThanOrEqual(1);
+			expect(page2.items).toHaveLength(2);
 			expect(page2.items.every((e) => e.teamId === team.id)).toBe(true);
+			expect(page2.items.every((e) => e.id < page1.nextCursor!)).toBe(true);
+
+			const page3 = listEmails({ teamId: team.id, limit: 2, cursor: page2.nextCursor! });
+			expect(page3.items).toHaveLength(1);
+			expect(page3.nextCursor).toBeNull();
 		});
 	});
 
@@ -219,7 +219,7 @@ describe('email-service', () => {
 			const domain = createDomain(team.id);
 			const created = createEmail(team.id, {
 				domainId: domain.id,
-				to: ['a@test.com', 'b@test.com']
+				to: ['a@test.com', 'b@test.com'],
 			});
 
 			const fetched = getEmail(created.id, team.id);
@@ -245,7 +245,7 @@ describe('email-service', () => {
 				to: 'cancel@test.com',
 				subject: 'Cancel me',
 				text: 'Body',
-				scheduledAt
+				scheduledAt,
 			});
 
 			await cancelEmail(email.id);
@@ -259,8 +259,8 @@ describe('email-service', () => {
 				.where(
 					and(
 						eq(queueJobs.queue, transactionalQueueName('us-east-1')),
-						eq(queueJobs.jobId, email.id)
-					)
+						eq(queueJobs.jobId, email.id),
+					),
 				)
 				.get();
 			expect(job).toBeUndefined();
@@ -281,7 +281,7 @@ describe('email-service', () => {
 				to: 'reschedule@test.com',
 				subject: 'Reschedule me',
 				text: 'Body',
-				scheduledAt: originalSchedule
+				scheduledAt: originalSchedule,
 			});
 
 			const newSchedule = new Date(Date.now() + 300_000).toISOString();
@@ -297,8 +297,8 @@ describe('email-service', () => {
 					and(
 						eq(queueJobs.queue, transactionalQueueName('us-east-1')),
 						eq(queueJobs.jobId, email.id),
-						eq(queueJobs.status, 'pending')
-					)
+						eq(queueJobs.status, 'pending'),
+					),
 				)
 				.get();
 			expect(job).toBeTruthy();

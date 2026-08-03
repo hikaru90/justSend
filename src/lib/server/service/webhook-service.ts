@@ -8,14 +8,14 @@ import {
 	webhookCalls,
 	webhooks,
 	type WebhookCallStatus,
-	type WebhookStatus
+	type WebhookStatus,
 } from '../db/schema';
 import { enqueue } from '../queue';
 import { QUEUES } from '../queue/constants';
 import {
 	WEBHOOK_EVENT_VERSION,
 	type WebhookEventType,
-	type WebhookPayloadData
+	type WebhookPayloadData,
 } from '../webhook-events';
 import { checkWebhookLimit } from './limit-service';
 
@@ -77,7 +77,7 @@ export async function emit<TType extends WebhookEventType>(
 	teamId: number,
 	type: TType,
 	payload: WebhookPayloadData<TType>,
-	options?: { domainId?: number | null }
+	options?: { domainId?: number | null },
 ): Promise<void> {
 	const activeWebhooks = db
 		.select()
@@ -114,14 +114,14 @@ export async function emit<TType extends WebhookEventType>(
 				type,
 				payload: payloadString,
 				status: 'PENDING',
-				attempt: 0
+				attempt: 0,
 			})
 			.run();
 
 		enqueue(
 			QUEUES.WEBHOOK_DISPATCH,
 			{ callId, teamId: webhook.teamId },
-			{ jobId: callId, maxAttempts: WEBHOOK_MAX_ATTEMPTS }
+			{ jobId: callId, maxAttempts: WEBHOOK_MAX_ATTEMPTS },
 		);
 	}
 }
@@ -189,7 +189,7 @@ export async function createWebhook(params: {
 			secret,
 			eventTypes: JSON.stringify(params.eventTypes),
 			status: 'ACTIVE',
-			createdByUserId: params.userId
+			createdByUserId: params.userId,
 		})
 		.returning()
 		.get();
@@ -225,11 +225,9 @@ export async function updateWebhook(params: {
 			eventTypes:
 				params.eventTypes === undefined ? webhook.eventTypes : JSON.stringify(params.eventTypes),
 			domainIds:
-				normalizedDomainIds === undefined
-					? webhook.domainIds
-					: JSON.stringify(normalizedDomainIds),
+				normalizedDomainIds === undefined ? webhook.domainIds : JSON.stringify(normalizedDomainIds),
 			secret: secret ?? webhook.secret,
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(webhooks.id, webhook.id))
 		.returning()
@@ -248,7 +246,7 @@ export function setWebhookStatus(params: {
 		.set({
 			status: params.status,
 			consecutiveFailures: params.status === 'ACTIVE' ? 0 : webhook.consecutiveFailures,
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(webhooks.id, webhook.id))
 		.returning()
@@ -281,7 +279,7 @@ export async function retryCall(params: { callId: string; teamId: number }): Pro
 			responseStatus: null,
 			responseTimeMs: null,
 			responseText: null,
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(webhookCalls.id, call.id))
 		.run();
@@ -294,7 +292,7 @@ export async function retryCall(params: { callId: string; teamId: number }): Pro
 	enqueue(
 		QUEUES.WEBHOOK_DISPATCH,
 		{ callId: call.id, teamId: params.teamId },
-		{ jobId: call.id, maxAttempts: WEBHOOK_MAX_ATTEMPTS }
+		{ jobId: call.id, maxAttempts: WEBHOOK_MAX_ATTEMPTS },
 	);
 
 	return call.id;
@@ -306,7 +304,7 @@ export async function testWebhook(params: { webhookId: string; teamId: number })
 	const payload = {
 		test: true,
 		webhookId: webhook.id,
-		sentAt: nowIso()
+		sentAt: nowIso(),
 	};
 
 	const callId = cuid();
@@ -318,14 +316,14 @@ export async function testWebhook(params: { webhookId: string; teamId: number })
 			type: 'webhook.test',
 			payload: stringifyPayload(payload),
 			status: 'PENDING',
-			attempt: 0
+			attempt: 0,
 		})
 		.run();
 
 	enqueue(
 		QUEUES.WEBHOOK_DISPATCH,
 		{ callId, teamId: webhook.teamId },
-		{ jobId: callId, maxAttempts: WEBHOOK_MAX_ATTEMPTS }
+		{ jobId: callId, maxAttempts: WEBHOOK_MAX_ATTEMPTS },
 	);
 
 	return callId;
@@ -393,7 +391,7 @@ type WebhookDispatchPayload = {
 function buildDispatchPayload(
 	call: WebhookCall,
 	webhookApiVersion: string | null,
-	attempt: number
+	attempt: number,
 ): WebhookDispatchPayload {
 	let parsed: unknown = call.payload;
 	try {
@@ -409,7 +407,7 @@ function buildDispatchPayload(
 		createdAt: call.createdAt,
 		teamId: call.teamId,
 		data: parsed,
-		attempt
+		attempt,
 	};
 }
 
@@ -424,7 +422,7 @@ class WebhookHttpError extends Error {
 		message: string,
 		public statusCode: number | null,
 		public responseTimeMs: number | null,
-		public responseText: string | null
+		public responseText: string | null,
 	) {
 		super(message);
 		this.name = 'WebhookHttpError';
@@ -452,7 +450,7 @@ async function postWebhook(params: {
 		'X-Owlery-Call': params.callId,
 		'X-Owlery-Timestamp': timestamp,
 		'X-Owlery-Signature': signature,
-		'X-Owlery-Retry': params.body.attempt > 1 ? 'true' : 'false'
+		'X-Owlery-Retry': params.body.attempt > 1 ? 'true' : 'false',
 	};
 
 	const start = Date.now();
@@ -463,7 +461,7 @@ async function postWebhook(params: {
 			headers,
 			body: stringBody,
 			redirect: 'manual',
-			signal: controller.signal
+			signal: controller.signal,
 		});
 
 		const responseTimeMs = Date.now() - start;
@@ -476,7 +474,7 @@ async function postWebhook(params: {
 			`Non-2xx response: ${response.status}`,
 			response.status,
 			responseTimeMs,
-			responseText
+			responseText,
 		);
 	} catch (error) {
 		const responseTimeMs = Date.now() - start;
@@ -490,7 +488,7 @@ async function postWebhook(params: {
 			error instanceof Error ? error.message : 'Unknown fetch error',
 			null,
 			responseTimeMs,
-			null
+			null,
 		);
 	} finally {
 		clearTimeout(timeout);
@@ -522,7 +520,7 @@ async function captureResponseText(response: Response): Promise<string | null> {
  */
 export async function processWebhookCall(
 	payload: unknown,
-	job: typeof queueJobs.$inferSelect
+	job: typeof queueJobs.$inferSelect,
 ): Promise<void> {
 	const { callId } = (payload ?? {}) as { callId?: string };
 	if (!callId) {
@@ -561,7 +559,7 @@ export async function processWebhookCall(
 			secret: webhook.secret,
 			type: call.type,
 			callId: call.id,
-			body
+			body,
 		});
 
 		db.update(webhookCalls)
@@ -573,7 +571,7 @@ export async function processWebhookCall(
 				responseText,
 				lastError: null,
 				nextAttemptAt: null,
-				updatedAt: nowIso()
+				updatedAt: nowIso(),
 			})
 			.where(eq(webhookCalls.id, call.id))
 			.run();
@@ -599,7 +597,7 @@ export async function processWebhookCall(
 					lastFailureAt: nowIso(),
 					consecutiveFailures,
 					status: autoDisabled ? 'AUTO_DISABLED' : webhook.status,
-					updatedAt: nowIso()
+					updatedAt: nowIso(),
 				})
 				.where(eq(webhooks.id, webhook.id))
 				.run();
@@ -618,7 +616,7 @@ export async function processWebhookCall(
 				responseStatus: responseStatus ?? null,
 				responseTimeMs: responseTimeMs ?? null,
 				responseText: responseText ?? null,
-				updatedAt: nowIso()
+				updatedAt: nowIso(),
 			})
 			.where(eq(webhookCalls.id, call.id))
 			.run();

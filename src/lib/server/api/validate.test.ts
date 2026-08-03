@@ -8,7 +8,7 @@ async function tryParseBody(body: unknown) {
 	const request = new Request('http://localhost', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
-		body: typeof body === 'string' ? body : JSON.stringify(body)
+		body: typeof body === 'string' ? body : JSON.stringify(body),
 	});
 
 	try {
@@ -35,7 +35,7 @@ describe('parseBody', () => {
 		if (!result.ok) {
 			expect(result.status).toBe(400);
 			expect(result.json).toMatchObject({
-				error: { message: 'Invalid JSON body', code: 'BAD_REQUEST' }
+				error: { message: 'Invalid JSON body', code: 'BAD_REQUEST' },
 			});
 		}
 	});
@@ -46,7 +46,7 @@ describe('parseBody', () => {
 		if (!result.ok) {
 			expect(result.status).toBe(400);
 			expect(result.json).toMatchObject({
-				error: { message: 'Validation failed', code: 'VALIDATION_ERROR' }
+				error: { message: 'Validation failed', code: 'VALIDATION_ERROR' },
 			});
 		}
 	});

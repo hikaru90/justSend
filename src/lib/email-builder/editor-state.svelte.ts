@@ -1,4 +1,10 @@
-import { BLOCK_FACTORIES, EMPTY_DOCUMENT, newBlockId, type TEditorBlock, type TEditorConfiguration } from './types';
+import {
+	BLOCK_FACTORIES,
+	EMPTY_DOCUMENT,
+	newBlockId,
+	type TEditorBlock,
+	type TEditorConfiguration,
+} from './types';
 import { cloneDocument } from './render';
 
 export type EditorTab = 'editor' | 'preview' | 'html' | 'json' | 'ai';
@@ -18,8 +24,8 @@ function setChildrenIds(block: TEditorBlock, childrenIds: string[]): TEditorBloc
 		...block,
 		data: {
 			...block.data,
-			props: { ...(block.data.props ?? {}), childrenIds }
-		}
+			props: { ...(block.data.props ?? {}), childrenIds },
+		},
 	};
 }
 
@@ -79,7 +85,7 @@ export class EmailEditorState {
 				...((parent.data.props as Record<string, unknown>) ?? {}),
 				columns: (
 					(parent.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns ?? [
-						{ childrenIds: [] }
+						{ childrenIds: [] },
 					]
 				).map((c, i) =>
 					i === 0
@@ -87,16 +93,16 @@ export class EmailEditorState {
 								childrenIds: [
 									...c.childrenIds.slice(0, index),
 									blockId,
-									...c.childrenIds.slice(index)
-								]
+									...c.childrenIds.slice(index),
+								],
 							}
-						: c
-				)
+						: c,
+				),
 			};
 			this.document = {
 				...this.document,
 				[blockId]: block,
-				[parentId]: { ...parent, data: { ...parent.data, props } }
+				[parentId]: { ...parent, data: { ...parent.data, props } },
 			};
 		} else {
 			const kids = [...getChildrenIds(parent)];
@@ -104,7 +110,7 @@ export class EmailEditorState {
 			this.document = {
 				...this.document,
 				[blockId]: block,
-				[parentId]: setChildrenIds(parent, kids)
+				[parentId]: setChildrenIds(parent, kids),
 			};
 		}
 		this.selectedBlockId = blockId;
@@ -122,7 +128,7 @@ export class EmailEditorState {
 		childrenIds: string[],
 		index: number,
 		block: TEditorBlock,
-		columnIndex?: number
+		columnIndex?: number,
 	) {
 		const blockId = newBlockId();
 		const parent = this.document[parentId];
@@ -130,7 +136,7 @@ export class EmailEditorState {
 
 		if (columnIndex != null && parent.type === 'ColumnsContainer') {
 			const cols = [
-				...((parent.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns ?? [])
+				...((parent.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns ?? []),
 			];
 			const col = cols[columnIndex];
 			if (!col) return;
@@ -144,9 +150,9 @@ export class EmailEditorState {
 					...parent,
 					data: {
 						...parent.data,
-						props: { ...(parent.data.props as object), columns: cols }
-					}
-				}
+						props: { ...(parent.data.props as object), columns: cols },
+					},
+				},
 			};
 			this.selectedBlockId = blockId;
 			return;
@@ -170,15 +176,15 @@ export class EmailEditorState {
 					...parent,
 					data: {
 						...parent.data,
-						props: { ...(parent.data.props as object), columns: mapped }
-					}
-				}
+						props: { ...(parent.data.props as object), columns: mapped },
+					},
+				},
 			};
 		} else {
 			this.document = {
 				...this.document,
 				[blockId]: block,
-				[parentId]: setChildrenIds(parent, kids)
+				[parentId]: setChildrenIds(parent, kids),
 			};
 		}
 		this.selectedBlockId = blockId;
@@ -194,7 +200,7 @@ export class EmailEditorState {
 		index: number,
 		blocks: TEditorConfiguration,
 		treeChildrenIds: string[],
-		columnIndex?: number
+		columnIndex?: number,
 	) {
 		const parent = this.document[parentId];
 		if (!parent || treeChildrenIds.length === 0) return;
@@ -206,7 +212,7 @@ export class EmailEditorState {
 
 		if (columnIndex != null && parent.type === 'ColumnsContainer') {
 			const cols = [
-				...((parent.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns ?? [])
+				...((parent.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns ?? []),
 			];
 			const col = cols[columnIndex];
 			if (!col) return;
@@ -219,9 +225,9 @@ export class EmailEditorState {
 					...parent,
 					data: {
 						...parent.data,
-						props: { ...(parent.data.props as object), columns: cols }
-					}
-				}
+						props: { ...(parent.data.props as object), columns: cols },
+					},
+				},
 			};
 		} else if (parent.type === 'ColumnsContainer') {
 			const propsCols = (parent.data.props as { columns?: Array<{ childrenIds: string[] }> })
@@ -237,14 +243,14 @@ export class EmailEditorState {
 					...parent,
 					data: {
 						...parent.data,
-						props: { ...(parent.data.props as object), columns: mapped }
-					}
-				}
+						props: { ...(parent.data.props as object), columns: mapped },
+					},
+				},
 			};
 		} else {
 			nextDoc = {
 				...nextDoc,
-				[parentId]: setChildrenIds(parent, kids)
+				[parentId]: setChildrenIds(parent, kids),
 			};
 		}
 
@@ -260,7 +266,7 @@ export class EmailEditorState {
 			if (getChildrenIds(block).includes(blockId)) {
 				next[id] = setChildrenIds(
 					block,
-					getChildrenIds(block).filter((c) => c !== blockId)
+					getChildrenIds(block).filter((c) => c !== blockId),
 				);
 			}
 			if (block.type === 'ColumnsContainer') {
@@ -273,10 +279,10 @@ export class EmailEditorState {
 							props: {
 								...(block.data.props as object),
 								columns: cols.map((c) => ({
-									childrenIds: c.childrenIds.filter((cId) => cId !== blockId)
-								}))
-							}
-						}
+									childrenIds: c.childrenIds.filter((cId) => cId !== blockId),
+								})),
+							},
+						},
 					};
 				}
 			}
@@ -314,16 +320,16 @@ export class EmailEditorState {
 						props: {
 							...(parent.data.props as object),
 							columns: cols.map((c) =>
-								c.childrenIds.includes(blockId) ? { childrenIds: move(c.childrenIds) } : c
-							)
-						}
-					}
-				}
+								c.childrenIds.includes(blockId) ? { childrenIds: move(c.childrenIds) } : c,
+							),
+						},
+					},
+				},
 			};
 		} else {
 			this.document = {
 				...this.document,
-				[parentId]: setChildrenIds(parent, move(getChildrenIds(parent)))
+				[parentId]: setChildrenIds(parent, move(getChildrenIds(parent))),
 			};
 		}
 	}
@@ -359,17 +365,17 @@ export class EmailEditorState {
 						props: {
 							...(parent.data.props as object),
 							columns: cols.map((c) =>
-								c.childrenIds.includes(blockId) ? { childrenIds: insertAfter(c.childrenIds) } : c
-							)
-						}
-					}
-				}
+								c.childrenIds.includes(blockId) ? { childrenIds: insertAfter(c.childrenIds) } : c,
+							),
+						},
+					},
+				},
 			};
 		} else {
 			this.document = {
 				...this.document,
 				[newId]: clone,
-				[parentId]: setChildrenIds(parent, insertAfter(getChildrenIds(parent)))
+				[parentId]: setChildrenIds(parent, insertAfter(getChildrenIds(parent))),
 			};
 		}
 		this.selectedBlockId = newId;

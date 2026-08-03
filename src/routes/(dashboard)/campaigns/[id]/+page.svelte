@@ -7,7 +7,10 @@
 	import { enhance } from '$app/forms';
 
 	let { data, form } = $props();
-	let html = $state(data.campaign.html ?? '<p>Hello {{firstName}}</p><p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a></p>');
+	let html = $state(
+		data.campaign.html ??
+			'<p>Hello {{firstName}}</p><p><a href="{{owlery_unsubscribe_url}}">Unsubscribe</a></p>',
+	);
 </script>
 
 <div class="mb-4 flex items-center gap-2">
@@ -23,7 +26,9 @@
 		<select name="contactBookId" class="h-9 w-full rounded-md border px-3 text-sm">
 			<option value="">No book</option>
 			{#each data.books as book}
-				<option value={book.id} selected={book.id === data.campaign.contactBookId}>{book.name}</option>
+				<option value={book.id} selected={book.id === data.campaign.contactBookId}
+					>{book.name}</option
+				>
 			{/each}
 		</select>
 		<input type="hidden" name="html" value={html} />
@@ -41,9 +46,18 @@
 		</div>
 		<Button type="submit" variant="outline">Schedule</Button>
 	</form>
-	<form method="POST" action="?/pause" use:enhance><Button type="submit" variant="outline">Pause</Button></form>
-	<form method="POST" action="?/resume" use:enhance><Button type="submit" variant="outline">Resume</Button></form>
-	<form method="POST" action="?/delete" use:enhance onsubmit={(e) => !confirm('Delete?') && e.preventDefault()}>
+	<form method="POST" action="?/pause" use:enhance>
+		<Button type="submit" variant="outline">Pause</Button>
+	</form>
+	<form method="POST" action="?/resume" use:enhance>
+		<Button type="submit" variant="outline">Resume</Button>
+	</form>
+	<form
+		method="POST"
+		action="?/delete"
+		use:enhance
+		onsubmit={(e) => !confirm('Delete?') && e.preventDefault()}
+	>
 		<Button type="submit" variant="destructive">Delete</Button>
 	</form>
 </div>

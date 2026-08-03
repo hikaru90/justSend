@@ -7,7 +7,7 @@ import {
 	automationExecutionLog,
 	contacts,
 	emails,
-	type AutomationExecutionEvent
+	type AutomationExecutionEvent,
 } from '../db/schema';
 import { enqueue } from '../queue';
 import { QUEUES } from '../queue/constants';
@@ -19,7 +19,7 @@ import {
 	getFlowById,
 	listActiveFlowsByTrigger,
 	type AutomationFlow,
-	type FlowGraph
+	type FlowGraph,
 } from './flow-service';
 import { getTemplate } from './template-service';
 
@@ -30,7 +30,7 @@ function log(
 	enrollmentId: string,
 	nodeId: string | null,
 	event: AutomationExecutionEvent,
-	detail?: unknown
+	detail?: unknown,
 ): void {
 	db.insert(automationExecutionLog)
 		.values({
@@ -39,13 +39,15 @@ function log(
 			enrollmentId,
 			nodeId,
 			event,
-			detail: detail !== undefined ? JSON.stringify(detail) : null
+			detail: detail !== undefined ? JSON.stringify(detail) : null,
 		})
 		.run();
 }
 
 function getEnrollment(id: string): Enrollment | null {
-	return db.select().from(automationEnrollments).where(eq(automationEnrollments.id, id)).get() ?? null;
+	return (
+		db.select().from(automationEnrollments).where(eq(automationEnrollments.id, id)).get() ?? null
+	);
 }
 
 function setEnrollment(
@@ -54,14 +56,14 @@ function setEnrollment(
 		currentNodeId?: string | null;
 		status?: 'active' | 'completed' | 'exited';
 		waitUntil?: string | null;
-	}
+	},
 ): void {
 	db.update(automationEnrollments)
 		.set({
 			...(patch.currentNodeId !== undefined ? { currentNodeId: patch.currentNodeId } : {}),
 			...(patch.status !== undefined ? { status: patch.status } : {}),
 			...(patch.waitUntil !== undefined ? { waitUntil: patch.waitUntil } : {}),
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(automationEnrollments.id, id))
 		.run();
@@ -84,8 +86,8 @@ function alreadyEnrolled(flowId: string, contactId: string): boolean {
 			and(
 				eq(automationEnrollments.flowId, flowId),
 				eq(automationEnrollments.contactId, contactId),
-				eq(automationEnrollments.status, 'active')
-			)
+				eq(automationEnrollments.status, 'active'),
+			),
 		)
 		.get();
 	return Boolean(row);
@@ -128,7 +130,7 @@ export function enrollContact(input: {
 			contactId: input.contactId,
 			status: 'active',
 			currentNodeId: first,
-			waitUntil: null
+			waitUntil: null,
 		})
 		.returning()
 		.get();
@@ -148,7 +150,7 @@ export function enrollContact(input: {
 async function executeSendEmail(
 	enrollment: Enrollment,
 	flow: AutomationFlow,
-	node: FlowGraph['nodes'][number]
+	node: FlowGraph['nodes'][number],
 ): Promise<void> {
 	const contact = db.select().from(contacts).where(eq(contacts.id, enrollment.contactId)).get();
 	if (!contact) {
@@ -185,7 +187,7 @@ async function executeSendEmail(
 	} catch (err) {
 		setEnrollment(enrollment.id, { status: 'exited' });
 		log(flow.id, enrollment.id, node.id, 'error', {
-			message: err instanceof Error ? err.message : String(err)
+			message: err instanceof Error ? err.message : String(err),
 		});
 		return;
 	}
@@ -197,9 +199,9 @@ async function executeSendEmail(
 				renderEmailHtml(template.content, template.html, {
 					email: contact.email,
 					firstName: contact.firstName ?? '',
-					lastName: contact.lastName ?? ''
+					lastName: contact.lastName ?? '',
 				}),
-				env.HOST_URL
+				env.HOST_URL,
 			);
 			if (!subjectOverride) {
 				subject = template.subject;
@@ -207,7 +209,7 @@ async function executeSendEmail(
 		} catch (err) {
 			setEnrollment(enrollment.id, { status: 'exited' });
 			log(flow.id, enrollment.id, node.id, 'error', {
-				message: err instanceof Error ? err.message : String(err)
+				message: err instanceof Error ? err.message : String(err),
 			});
 			return;
 		}
@@ -226,7 +228,7 @@ async function executeSendEmail(
 			teamId: flow.teamId,
 			domainId,
 			contactId: contact.id,
-			latestStatus: 'QUEUED'
+			latestStatus: 'QUEUED',
 		})
 		.returning()
 		.get();
@@ -245,7 +247,7 @@ async function executeSendEmail(
 	enqueue(
 		QUEUES.FLOW_STEP,
 		{ enrollmentId: enrollment.id },
-		{ jobId: `flow-step-${enrollment.id}-${next}` }
+		{ jobId: `flow-step-${enrollment.id}-${next}` },
 	);
 }
 
@@ -270,7 +272,7 @@ export async function processFlowStep(payload: unknown): Promise<void> {
 				setEnrollment(enrollment.id, {
 					currentNodeId: waitNode.id,
 					status: 'completed',
-					waitUntil: null
+					waitUntil: null,
 				});
 				log(flow.id, enrollment.id, waitNode.id, 'completed', {});
 				return;
@@ -308,7 +310,7 @@ export async function processFlowStep(payload: unknown): Promise<void> {
 		enqueue(
 			QUEUES.FLOW_WAIT,
 			{ enrollmentId: enrollment.id, resumeWait: true },
-			{ jobId: `flow-wait-${enrollment.id}-${node.id}`, delayMs }
+			{ jobId: `flow-wait-${enrollment.id}-${node.id}`, delayMs },
 		);
 		return;
 	}
@@ -329,7 +331,7 @@ export async function processFlowStep(payload: unknown): Promise<void> {
 	enqueue(
 		QUEUES.FLOW_STEP,
 		{ enrollmentId: enrollment.id },
-		{ jobId: `flow-step-${enrollment.id}-${next}` }
+		{ jobId: `flow-step-${enrollment.id}-${next}` },
 	);
 }
 

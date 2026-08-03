@@ -29,17 +29,24 @@
 		<Button type="submit">Create</Button>
 	</form>
 	{#if form?.secret}
-		<p class="mt-3 rounded border bg-[hsl(var(--muted))] p-2 font-mono text-xs">Secret: {form.secret}</p>
+		<p class="mt-3 rounded border bg-[hsl(var(--muted))] p-2 font-mono text-xs">
+			Secret: {form.secret}
+		</p>
 	{/if}
 	{#if form?.error}<p class="mt-2 text-sm text-[hsl(var(--destructive))]">{form.error}</p>{/if}
 </Card>
 
 <div class="space-y-2">
 	{#each data.webhooks as webhook}
-		<a href="/webhooks/{webhook.id}" class="block rounded-lg border p-4 hover:bg-[hsl(var(--accent))]/50">
+		<a
+			href="/webhooks/{webhook.id}"
+			class="block rounded-lg border p-4 hover:bg-[hsl(var(--accent))]/50"
+		>
 			<div class="flex justify-between gap-2">
 				<span class="truncate font-medium">{webhook.url}</span>
-				<Badge variant={webhook.status === 'ACTIVE' ? 'success' : 'secondary'}>{webhook.status}</Badge>
+				<Badge variant={webhook.status === 'ACTIVE' ? 'success' : 'secondary'}
+					>{webhook.status}</Badge
+				>
 			</div>
 			<p class="mt-1 truncate text-xs text-[hsl(var(--muted-foreground))]">
 				{parseJsonArray(webhook.eventTypes).join(', ') || 'All events'}

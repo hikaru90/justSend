@@ -6,7 +6,7 @@ import { validateDomainFromEmail } from './domain-service';
 import {
 	DEFAULT_DOUBLE_OPT_IN_CONTENT,
 	DEFAULT_DOUBLE_OPT_IN_SUBJECT,
-	hasDoubleOptInUrlPlaceholder
+	hasDoubleOptInUrlPlaceholder,
 } from './double-opt-in-service';
 
 export type ContactBook = typeof contactBooks.$inferSelect;
@@ -19,9 +19,7 @@ export type ContactBookView = Omit<ContactBook, 'variables' | 'properties'> & {
 
 function normalizeVariables(variables?: string[]): string[] {
 	if (!variables) return [];
-	return Array.from(
-		new Set(variables.map((v) => v.trim()).filter((v) => v.length > 0))
-	);
+	return Array.from(new Set(variables.map((v) => v.trim()).filter((v) => v.length > 0)));
 }
 
 function toView(book: ContactBook, contactCount: number): ContactBookView {
@@ -29,18 +27,16 @@ function toView(book: ContactBook, contactCount: number): ContactBookView {
 		...book,
 		variables: parseJsonArray(book.variables),
 		properties: parseJsonObject(book.properties),
-		contactCount
+		contactCount,
 	};
 }
 
 export function getContactBooks(
 	teamId: number,
-	searchOrOptions?: string | { domainId?: number; search?: string }
+	searchOrOptions?: string | { domainId?: number; search?: string },
 ): ContactBookView[] {
 	const options =
-		typeof searchOrOptions === 'string'
-			? { search: searchOrOptions }
-			: (searchOrOptions ?? {});
+		typeof searchOrOptions === 'string' ? { search: searchOrOptions } : (searchOrOptions ?? {});
 	const conditions = [eq(contactBooks.teamId, teamId)];
 	if (options.domainId !== undefined) {
 		conditions.push(eq(contactBooks.domainId, options.domainId));
@@ -69,7 +65,7 @@ export function getContactBooks(
 export function getContactBook(
 	contactBookId: string,
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): ContactBookView {
 	const conditions = [eq(contactBooks.id, contactBookId), eq(contactBooks.teamId, teamId)];
 	if (domainId !== undefined) {
@@ -99,7 +95,7 @@ export function createContactBook(
 	teamId: number,
 	name: string,
 	variables?: string[],
-	domainId?: number
+	domainId?: number,
 ): ContactBook {
 	return db
 		.insert(contactBooks)
@@ -112,7 +108,7 @@ export function createContactBook(
 			properties: '{}',
 			doubleOptInEnabled: true,
 			doubleOptInSubject: DEFAULT_DOUBLE_OPT_IN_SUBJECT,
-			doubleOptInContent: DEFAULT_DOUBLE_OPT_IN_CONTENT
+			doubleOptInContent: DEFAULT_DOUBLE_OPT_IN_CONTENT,
 		})
 		.returning()
 		.get();
@@ -142,7 +138,7 @@ export function getContactBookDetails(contactBookId: string) {
 	return {
 		totalContacts: totalRow?.value ?? 0,
 		unsubscribedContacts: unsubscribedRow?.value ?? 0,
-		campaigns: recentCampaigns
+		campaigns: recentCampaigns,
 	};
 }
 
@@ -160,7 +156,7 @@ export type UpdateContactBookData = {
 export async function updateContactBook(
 	contactBookId: string,
 	teamId: number,
-	data: UpdateContactBookData
+	data: UpdateContactBookData,
 ): Promise<ContactBook> {
 	const book = db
 		.select()
@@ -199,7 +195,7 @@ export async function updateContactBook(
 			updateData.doubleOptInContent = DEFAULT_DOUBLE_OPT_IN_CONTENT;
 		} else if (!hasDoubleOptInUrlPlaceholder(data.doubleOptInContent)) {
 			throw new Error(
-				'Double opt-in email content must include the {{doubleOptInUrl}} placeholder'
+				'Double opt-in email content must include the {{doubleOptInUrl}} placeholder',
 			);
 		} else {
 			updateData.doubleOptInContent = data.doubleOptInContent;

@@ -7,7 +7,7 @@ import {
 	listContacts,
 	deleteContactInContactBook,
 	bulkDeleteContactsInContactBook,
-	bulkAddContacts
+	bulkAddContacts,
 } from './contact-service';
 import { db } from '../db';
 import { contacts, queueJobs } from '../db/schema';
@@ -26,9 +26,9 @@ describe('contact-service', () => {
 				email: '  User@Example.COM ',
 				firstName: 'Ada',
 				lastName: 'Lovelace',
-				properties: { plan: 'pro' }
+				properties: { plan: 'pro' },
 			},
-			team.id
+			team.id,
 		);
 
 		expect(created.email).toBe('user@example.com');
@@ -40,9 +40,9 @@ describe('contact-service', () => {
 			{
 				email: 'user@example.com',
 				firstName: 'Augusta',
-				properties: { tier: 'gold' }
+				properties: { tier: 'gold' },
 			},
-			team.id
+			team.id,
 		);
 
 		expect(updated.id).toBe(created.id);
@@ -70,7 +70,7 @@ describe('contact-service', () => {
 		const page2 = listContacts({
 			contactBookId: book.id,
 			limit: 2,
-			cursor: page1.nextCursor!
+			cursor: page1.nextCursor!,
 		});
 		expect(page2.items.length).toBeGreaterThanOrEqual(1);
 
@@ -91,7 +91,7 @@ describe('contact-service', () => {
 				.select()
 				.from(contacts)
 				.where(and(eq(contacts.id, contact.id), eq(contacts.contactBookId, book.id)))
-				.get()
+				.get(),
 		).toBeUndefined();
 	});
 
@@ -105,13 +105,13 @@ describe('contact-service', () => {
 		const deleted = await bulkDeleteContactsInContactBook(
 			[remove1.id, remove2.id],
 			book.id,
-			team.id
+			team.id,
 		);
 
 		expect(deleted).toHaveLength(2);
-		expect(
-			db.select().from(contacts).where(eq(contacts.contactBookId, book.id)).all()
-		).toEqual([expect.objectContaining({ id: keep.id })]);
+		expect(db.select().from(contacts).where(eq(contacts.contactBookId, book.id)).all()).toEqual([
+			expect.objectContaining({ id: keep.id }),
+		]);
 	});
 
 	it('bulkDeleteContactsInContactBook deletes by resolved email addresses', async () => {
@@ -129,16 +129,16 @@ describe('contact-service', () => {
 					eq(contacts.contactBookId, book.id),
 					inArray(
 						contacts.email,
-						emails.map((e) => e.toLowerCase().trim())
-					)
-				)
+						emails.map((e) => e.toLowerCase().trim()),
+					),
+				),
 			)
 			.all();
 
 		const deleted = await bulkDeleteContactsInContactBook(
 			rows.map((r) => r.id),
 			book.id,
-			team.id
+			team.id,
 		);
 
 		expect(deleted).toHaveLength(1);
@@ -153,15 +153,19 @@ describe('contact-service', () => {
 			book.id,
 			[
 				{ email: 'one@test.com', firstName: 'One' },
-				{ email: 'two@test.com', firstName: 'Two' }
+				{ email: 'two@test.com', firstName: 'Two' },
 			],
-			team.id
+			team.id,
 		);
 
 		expect(result.count).toBe(2);
 		expect(result.message).toContain('Queued 2 contacts');
 
-		const jobs = db.select().from(queueJobs).where(eq(queueJobs.queue, QUEUES.CONTACT_BULK_ADD)).all();
+		const jobs = db
+			.select()
+			.from(queueJobs)
+			.where(eq(queueJobs.queue, QUEUES.CONTACT_BULK_ADD))
+			.all();
 		expect(jobs).toHaveLength(1);
 
 		const payload = JSON.parse(jobs[0].payload);

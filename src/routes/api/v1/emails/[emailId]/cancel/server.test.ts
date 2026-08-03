@@ -23,10 +23,10 @@ describe('POST /api/v1/emails/[emailId]/cancel', () => {
 					from: 'noreply@mail.example.com',
 					subject: 'Cancel me',
 					text: 'Later',
-					scheduledAt
+					scheduledAt,
 				},
-				headers: bearer(apiKey)
-			})
+				headers: bearer(apiKey),
+			}),
 		);
 		const emailId = (created.json as { id: string }).id;
 
@@ -34,7 +34,7 @@ describe('POST /api/v1/emails/[emailId]/cancel', () => {
 			method: 'POST',
 			path: `/api/v1/emails/${emailId}/cancel`,
 			params: { emailId },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

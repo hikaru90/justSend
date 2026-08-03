@@ -26,7 +26,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				html: `<p>Click the link below to sign in to Owlery. This link expires in 15 minutes.</p><p><a href="${link}">Sign in to Owlery</a></p>`,
 				text: `Sign in to Owlery: ${link}`,
 				region: setting.region,
-				configurationSetName: getConfigurationSetName(null, setting) ?? setting.configGeneral ?? ''
+				configurationSetName: getConfigurationSetName(null, setting) ?? setting.configGeneral ?? '',
 			});
 		} catch (error) {
 			console.error('[magic-link] Failed to send email', error);

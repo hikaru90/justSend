@@ -17,9 +17,9 @@ await build({
 	target: 'node22',
 	packages: 'external',
 	alias: {
-		$lib: resolve(root, 'src/lib')
+		$lib: resolve(root, 'src/lib'),
 	},
-	logLevel: 'info'
+	logLevel: 'info',
 });
 
 console.log(`[build-worker] wrote ${outfile}`);

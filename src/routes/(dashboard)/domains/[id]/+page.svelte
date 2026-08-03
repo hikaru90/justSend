@@ -16,7 +16,12 @@
 	<form method="POST" action="?/verify" use:enhance>
 		<Button type="submit" variant="outline">Verify DNS</Button>
 	</form>
-	<form method="POST" action="?/delete" use:enhance onsubmit={(e) => !confirm('Delete domain?') && e.preventDefault()}>
+	<form
+		method="POST"
+		action="?/delete"
+		use:enhance
+		onsubmit={(e) => !confirm('Delete domain?') && e.preventDefault()}
+	>
 		<Button type="submit" variant="destructive">Delete</Button>
 	</form>
 </div>
@@ -33,7 +38,9 @@
 		<table class="w-full text-sm">
 			<thead>
 				<tr class="border-b text-left">
-					<th class="p-2">Type</th><th class="p-2">Name</th><th class="p-2">Value</th><th class="p-2">Status</th>
+					<th class="p-2">Type</th><th class="p-2">Name</th><th class="p-2">Value</th><th
+						class="p-2">Status</th
+					>
 				</tr>
 			</thead>
 			<tbody>
@@ -75,7 +82,9 @@
 
 <Card title="Send test email" class="mt-4">
 	{#if !verified}
-		<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">Verify the domain before sending a test email.</p>
+		<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
+			Verify the domain before sending a test email.
+		</p>
 	{/if}
 	<form
 		method="POST"

@@ -1,9 +1,5 @@
 import { migrate } from '$lib/server/db/migrate';
-import {
-	SESSION_COOKIE,
-	getSessionUser,
-	verifyCookieValue
-} from '$lib/server/auth';
+import { SESSION_COOKIE, getSessionUser, verifyCookieValue } from '$lib/server/auth';
 import { getUserTeams } from '$lib/server/service/team-service';
 import { listTeamDomains } from '$lib/server/service/domain-service';
 import { ensureDevDomain } from '$lib/server/service/dev-seed';

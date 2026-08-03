@@ -16,14 +16,14 @@ describe('requireApiTeam', () => {
 
 	it('returns 401 for non-Bearer authorization', async () => {
 		const request = new Request('http://localhost/api/v1/test', {
-			headers: { authorization: 'Basic abc123' }
+			headers: { authorization: 'Basic abc123' },
 		});
 		await expect(requireApiTeam(request)).rejects.toMatchObject({ status: 401 });
 	});
 
 	it('returns 401 for an invalid API key', async () => {
 		const request = new Request('http://localhost/api/v1/test', {
-			headers: { authorization: 'Bearer us_unknownid_0123456789abcdef0123456789abcdef' }
+			headers: { authorization: 'Bearer us_unknownid_0123456789abcdef0123456789abcdef' },
 		});
 		await expect(requireApiTeam(request)).rejects.toMatchObject({ status: 401 });
 	});
@@ -34,7 +34,7 @@ describe('requireApiTeam', () => {
 		expect(keyBefore!.lastUsed).toBeNull();
 
 		const request = new Request('http://localhost/api/v1/test', {
-			headers: { authorization: `Bearer ${apiKey}` }
+			headers: { authorization: `Bearer ${apiKey}` },
 		});
 		const ctx = await requireApiTeam(request);
 

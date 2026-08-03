@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import {
 	generateScaffold,
-	type GenerateProgressEvent
+	type GenerateProgressEvent,
 } from '$lib/server/service/ai-template-service';
 import type { RequestHandler } from './$types';
 
@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 					signal: request.signal,
 					onProgress: (event: GenerateProgressEvent) => {
 						send(event);
-					}
+					},
 				});
 			} catch (e) {
 				if (e instanceof Error && e.name === 'AbortError') {
@@ -48,7 +48,7 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 				} else {
 					send({
 						stage: 'error',
-						message: e instanceof Error ? e.message : 'Scaffold failed'
+						message: e instanceof Error ? e.message : 'Scaffold failed',
 					});
 				}
 			} finally {
@@ -57,14 +57,14 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 		},
 		cancel() {
 			// Client disconnected — request.signal already aborted.
-		}
+		},
 	});
 
 	return new Response(stream, {
 		headers: {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache, no-transform',
-			Connection: 'keep-alive'
-		}
+			Connection: 'keep-alive',
+		},
 	});
 };

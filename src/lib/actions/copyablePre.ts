@@ -69,7 +69,7 @@ function enhancePre(pre: HTMLPreElement): Enhancement {
 				wrapper.parentNode?.insertBefore(pre, wrapper);
 			}
 			wrapper.remove();
-		}
+		},
 	};
 }
 
@@ -112,6 +112,6 @@ export const copyablePre: Action<HTMLElement> = (node) => {
 			observer.disconnect();
 			for (const enhancement of enhancements) enhancement.cleanup();
 			enhancements = [];
-		}
+		},
 	};
 };

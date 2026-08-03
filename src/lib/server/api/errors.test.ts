@@ -8,7 +8,7 @@ describe('jsonError', () => {
 
 		const body = await response.json();
 		expect(body).toEqual({
-			error: { message: 'Unprocessable', code: 'UNPROCESSABLE' }
+			error: { message: 'Unprocessable', code: 'UNPROCESSABLE' },
 		});
 	});
 });

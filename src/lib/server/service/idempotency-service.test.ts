@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb } from '../../../tests/helpers/db';
 import { createTeam } from '../../../tests/helpers/factories';
-import {
-	getIdempotencyKey,
-	setIdempotencyKey,
-	deleteIdempotencyKey
-} from './idempotency-service';
+import { getIdempotencyKey, setIdempotencyKey, deleteIdempotencyKey } from './idempotency-service';
 
 describe('idempotency-service', () => {
 	beforeEach(() => resetDb());

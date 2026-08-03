@@ -10,16 +10,16 @@ const doc: TEditorConfiguration = {
 			canvasColor: '#FFFFFF',
 			textColor: '#262626',
 			fontFamily: 'MODERN_SANS',
-			childrenIds: ['t1']
-		}
+			childrenIds: ['t1'],
+		},
 	},
 	t1: {
 		type: 'Text',
 		data: {
 			props: { text: 'Hello **{{firstName}}** and [site](https://example.com)' },
-			style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } }
-		}
-	}
+			style: { padding: { top: 16, bottom: 16, left: 24, right: 24 } },
+		},
+	},
 };
 
 describe('Text block markdown', () => {
@@ -47,8 +47,8 @@ describe('Image / background transparency', () => {
 					canvasColor: '#FFFFFF',
 					textColor: '#262626',
 					fontFamily: 'MODERN_SANS',
-					childrenIds: ['img1']
-				}
+					childrenIds: ['img1'],
+				},
 			},
 			img1: {
 				type: 'Image',
@@ -56,11 +56,11 @@ describe('Image / background transparency', () => {
 					props: {
 						url: 'https://example.com/logo.png',
 						alt: 'Logo',
-						width: null
+						width: null,
 					},
-					style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
-				}
-			}
+					style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } },
+				},
+			},
 		};
 		const html = renderEmailHtml(imageDoc);
 		expect(html).toContain('logo.png');
@@ -77,8 +77,8 @@ describe('Image / background transparency', () => {
 					canvasColor: '#FFFFFF',
 					textColor: '#262626',
 					fontFamily: 'MODERN_SANS',
-					childrenIds: ['hero']
-				}
+					childrenIds: ['hero'],
+				},
 			},
 			hero: {
 				type: 'Container',
@@ -87,11 +87,11 @@ describe('Image / background transparency', () => {
 						backgroundImage: 'https://example.com/hero.png',
 						backgroundSize: 'cover',
 						minHeight: 200,
-						padding: { top: 16, bottom: 16, left: 16, right: 16 }
+						padding: { top: 16, bottom: 16, left: 16, right: 16 },
 					},
-					props: { childrenIds: [] }
-				}
-			}
+					props: { childrenIds: [] },
+				},
+			},
 		};
 		const html = renderEmailHtml(heroDoc);
 		expect(html).toContain('hero.png');

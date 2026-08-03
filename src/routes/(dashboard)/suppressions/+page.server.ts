@@ -2,7 +2,7 @@ import { fail } from '@sveltejs/kit';
 import {
 	getSuppressionList,
 	addSuppression,
-	removeSuppression
+	removeSuppression,
 } from '$lib/server/service/suppression-service';
 import { requireDomainId, requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
@@ -19,7 +19,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		domainId: locals.domainId,
 		page,
 		search,
-		limit: 30
+		limit: 30,
 	});
 	return { needsDomain: false as const, ...result };
 };
@@ -38,5 +38,5 @@ export const actions: Actions = {
 		requireDomainId(locals.domainId);
 		const email = String((await request.formData()).get('email') ?? '').trim();
 		if (email) await removeSuppression(email, teamId);
-	}
+	},
 };

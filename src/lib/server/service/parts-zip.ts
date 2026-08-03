@@ -50,7 +50,7 @@ export function createZip(entries: ZipEntry[]): Buffer {
 			u16(name.length),
 			u16(0),
 			name,
-			data
+			data,
 		]);
 		const central = Buffer.concat([
 			u32(0x02014b50),
@@ -70,7 +70,7 @@ export function createZip(entries: ZipEntry[]): Buffer {
 			u16(0),
 			u32(0),
 			u32(offset),
-			name
+			name,
 		]);
 		locals.push(local);
 		centrals.push(central);
@@ -86,7 +86,7 @@ export function createZip(entries: ZipEntry[]): Buffer {
 		u16(entries.length),
 		u32(centralDir.length),
 		u32(offset),
-		u16(0)
+		u16(0),
 	]);
 
 	return Buffer.concat([...locals, centralDir, end]);

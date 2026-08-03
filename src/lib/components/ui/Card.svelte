@@ -27,7 +27,7 @@
 <div
 	class={cn(
 		'rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--card-foreground))] shadow-sm',
-		className
+		className,
 	)}
 	{...rest}
 >
@@ -37,14 +37,14 @@
 				type="button"
 				class={cn(
 					'flex w-full items-start gap-3 p-6 text-left transition-colors hover:bg-[hsl(var(--muted))]/40',
-					open && 'border-b border-[hsl(var(--border))]'
+					open && 'border-b border-[hsl(var(--border))]',
 				)}
 				aria-expanded={open}
 				onclick={() => (open = !open)}
 			>
 				<div class="flex min-w-0 flex-1 flex-col gap-1.5">
 					{#if title}
-						<h3 class="text-lg font-semibold leading-none tracking-tight">{title}</h3>
+						<h3 class="text-lg leading-none font-semibold tracking-tight">{title}</h3>
 					{/if}
 					{#if description}
 						<p class="text-sm text-[hsl(var(--muted-foreground))]">{description}</p>
@@ -53,7 +53,7 @@
 				<ChevronDown
 					class={cn(
 						'mt-0.5 h-4 w-4 shrink-0 opacity-60 transition-transform duration-200',
-						open && 'rotate-180'
+						open && 'rotate-180',
 					)}
 					aria-hidden="true"
 				/>
@@ -61,7 +61,7 @@
 		{:else}
 			<div class="flex flex-col gap-1.5 border-b border-[hsl(var(--border))] p-6">
 				{#if title}
-					<h3 class="text-lg font-semibold leading-none tracking-tight">{title}</h3>
+					<h3 class="text-lg leading-none font-semibold tracking-tight">{title}</h3>
 				{/if}
 				{#if description}
 					<p class="text-sm text-[hsl(var(--muted-foreground))]">{description}</p>

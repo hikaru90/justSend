@@ -34,11 +34,14 @@ ENV NODE_ENV=production
 COPY package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/build ./build
+COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/scripts/supervisor.mjs ./scripts/supervisor.mjs
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 EXPOSE 3000
 ENV PORT=3000
 ENV HOST=0.0.0.0
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 # Runs web + queue worker together; dashboard can pause/stop/restart the worker.
 CMD ["node", "scripts/supervisor.mjs"]

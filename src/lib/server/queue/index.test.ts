@@ -47,7 +47,7 @@ describe('QueueWorker', () => {
 
 		const worker = new QueueWorker('ok-queue', handler, {
 			pollIntervalMs: 50,
-			workerId: 'test-worker'
+			workerId: 'test-worker',
 		});
 		worker.start();
 
@@ -55,7 +55,7 @@ describe('QueueWorker', () => {
 			() => {
 				expect(handler).toHaveBeenCalled();
 			},
-			{ timeout: 3000, interval: 50 }
+			{ timeout: 3000, interval: 50 },
 		);
 
 		worker.stop();
@@ -73,7 +73,7 @@ describe('QueueWorker', () => {
 
 		const worker = new QueueWorker('retry-queue', handler, {
 			pollIntervalMs: 30,
-			workerId: 'retry-worker'
+			workerId: 'retry-worker',
 		});
 		worker.start();
 
@@ -81,7 +81,7 @@ describe('QueueWorker', () => {
 			() => {
 				expect(handler.mock.calls.length).toBeGreaterThanOrEqual(1);
 			},
-			{ timeout: 3000, interval: 30 }
+			{ timeout: 3000, interval: 30 },
 		);
 
 		worker.stop();
@@ -100,7 +100,7 @@ describe('QueueWorker', () => {
 
 		const worker = new QueueWorker('fail-queue', handler, {
 			pollIntervalMs: 30,
-			workerId: 'fail-worker'
+			workerId: 'fail-worker',
 		});
 		worker.start();
 
@@ -109,7 +109,7 @@ describe('QueueWorker', () => {
 				const job = db.select().from(queueJobs).where(eq(queueJobs.queue, 'fail-queue')).get();
 				expect(job?.status).toBe('failed');
 			},
-			{ timeout: 3000, interval: 30 }
+			{ timeout: 3000, interval: 30 },
 		);
 
 		worker.stop();
@@ -129,7 +129,7 @@ describe('recoverStaleJobs', () => {
 
 		rawDb
 			.prepare(
-				`UPDATE queue_jobs SET status = 'processing', locked_at = ?, locked_by = ?, updated_at = ? WHERE id = ?`
+				`UPDATE queue_jobs SET status = 'processing', locked_at = ?, locked_by = ?, updated_at = ? WHERE id = ?`,
 			)
 			.run(oldLock, 'dead-worker', nowIso(), id);
 
@@ -147,7 +147,7 @@ describe('recoverStaleJobs', () => {
 
 		rawDb
 			.prepare(
-				`UPDATE queue_jobs SET status = 'processing', locked_at = ?, locked_by = ? WHERE id = ?`
+				`UPDATE queue_jobs SET status = 'processing', locked_at = ?, locked_by = ? WHERE id = ?`,
 			)
 			.run(recent, 'alive-worker', id);
 

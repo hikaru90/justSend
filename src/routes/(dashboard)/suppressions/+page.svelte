@@ -21,7 +21,9 @@
 <p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">{data.total} total</p>
 
 <table class="w-full text-sm">
-	<thead class="border-b text-left"><tr><th class="p-2">Email</th><th class="p-2">Reason</th><th class="p-2"></th></tr></thead>
+	<thead class="border-b text-left"
+		><tr><th class="p-2">Email</th><th class="p-2">Reason</th><th class="p-2"></th></tr></thead
+	>
 	<tbody>
 		{#each data.suppressions as row}
 			<tr class="border-b">

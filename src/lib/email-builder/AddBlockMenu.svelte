@@ -3,7 +3,7 @@
 	import DOMPurify from 'isomorphic-dompurify';
 	import {
 		renderSvelteComponentPreview,
-		substitutePreviewPlaceholders
+		substitutePreviewPlaceholders,
 	} from '$lib/design/extractTokens';
 	import { EDITOR_KEY } from './context';
 	import type { EmailEditorState } from './editor-state.svelte';
@@ -12,7 +12,7 @@
 	import {
 		cloneComponentIntoEmail,
 		legacyHtmlBlock,
-		parseLibraryComponentDocument
+		parseLibraryComponentDocument,
 	} from './design-component-render';
 	import { renderEmailHtml } from './render';
 
@@ -23,7 +23,7 @@
 		columnIndex,
 		components = [],
 		previewOverrides = {},
-		onClose
+		onClose,
 	}: {
 		index: number;
 		parentId: string;
@@ -51,8 +51,8 @@
 			'height',
 			'cellpadding',
 			'cellspacing',
-			'border'
-		]
+			'border',
+		],
 	};
 
 	function previewHtml(html: string): string {
@@ -92,7 +92,7 @@
 				index,
 				cloned.blocks,
 				cloned.childrenIds,
-				columnIndex
+				columnIndex,
 			);
 			onClose();
 			return;
@@ -107,7 +107,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div
-		role="dialog"
+	role="dialog"
 	aria-label="Add block"
 	tabindex="-1"
 	class="absolute left-1/2 z-30 mt-1 w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 rounded-md border border-[hsl(var(--border))] bg-white text-[hsl(var(--foreground))] shadow-xl"
@@ -155,9 +155,7 @@
 						onclick={() => addComponent(component)}
 					>
 						<div class="relative h-28 overflow-hidden bg-[#f8f8f8]">
-							<div
-								class="pointer-events-none w-[600px] origin-top-left scale-[0.35] text-[#111]"
-							>
+							<div class="pointer-events-none w-[600px] origin-top-left scale-[0.35] text-[#111]">
 								{@html previewForComponent(component)}
 							</div>
 						</div>

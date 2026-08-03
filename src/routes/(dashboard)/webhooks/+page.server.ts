@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		needsDomain: false as const,
 		webhooks: listWebhooks(teamId, locals.domainId),
-		eventTypes: WebhookEvents
+		eventTypes: WebhookEvents,
 	};
 };
 
@@ -33,11 +33,11 @@ export const actions: Actions = {
 				url,
 				description: description || undefined,
 				eventTypes,
-				domainIds: [domainId]
+				domainIds: [domainId],
 			});
 			return { secret: webhook.secret };
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Failed' });
 		}
-	}
+	},
 };

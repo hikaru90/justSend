@@ -10,8 +10,8 @@ vi.mock('$lib/server/aws/ses', () => ({
 	getDomainIdentity: vi.fn(async () => ({
 		VerificationStatus: 'SUCCESS',
 		DkimAttributes: { Status: 'SUCCESS', Tokens: [] },
-		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' }
-	}))
+		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' },
+	})),
 }));
 
 describe('POST /api/v1/domains/[id]/verify', () => {
@@ -27,7 +27,7 @@ describe('POST /api/v1/domains/[id]/verify', () => {
 			method: 'POST',
 			path: `/api/v1/domains/${domain.id}/verify`,
 			params: { id: String(domain.id) },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

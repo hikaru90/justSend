@@ -45,7 +45,7 @@ export async function processDomainVerification(payload: unknown): Promise<void>
 		} catch (error) {
 			console.error('[domain-verification] Failed to refresh domain', {
 				domainId: domain.id,
-				error
+				error,
 			});
 		}
 	}

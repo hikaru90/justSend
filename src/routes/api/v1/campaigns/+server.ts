@@ -10,7 +10,7 @@ import {
 	getCampaign,
 	listCampaigns,
 	scheduleCampaign,
-	type Campaign
+	type Campaign,
 } from '$lib/server/service/campaign-service';
 
 const stringOrStringArray = z.union([z.string(), z.array(z.string())]);
@@ -29,10 +29,10 @@ const createSchema = z
 		bcc: stringOrStringArray.optional(),
 		sendNow: z.boolean().optional(),
 		scheduledAt: z.string().optional(),
-		batchSize: z.number().int().optional()
+		batchSize: z.number().int().optional(),
 	})
 	.refine((data) => !!data.content || !!data.html, {
-		message: 'Either content or html must be provided'
+		message: 'Either content or html must be provided',
 	});
 
 function serializeCampaign(campaign: Campaign) {
@@ -40,7 +40,7 @@ function serializeCampaign(campaign: Campaign) {
 		...campaign,
 		replyTo: parseJsonArray(campaign.replyTo),
 		cc: parseJsonArray(campaign.cc),
-		bcc: parseJsonArray(campaign.bcc)
+		bcc: parseJsonArray(campaign.bcc),
 	};
 }
 
@@ -51,12 +51,12 @@ export const GET: RequestHandler = async ({ request, url }) => {
 
 	const result = listCampaigns(team.id, {
 		limit: limit ? Number(limit) : undefined,
-		cursor
+		cursor,
 	});
 
 	return json({
 		data: result.items.map(serializeCampaign),
-		nextCursor: result.nextCursor
+		nextCursor: result.nextCursor,
 	});
 };
 
@@ -78,7 +78,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			replyTo: body.replyTo,
 			cc: body.cc,
 			bcc: body.bcc,
-			batchSize: body.batchSize
+			batchSize: body.batchSize,
 		});
 
 		if (body.sendNow || body.scheduledAt) {
@@ -90,7 +90,7 @@ export const POST: RequestHandler = async ({ request }) => {
 				campaignId: campaign.id,
 				teamId: team.id,
 				scheduledAt,
-				batchSize: body.batchSize
+				batchSize: body.batchSize,
 			});
 		}
 

@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 	return {
 		needsDomain: false as const,
-		books: getContactBooks(teamId, { domainId: locals.domainId })
+		books: getContactBooks(teamId, { domainId: locals.domainId }),
 	};
 };
 
@@ -23,5 +23,5 @@ export const actions: Actions = {
 		if (!name) return fail(400, { error: 'Name required' });
 		createContactBook(teamId, name, undefined, domainId);
 		return { success: true };
-	}
+	},
 };

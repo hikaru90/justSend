@@ -2,7 +2,7 @@ import {
 	CreateTopicCommand,
 	DeleteTopicCommand,
 	SubscribeCommand,
-	ConfirmSubscriptionCommand
+	ConfirmSubscriptionCommand,
 } from '@aws-sdk/client-sns';
 import { getSnsClient } from './clients';
 
@@ -20,15 +20,15 @@ export async function deleteTopic(topicArn: string, region: string): Promise<voi
 export async function subscribeHttp(
 	topicArn: string,
 	endpointUrl: string,
-	region: string
+	region: string,
 ): Promise<string | undefined> {
 	const client = getSnsClient(region);
 	const data = await client.send(
 		new SubscribeCommand({
 			Protocol: 'https',
 			TopicArn: topicArn,
-			Endpoint: endpointUrl
-		})
+			Endpoint: endpointUrl,
+		}),
 	);
 	return data.SubscriptionArn;
 }
@@ -36,14 +36,14 @@ export async function subscribeHttp(
 export async function confirmSubscription(
 	topicArn: string,
 	token: string,
-	region: string
+	region: string,
 ): Promise<string | undefined> {
 	const client = getSnsClient(region);
 	const data = await client.send(
 		new ConfirmSubscriptionCommand({
 			TopicArn: topicArn,
-			Token: token
-		})
+			Token: token,
+		}),
 	);
 	return data.SubscriptionArn;
 }

@@ -23,7 +23,7 @@
 		placeholder = 'Describe the change… or tap the mic to speak',
 		submitLabel = 'Ask Pi',
 		hint,
-		children
+		children,
 	}: {
 		value?: string;
 		name?: string;
@@ -117,7 +117,7 @@
 		bind:value
 		{disabled}
 		{placeholder}
-		class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] disabled:opacity-50"
+		class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none disabled:opacity-50"
 	></textarea>
 	<div class="flex flex-wrap items-center gap-2">
 		{#if speechSupported}

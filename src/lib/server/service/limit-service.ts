@@ -8,7 +8,7 @@ export const LimitReason = {
 	TEAM_MEMBER: 'TEAM_MEMBER',
 	WEBHOOK: 'WEBHOOK',
 	EMAIL_BLOCKED: 'EMAIL_BLOCKED',
-	EMAIL_DAILY_LIMIT_REACHED: 'EMAIL_DAILY_LIMIT_REACHED'
+	EMAIL_DAILY_LIMIT_REACHED: 'EMAIL_DAILY_LIMIT_REACHED',
 } as const;
 
 export type LimitReason = (typeof LimitReason)[keyof typeof LimitReason];
@@ -93,13 +93,13 @@ export async function checkEmailLimit(teamId: number): Promise<LimitCheckResult>
 			isLimitReached: true,
 			limit: dailyLimit,
 			reason: LimitReason.EMAIL_DAILY_LIMIT_REACHED,
-			available: dailyLimit === -1 ? -1 : Math.max(0, dailyLimit - dailyUsage)
+			available: dailyLimit === -1 ? -1 : Math.max(0, dailyLimit - dailyUsage),
 		};
 	}
 
 	return {
 		isLimitReached: false,
 		limit: dailyLimit,
-		available: dailyLimit === -1 ? -1 : Math.max(0, dailyLimit - dailyUsage)
+		available: dailyLimit === -1 ? -1 : Math.max(0, dailyLimit - dailyUsage),
 	};
 }

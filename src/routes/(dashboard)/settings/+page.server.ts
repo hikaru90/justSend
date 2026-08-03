@@ -14,5 +14,5 @@ export const actions: Actions = {
 		const name = String((await request.formData()).get('name') ?? '').trim();
 		if (!name) return fail(400, { error: 'Name required' });
 		updateTeam(teamId, { name });
-	}
+	},
 };

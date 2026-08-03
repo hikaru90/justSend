@@ -7,7 +7,7 @@ import {
 	createDomain,
 	createSesSetting,
 	createTeam,
-	createTemplate
+	createTemplate,
 } from '../../../tests/helpers/factories';
 import { cuid } from '$lib/utils';
 import { db } from '../db';
@@ -17,7 +17,7 @@ import {
 	designSystems,
 	domains,
 	sesSettings,
-	templates
+	templates,
 } from '../db/schema';
 import { exportDbParts, importDbParts, parsePartsList } from './db-parts-service';
 import { createZip, readZip } from './parts-zip';
@@ -26,7 +26,7 @@ describe('parts-zip', () => {
 	it('round-trips store-only entries', () => {
 		const zip = createZip([
 			{ path: 'manifest.json', data: new TextEncoder().encode('{"ok":true}') },
-			{ path: 'assets/a/x.bin', data: new Uint8Array([1, 2, 3, 4]) }
+			{ path: 'assets/a/x.bin', data: new Uint8Array([1, 2, 3, 4]) },
 		]);
 		const files = readZip(zip);
 		expect(files.get('manifest.json')?.toString('utf8')).toBe('{"ok":true}');
@@ -70,7 +70,7 @@ describe('db-parts-service', () => {
 		const tpl = createTemplate(source.id, {
 			name: 'Welcome',
 			domainId: sourceDomain.id,
-			subject: 'Hi'
+			subject: 'Hi',
 		});
 
 		const componentId = cuid();
@@ -83,13 +83,11 @@ describe('db-parts-service', () => {
 				role: 'section',
 				html: '<p>H</p>',
 				document: '{}',
-				slots: '[]'
+				slots: '[]',
 			})
 			.run();
 
-		db.insert(designSystems)
-			.values({ id: cuid(), teamId: source.id, designMd: '# Brand' })
-			.run();
+		db.insert(designSystems).values({ id: cuid(), teamId: source.id, designMd: '# Brand' }).run();
 
 		const assetId = cuid();
 		const filename = 'logo.svg';
@@ -99,7 +97,7 @@ describe('db-parts-service', () => {
 			'design',
 			String(source.id),
 			'logo',
-			`${assetId}-logo.svg`
+			`${assetId}-logo.svg`,
 		);
 		await mkdir(dirname(disk), { recursive: true });
 		await writeFile(disk, '<svg></svg>');
@@ -111,13 +109,13 @@ describe('db-parts-service', () => {
 				name: 'Logo',
 				filename,
 				mime: 'image/svg+xml',
-				size: 11
+				size: 11,
 			})
 			.run();
 
 		const zip = await exportDbParts({
 			parts: ['templates', 'design'],
-			teamId: source.id
+			teamId: source.id,
 		});
 
 		// Domain names are globally unique — reassign to target so remap-by-name can resolve.
@@ -126,7 +124,7 @@ describe('db-parts-service', () => {
 		const summary = await importDbParts({
 			parts: ['templates', 'design'],
 			teamId: target.id,
-			zipBytes: zip
+			zipBytes: zip,
 		});
 
 		expect(summary.imported.templates?.templates).toBe(1);
@@ -149,17 +147,17 @@ describe('db-parts-service', () => {
 			'design',
 			String(target.id),
 			'logo',
-			`${assetId}-logo.svg`
+			`${assetId}-logo.svg`,
 		);
 		expect(await readFile(targetDisk, 'utf8')).toBe('<svg></svg>');
 
 		await rm(join(process.cwd(), 'data', 'design', String(source.id)), {
 			recursive: true,
-			force: true
+			force: true,
 		});
 		await rm(join(process.cwd(), 'data', 'design', String(target.id)), {
 			recursive: true,
-			force: true
+			force: true,
 		});
 	});
 
@@ -210,7 +208,7 @@ describe('db-parts-service', () => {
 		const summary = await importDbParts({
 			parts: ['templates', 'ses'],
 			teamId: team.id,
-			zipBytes: zip
+			zipBytes: zip,
 		});
 		expect(summary.skipped).toContain('ses');
 		expect(summary.warnings.some((w) => w.includes('ses'))).toBe(true);

@@ -38,7 +38,7 @@ export function enqueue(queue: string, payload: unknown, options: EnqueueOptions
 				maxAttempts: options.maxAttempts ?? 5,
 				runAt,
 				createdAt: nowIso(),
-				updatedAt: nowIso()
+				updatedAt: nowIso(),
 			})
 			.run();
 		return id;
@@ -67,7 +67,7 @@ export class QueueWorker {
 			concurrency?: number;
 			pollIntervalMs?: number;
 			workerId?: string;
-		} = {}
+		} = {},
 	) {}
 
 	start() {
@@ -127,7 +127,7 @@ export class QueueWorker {
 					`SELECT * FROM queue_jobs
            WHERE queue = ? AND status = 'pending' AND run_at <= ?
            ORDER BY run_at ASC
-           LIMIT 1`
+           LIMIT 1`,
 				)
 				.get(this.queue, now) as Record<string, unknown> | undefined;
 			if (!row) return null;
@@ -135,11 +135,17 @@ export class QueueWorker {
 				.prepare(
 					`UPDATE queue_jobs
            SET status = 'processing', locked_at = ?, locked_by = ?, attempts = attempts + 1, updated_at = ?
-           WHERE id = ? AND status = 'pending'`
+           WHERE id = ? AND status = 'pending'`,
 				)
 				.run(now, workerId, nowIso(), row.id);
 			if (result.changes === 0) return null;
-			return db.select().from(queueJobs).where(eq(queueJobs.id, String(row.id))).get() ?? null;
+			return (
+				db
+					.select()
+					.from(queueJobs)
+					.where(eq(queueJobs.id, String(row.id)))
+					.get() ?? null
+			);
 		});
 		return tx();
 	}
@@ -153,7 +159,7 @@ export class QueueWorker {
 					status: 'completed' satisfies QueueJobStatus,
 					lockedAt: null,
 					lockedBy: null,
-					updatedAt: nowIso()
+					updatedAt: nowIso(),
 				})
 				.where(eq(queueJobs.id, job.id))
 				.run();
@@ -167,7 +173,7 @@ export class QueueWorker {
 						lastError: message,
 						lockedAt: null,
 						lockedBy: null,
-						updatedAt: nowIso()
+						updatedAt: nowIso(),
 					})
 					.where(eq(queueJobs.id, job.id))
 					.run();
@@ -182,7 +188,7 @@ export class QueueWorker {
 						runAt,
 						lockedAt: null,
 						lockedBy: null,
-						updatedAt: nowIso()
+						updatedAt: nowIso(),
 					})
 					.where(eq(queueJobs.id, job.id))
 					.run();
@@ -203,7 +209,7 @@ export function recoverStaleJobs(staleMinutes = 10) {
 		.prepare(
 			`UPDATE queue_jobs
        SET status = 'pending', locked_at = NULL, locked_by = NULL, updated_at = ?
-       WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at < ?`
+       WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at < ?`,
 		)
 		.run(nowIso(), cutoff);
 }

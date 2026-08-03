@@ -3,7 +3,7 @@ import { resetDb } from '../../../../tests/helpers/db';
 import {
 	createTeamWithApiKey,
 	createDomain,
-	createSesSetting
+	createSesSetting,
 } from '../../../../tests/helpers/factories';
 import { buildApiEvent, bearer, invokeHandler } from '../../../../tests/helpers/api';
 import { GET, POST } from './+server';
@@ -14,8 +14,8 @@ vi.mock('$lib/server/aws/ses', () => ({
 	getDomainIdentity: vi.fn(async () => ({
 		VerificationStatus: 'SUCCESS',
 		DkimAttributes: { Status: 'SUCCESS', Tokens: [] },
-		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' }
-	}))
+		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' },
+	})),
 }));
 
 describe('GET /api/v1/domains', () => {
@@ -28,7 +28,7 @@ describe('GET /api/v1/domains', () => {
 		const event = buildApiEvent({
 			method: 'GET',
 			path: '/api/v1/domains',
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -51,7 +51,7 @@ describe('POST /api/v1/domains', () => {
 			method: 'POST',
 			path: '/api/v1/domains',
 			body: { name: 'new.example.com' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

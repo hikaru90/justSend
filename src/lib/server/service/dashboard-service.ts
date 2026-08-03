@@ -20,11 +20,10 @@ function formatDate(date: Date): string {
  * Aggregated daily email metrics for a team over the last `days` days, with
  * missing days filled with zeros.
  */
-export function getEmailTimeSeries(input: {
-	teamId: number;
-	days?: number;
-	domainId?: number;
-}): { result: EmailTimeSeriesPoint[]; totalCounts: Omit<EmailTimeSeriesPoint, 'date'> } {
+export function getEmailTimeSeries(input: { teamId: number; days?: number; domainId?: number }): {
+	result: EmailTimeSeriesPoint[];
+	totalCounts: Omit<EmailTimeSeriesPoint, 'date'>;
+} {
 	const days = input.days === 7 ? 7 : 30;
 
 	const startDate = new Date();
@@ -33,7 +32,7 @@ export function getEmailTimeSeries(input: {
 
 	const conditions = [
 		eq(dailyEmailUsages.teamId, input.teamId),
-		gte(dailyEmailUsages.date, isoStartDate)
+		gte(dailyEmailUsages.date, isoStartDate),
 	];
 	if (input.domainId) {
 		conditions.push(eq(dailyEmailUsages.domainId, input.domainId));
@@ -47,7 +46,7 @@ export function getEmailTimeSeries(input: {
 			opened: sql<number>`sum(${dailyEmailUsages.opened})`,
 			clicked: sql<number>`sum(${dailyEmailUsages.clicked})`,
 			bounced: sql<number>`sum(${dailyEmailUsages.bounced})`,
-			complained: sql<number>`sum(${dailyEmailUsages.complained})`
+			complained: sql<number>`sum(${dailyEmailUsages.complained})`,
 		})
 		.from(dailyEmailUsages)
 		.where(and(...conditions))
@@ -71,7 +70,7 @@ export function getEmailTimeSeries(input: {
 			opened: Number(existing?.opened ?? 0),
 			clicked: Number(existing?.clicked ?? 0),
 			bounced: Number(existing?.bounced ?? 0),
-			complained: Number(existing?.complained ?? 0)
+			complained: Number(existing?.complained ?? 0),
 		});
 	}
 
@@ -85,7 +84,7 @@ export function getEmailTimeSeries(input: {
 			acc.complained += curr.complained;
 			return acc;
 		},
-		{ sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0 }
+		{ sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0, complained: 0 },
 	);
 
 	return { result, totalCounts };
@@ -124,12 +123,12 @@ export function getReputationMetrics(input: {
 			acc.complained += Number(curr.complained);
 			return acc;
 		},
-		{ delivered: 0, hardBounced: 0, complained: 0 }
+		{ delivered: 0, hardBounced: 0, complained: 0 },
 	);
 
 	return {
 		...totals,
 		bounceRate: totals.delivered ? (totals.hardBounced / totals.delivered) * 100 : 0,
-		complaintRate: totals.delivered ? (totals.complained / totals.delivered) * 100 : 0
+		complaintRate: totals.delivered ? (totals.complained / totals.delivered) * 100 : 0,
 	};
 }

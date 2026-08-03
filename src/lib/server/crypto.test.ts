@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	createSecureHash,
-	randomToken,
-	sha256,
-	smallId,
-	verifySecureHash
-} from './crypto';
+import { createSecureHash, randomToken, sha256, smallId, verifySecureHash } from './crypto';
 
 describe('createSecureHash / verifySecureHash', () => {
 	it('round-trips a key', () => {

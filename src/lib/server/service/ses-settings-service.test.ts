@@ -5,17 +5,17 @@ import {
 	createSesSetting,
 	getAllSettings,
 	getSetting,
-	updateSesSetting
+	updateSesSetting,
 } from './ses-settings-service';
 
 vi.mock('$lib/server/aws/sns', () => ({
 	createTopic: vi.fn(async () => 'arn:aws:sns:us-east-1:123:test-topic'),
 	subscribeHttp: vi.fn(async () => undefined),
-	deleteTopic: vi.fn(async () => undefined)
+	deleteTopic: vi.fn(async () => undefined),
 }));
 
 vi.mock('$lib/server/aws/ses', () => ({
-	addWebhookConfiguration: vi.fn(async () => true)
+	addWebhookConfiguration: vi.fn(async () => true),
 }));
 
 beforeEach(() => {
@@ -23,7 +23,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	vi.stubGlobal(
 		'fetch',
-		vi.fn(async () => new Response('ok', { status: 200 }))
+		vi.fn(async () => new Response('ok', { status: 200 })),
 	);
 });
 
@@ -34,12 +34,12 @@ describe('ses-settings-service', () => {
 				region: 'us-east-1',
 				idPrefix: 'factory1',
 				configGeneral: 'owlery-general',
-				configFull: 'owlery-full'
+				configFull: 'owlery-full',
 			});
 			insertSesSetting({
 				region: 'eu-west-1',
 				idPrefix: 'factory2',
-				configGeneral: 'owlery-general-eu'
+				configGeneral: 'owlery-general-eu',
 			});
 
 			const us = getSetting('us-east-1');
@@ -60,13 +60,13 @@ describe('ses-settings-service', () => {
 			const setting = insertSesSetting({
 				region: 'ap-south-1',
 				sesEmailRateLimit: 10,
-				transactionalQuota: 50
+				transactionalQuota: 50,
 			});
 
 			const updated = await updateSesSetting({
 				id: setting.id,
 				sendingRateLimit: 25,
-				transactionalQuota: 75
+				transactionalQuota: 75,
 			});
 
 			expect(updated.sesEmailRateLimit).toBe(25);
@@ -81,7 +81,7 @@ describe('ses-settings-service', () => {
 				region: 'us-west-2',
 				owleryUrl: 'http://localhost:5173',
 				sendingRateLimit: 14,
-				transactionalQuota: 70
+				transactionalQuota: 70,
 			});
 
 			expect(created.region).toBe('us-west-2');
@@ -93,7 +93,7 @@ describe('ses-settings-service', () => {
 				region: 'sa-east-1',
 				owleryUrl: 'http://localhost:5173',
 				sendingRateLimit: 10,
-				transactionalQuota: 50
+				transactionalQuota: 50,
 			});
 
 			await expect(
@@ -101,15 +101,15 @@ describe('ses-settings-service', () => {
 					region: 'sa-east-1',
 					owleryUrl: 'http://localhost:5173',
 					sendingRateLimit: 10,
-					transactionalQuota: 50
-				})
+					transactionalQuota: 50,
+				}),
 			).rejects.toThrow('SesSetting for region sa-east-1 already exists');
 		});
 
 		it('rejects invalid callback URL', async () => {
 			vi.stubGlobal(
 				'fetch',
-				vi.fn(async () => new Response('not found', { status: 404 }))
+				vi.fn(async () => new Response('not found', { status: 404 })),
 			);
 
 			await expect(
@@ -117,8 +117,8 @@ describe('ses-settings-service', () => {
 					region: 'ap-northeast-1',
 					owleryUrl: 'http://localhost:9999',
 					sendingRateLimit: 10,
-					transactionalQuota: 50
-				})
+					transactionalQuota: 50,
+				}),
 			).rejects.toThrow('Callback URL');
 		});
 	});

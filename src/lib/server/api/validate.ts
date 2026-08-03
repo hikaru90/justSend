@@ -4,14 +4,14 @@ import type { z } from 'zod';
 /** @deprecated Prefer parseBody — kept for existing call sites */
 export async function parseJson<T extends z.ZodType>(
 	request: Request,
-	schema: T
+	schema: T,
 ): Promise<z.infer<T>> {
 	return parseBody(request, schema);
 }
 
 export async function parseBody<T extends z.ZodType>(
 	request: Request,
-	schema: T
+	schema: T,
 ): Promise<z.infer<T>> {
 	let body: unknown;
 	try {
@@ -26,10 +26,10 @@ export async function parseBody<T extends z.ZodType>(
 				error: {
 					message: 'Validation failed',
 					code: 'VALIDATION_ERROR',
-					details: parsed.error.flatten()
-				}
+					details: parsed.error.flatten(),
+				},
 			},
-			{ status: 400 }
+			{ status: 400 },
 		);
 	}
 	return parsed.data;

@@ -12,7 +12,7 @@ import { resolve } from 'node:path';
 import {
 	exportDbParts,
 	parsePartsList,
-	partsNeedTeam
+	partsNeedTeam,
 } from '../src/lib/server/service/db-parts-service.ts';
 
 function parseArgs(argv: string[]) {
@@ -20,7 +20,7 @@ function parseArgs(argv: string[]) {
 		parts: null,
 		team: null,
 		out: null,
-		help: false
+		help: false,
 	};
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]!;

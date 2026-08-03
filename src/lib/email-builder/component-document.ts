@@ -27,7 +27,7 @@ function renameIdsInBlock(block: TEditorBlock, map: Map<string, string>): TEdito
 	if (next.type === 'ColumnsContainer' && props && Array.isArray(props.columns)) {
 		props.columns = (props.columns as Array<{ childrenIds: string[] }>).map((col) => ({
 			...col,
-			childrenIds: (col.childrenIds ?? []).map((id) => map.get(id) ?? id)
+			childrenIds: (col.childrenIds ?? []).map((id) => map.get(id) ?? id),
 		}));
 	}
 	return next;
@@ -75,7 +75,7 @@ export function materializeComponentDocument(opts: {
 
 /** Merge section block trees under a single EmailLayout root. */
 export function mergeSectionDocuments(
-	sections: Array<{ blocks: TEditorConfiguration; childrenIds: string[] }>
+	sections: Array<{ blocks: TEditorConfiguration; childrenIds: string[] }>,
 ): TEditorConfiguration {
 	const document = cloneDocument(EMPTY_DOCUMENT);
 	const rootChildren: string[] = [];
@@ -87,8 +87,8 @@ export function mergeSectionDocuments(
 		...document.root,
 		data: {
 			...document.root.data,
-			childrenIds: rootChildren
-		}
+			childrenIds: rootChildren,
+		},
 	};
 	return document;
 }

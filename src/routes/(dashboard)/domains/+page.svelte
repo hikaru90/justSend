@@ -39,7 +39,9 @@
 		>
 			<div class="flex items-center justify-between">
 				<span class="font-medium">{domain.name}</span>
-				<Badge variant={domain.status === 'SUCCESS' ? 'success' : 'secondary'}>{domain.status}</Badge>
+				<Badge variant={domain.status === 'SUCCESS' ? 'success' : 'secondary'}
+					>{domain.status}</Badge
+				>
 			</div>
 			<p class="mt-1 text-sm text-[hsl(var(--muted-foreground))]">{domain.region}</p>
 		</a>

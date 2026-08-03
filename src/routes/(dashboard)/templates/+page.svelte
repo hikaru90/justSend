@@ -102,7 +102,7 @@
 			const res = await fetch('?/setTags', {
 				method: 'POST',
 				body,
-				headers: { accept: 'application/json' }
+				headers: { accept: 'application/json' },
 			});
 			if (!res.ok) throw new Error('Failed to save tags');
 			await invalidateAll();
@@ -122,7 +122,7 @@
 	async function removeTag(template: TemplateRow, tag: string) {
 		await persistTags(
 			template,
-			template.tagList.filter((t) => t !== tag)
+			template.tagList.filter((t) => t !== tag),
 		);
 	}
 </script>
@@ -172,7 +172,7 @@
 					}}
 				>
 					<input
-						class="h-7 w-28 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 text-xs placeholder:text-[hsl(var(--muted-foreground))] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
+						class="h-7 w-28 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 text-xs placeholder:text-[hsl(var(--muted-foreground))] focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none"
 						placeholder="Add tag…"
 						value={draftFor(template.id)}
 						disabled={savingTagsFor === template.id}
@@ -250,7 +250,7 @@
 			<textarea
 				name="prompt"
 				rows="4"
-				class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
+				class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none"
 				placeholder="Optional brief for the AI (welcome series, product launch, password reset…)"
 			></textarea>
 			<Button type="submit">Continue — define elements &amp; generate</Button>
@@ -270,14 +270,18 @@
 			/>
 			<select
 				bind:value={statusFilter}
-				class="h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
+				class="h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-3 text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none"
 			>
 				<option value="all">All statuses</option>
 				<option value="ready">Ready</option>
 				<option value="draft">Draft</option>
 			</select>
 			<label class="inline-flex items-center gap-2 text-sm text-[hsl(var(--muted-foreground))]">
-				<input type="checkbox" bind:checked={groupByTag} class="rounded border-[hsl(var(--input))]" />
+				<input
+					type="checkbox"
+					bind:checked={groupByTag}
+					class="rounded border-[hsl(var(--input))]"
+				/>
 				Group by tag
 			</label>
 		</div>
@@ -325,11 +329,15 @@
 	{/if}
 
 	{#if templates.length === 0}
-		<p class="rounded-md border border-dashed border-[hsl(var(--border))] px-4 py-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
+		<p
+			class="rounded-md border border-dashed border-[hsl(var(--border))] px-4 py-8 text-center text-sm text-[hsl(var(--muted-foreground))]"
+		>
 			No templates yet — create one above.
 		</p>
 	{:else if filtered.length === 0}
-		<p class="rounded-md border border-dashed border-[hsl(var(--border))] px-4 py-8 text-center text-sm text-[hsl(var(--muted-foreground))]">
+		<p
+			class="rounded-md border border-dashed border-[hsl(var(--border))] px-4 py-8 text-center text-sm text-[hsl(var(--muted-foreground))]"
+		>
 			No templates match your search or filters.
 			<button type="button" class="underline" onclick={clearFilters}>Clear filters</button>
 		</p>
@@ -337,7 +345,7 @@
 		<div class="space-y-6">
 			{#each grouped as section (section.key)}
 				<section>
-					<h2 class="mb-2 text-sm font-medium capitalize text-[hsl(var(--muted-foreground))]">
+					<h2 class="mb-2 text-sm font-medium text-[hsl(var(--muted-foreground))] capitalize">
 						{section.label}
 						<span class="font-normal">({section.items.length})</span>
 					</h2>

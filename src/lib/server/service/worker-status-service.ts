@@ -50,7 +50,7 @@ export type WorkerControlAction = 'start' | 'stop' | 'pause' | 'restart';
 const DEFAULT_CONTROL: WorkerControl = {
 	desiredState: 'running',
 	restartNonce: 0,
-	updatedAt: '1970-01-01T00:00:00.000Z'
+	updatedAt: '1970-01-01T00:00:00.000Z',
 };
 
 let startedAt: string | null = null;
@@ -61,7 +61,7 @@ function writeSetting(key: string, value: unknown): void {
 		.values({ key, value: serialized })
 		.onConflictDoUpdate({
 			target: appSettings.key,
-			set: { value: serialized }
+			set: { value: serialized },
 		})
 		.run();
 }
@@ -80,22 +80,26 @@ export function getWorkerControl(): WorkerControl {
 	const raw = readSetting<Partial<WorkerControl>>(CONTROL_KEY);
 	if (!raw) return { ...DEFAULT_CONTROL };
 	const desiredState: WorkerDesiredState =
-		raw.desiredState === 'paused' || raw.desiredState === 'stopped' || raw.desiredState === 'running'
+		raw.desiredState === 'paused' ||
+		raw.desiredState === 'stopped' ||
+		raw.desiredState === 'running'
 			? raw.desiredState
 			: 'running';
 	return {
 		desiredState,
 		restartNonce: typeof raw.restartNonce === 'number' ? raw.restartNonce : 0,
-		updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : DEFAULT_CONTROL.updatedAt
+		updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : DEFAULT_CONTROL.updatedAt,
 	};
 }
 
-export function setWorkerControl(patch: Partial<Pick<WorkerControl, 'desiredState' | 'restartNonce'>>): WorkerControl {
+export function setWorkerControl(
+	patch: Partial<Pick<WorkerControl, 'desiredState' | 'restartNonce'>>,
+): WorkerControl {
 	const current = getWorkerControl();
 	const next: WorkerControl = {
 		desiredState: patch.desiredState ?? current.desiredState,
 		restartNonce: patch.restartNonce ?? current.restartNonce,
-		updatedAt: nowIso()
+		updatedAt: nowIso(),
 	};
 	writeSetting(CONTROL_KEY, next);
 	return next;
@@ -113,7 +117,7 @@ export function requestWorkerAction(action: WorkerControlAction): WorkerControl 
 		case 'restart':
 			return setWorkerControl({
 				desiredState: 'running',
-				restartNonce: current.restartNonce + 1
+				restartNonce: current.restartNonce + 1,
 			});
 		default: {
 			const _exhaustive: never = action;
@@ -124,7 +128,7 @@ export function requestWorkerAction(action: WorkerControlAction): WorkerControl 
 
 export function beatWorkerHeartbeat(
 	queues: string[],
-	state: WorkerHeartbeat['state'] = 'running'
+	state: WorkerHeartbeat['state'] = 'running',
 ): void {
 	const now = nowIso();
 	if (!startedAt) startedAt = now;
@@ -133,7 +137,7 @@ export function beatWorkerHeartbeat(
 		startedAt,
 		lastBeatAt: now,
 		queues,
-		state
+		state,
 	};
 	writeSetting(HEARTBEAT_KEY, payload);
 }
@@ -171,7 +175,7 @@ export function getWorkerStatus(): WorkerStatus {
 		.select({
 			queue: queueJobs.queue,
 			status: queueJobs.status,
-			count: sql<number>`count(*)`.mapWith(Number)
+			count: sql<number>`count(*)`.mapWith(Number),
 		})
 		.from(queueJobs)
 		.where(inArray(queueJobs.status, ['pending', 'processing', 'failed']))
@@ -208,6 +212,6 @@ export function getWorkerStatus(): WorkerStatus {
 		control,
 		staleMs: WORKER_STALE_MS,
 		totals,
-		queues
+		queues,
 	};
 }

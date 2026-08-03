@@ -1,10 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { cuid, nowIso, parseJsonObject } from '$lib/utils';
 import { db } from '../db';
-import {
-	automationFlows,
-	type AutomationFlowStatus
-} from '../db/schema';
+import { automationFlows, type AutomationFlowStatus } from '../db/schema';
 
 export type FlowGraph = {
 	nodes: Array<{
@@ -52,7 +49,7 @@ function rowToFlow(row: FlowRow): AutomationFlow {
 		triggerConfig: parseJsonObject<TriggerConfig>(row.triggerConfig),
 		graph: parseJsonObject<FlowGraph>(row.graph, { nodes: [], edges: [] }),
 		createdAt: row.createdAt,
-		updatedAt: row.updatedAt
+		updatedAt: row.updatedAt,
 	};
 }
 
@@ -63,16 +60,16 @@ export function defaultFlowGraph(): FlowGraph {
 				id: 'trigger-1',
 				type: 'trigger',
 				position: { x: 80, y: 80 },
-				data: { label: 'Contact created' }
+				data: { label: 'Contact created' },
 			},
 			{
 				id: 'end-1',
 				type: 'end',
 				position: { x: 80, y: 280 },
-				data: { label: 'End' }
-			}
+				data: { label: 'End' },
+			},
 		],
-		edges: [{ id: 'e-trigger-end', source: 'trigger-1', target: 'end-1' }]
+		edges: [{ id: 'e-trigger-end', source: 'trigger-1', target: 'end-1' }],
 	};
 }
 
@@ -114,11 +111,11 @@ export function getFlowById(id: string): AutomationFlow | null {
 export function listActiveFlowsByTrigger(
 	triggerType: string,
 	contactBookId: string,
-	teamId?: number
+	teamId?: number,
 ): AutomationFlow[] {
 	const conditions = [
 		eq(automationFlows.status, 'active'),
-		eq(automationFlows.triggerType, triggerType)
+		eq(automationFlows.triggerType, triggerType),
 	];
 	if (teamId !== undefined) {
 		conditions.push(eq(automationFlows.teamId, teamId));
@@ -151,7 +148,7 @@ export function createFlow(input: {
 			status: 'draft',
 			triggerType: 'contact.created',
 			triggerConfig: JSON.stringify(triggerConfig),
-			graph: JSON.stringify(graph)
+			graph: JSON.stringify(graph),
 		})
 		.run();
 
@@ -168,7 +165,7 @@ export function updateFlow(
 		triggerConfig?: TriggerConfig;
 		graph?: FlowGraph;
 	},
-	domainId?: number
+	domainId?: number,
 ): AutomationFlow {
 	const existing = getFlow(id, teamId, domainId);
 	db.update(automationFlows)
@@ -180,7 +177,7 @@ export function updateFlow(
 				? { triggerConfig: JSON.stringify(patch.triggerConfig) }
 				: {}),
 			...(patch.graph !== undefined ? { graph: JSON.stringify(patch.graph) } : {}),
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(automationFlows.id, existing.id))
 		.run();

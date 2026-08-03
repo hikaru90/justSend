@@ -10,7 +10,7 @@
 	let {
 		parentId,
 		childrenIds,
-		columnIndex
+		columnIndex,
 	}: {
 		parentId: string;
 		childrenIds: string[];

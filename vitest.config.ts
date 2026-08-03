@@ -15,13 +15,13 @@ export default defineConfig({
 			NODE_ENV: 'test',
 			HOST_URL: 'http://localhost:5173',
 			AWS_DEFAULT_REGION: 'us-east-1',
-			ADMIN_EMAIL: 'admin@example.com'
+			ADMIN_EMAIL: 'admin@example.com',
 		},
-		testTimeout: 15000
+		testTimeout: 15000,
 	},
 	resolve: {
 		alias: {
-			$lib: path.resolve('./src/lib')
-		}
-	}
+			$lib: path.resolve('./src/lib'),
+		},
+	},
 });

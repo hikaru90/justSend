@@ -165,7 +165,7 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 				latestStatus: 'SUPPRESSED',
 				inReplyToId: inReplyToId ?? null,
 				campaignId: campaignId ?? null,
-				contactId: contactId ?? null
+				contactId: contactId ?? null,
 			})
 			.returning()
 			.get();
@@ -176,7 +176,7 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 				emailId: suppressed.id,
 				status: 'SUPPRESSED',
 				data: JSON.stringify({ error: 'All TO recipients are suppressed. No emails to send.' }),
-				teamId
+				teamId,
 			})
 			.run();
 
@@ -207,7 +207,7 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 			latestStatus: scheduledAtDate ? 'SCHEDULED' : 'QUEUED',
 			inReplyToId: inReplyToId ?? null,
 			campaignId: campaignId ?? null,
-			contactId: contactId ?? null
+			contactId: contactId ?? null,
 		})
 		.returning()
 		.get();
@@ -221,7 +221,7 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 				emailId: email.id,
 				status: 'FAILED',
 				data: JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-				teamId
+				teamId,
 			})
 			.run();
 		db.update(emails)
@@ -239,7 +239,7 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
  */
 export async function updateEmail(
 	emailId: string,
-	{ scheduledAt }: { scheduledAt?: string }
+	{ scheduledAt }: { scheduledAt?: string },
 ): Promise<void> {
 	const { email, region } = loadEmailForTeam(emailId);
 
@@ -261,8 +261,8 @@ export async function updateEmail(
 			and(
 				eq(queueJobs.queue, transactionalQueueName(region)),
 				eq(queueJobs.jobId, emailId),
-				eq(queueJobs.status, 'pending')
-			)
+				eq(queueJobs.status, 'pending'),
+			),
 		)
 		.run();
 }
@@ -282,8 +282,8 @@ export async function cancelEmail(emailId: string): Promise<void> {
 			and(
 				eq(queueJobs.queue, transactionalQueueName(region)),
 				eq(queueJobs.jobId, emailId),
-				eq(queueJobs.status, 'pending')
-			)
+				eq(queueJobs.status, 'pending'),
+			),
 		)
 		.run();
 
@@ -297,7 +297,7 @@ export async function cancelEmail(emailId: string): Promise<void> {
 			id: cuid(),
 			emailId,
 			status: 'CANCELLED',
-			teamId: email.teamId
+			teamId: email.teamId,
 		})
 		.run();
 }
@@ -333,7 +333,7 @@ export function getEmail(emailId: string, teamId: number, domainId?: number) {
 		cc: parseJsonArray(email.cc),
 		bcc: parseJsonArray(email.bcc),
 		replyTo: parseJsonArray(email.replyTo),
-		emailEvents: events
+		emailEvents: events,
 	};
 }
 
@@ -365,14 +365,14 @@ export function listEmails(params: ListEmailsParams): {
 		.select()
 		.from(emails)
 		.where(and(...conditions))
-		.orderBy(desc(emails.createdAt))
+		.orderBy(desc(emails.id))
 		.limit(limit + 1)
 		.all();
 
 	let nextCursor: string | null = null;
 	if (rows.length > limit) {
-		const next = rows.pop();
-		nextCursor = next?.id ?? null;
+		rows.pop();
+		nextCursor = rows[rows.length - 1]?.id ?? null;
 	}
 
 	return { items: rows, nextCursor };

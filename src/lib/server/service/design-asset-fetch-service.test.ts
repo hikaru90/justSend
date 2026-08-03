@@ -4,7 +4,7 @@ import {
 	extractFontCssUrls,
 	extractLogoUrl,
 	parseFontFaces,
-	uniqueFontsByFamily
+	uniqueFontsByFamily,
 } from './design-asset-fetch-service';
 
 describe('assertSafeUrl', () => {
@@ -77,7 +77,7 @@ describe('uniqueFontsByFamily', () => {
 		const out = uniqueFontsByFamily([
 			{ family: 'Inter', url: 'a', format: 'woff2' },
 			{ family: 'Inter', url: 'b', format: 'woff2' },
-			{ family: 'Roboto', url: 'c', format: 'woff2' }
+			{ family: 'Roboto', url: 'c', format: 'woff2' },
 		]);
 		expect(out).toHaveLength(2);
 		expect(out[0].url).toBe('a');

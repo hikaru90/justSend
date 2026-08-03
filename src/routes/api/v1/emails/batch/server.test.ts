@@ -20,17 +20,17 @@ describe('POST /api/v1/emails/batch', () => {
 						to: 'one@example.com',
 						from: 'noreply@mail.example.com',
 						subject: 'One',
-						text: 'First'
+						text: 'First',
 					},
 					{
 						to: 'two@example.com',
 						from: 'noreply@mail.example.com',
 						subject: 'Two',
-						text: 'Second'
-					}
-				]
+						text: 'Second',
+					},
+				],
 			},
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

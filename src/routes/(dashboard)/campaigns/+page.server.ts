@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		needsDomain: false as const,
 		...listCampaigns(teamId, { domainId, cursor }),
-		books: getContactBooks(teamId, { domainId })
+		books: getContactBooks(teamId, { domainId }),
 	};
 };
 
@@ -34,12 +34,12 @@ export const actions: Actions = {
 			const campaign = await createCampaign({ teamId, name, from, subject, contactBookId });
 			if (campaign.domainId !== domainId) {
 				return fail(400, {
-					error: 'From address must use the currently selected domain'
+					error: 'From address must use the currently selected domain',
 				});
 			}
 			return { created: campaign.id };
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Failed' });
 		}
-	}
+	},
 };

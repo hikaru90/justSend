@@ -10,8 +10,8 @@
 			<p class="text-sm text-[hsl(var(--muted-foreground))]">Your account has no email address.</p>
 		{:else if data.invites.length === 0}
 			<p class="text-sm text-[hsl(var(--muted-foreground))]">
-				No pending invites for <strong>{data.email}</strong>. Ask a team admin to invite you, then sign
-				in again to accept.
+				No pending invites for <strong>{data.email}</strong>. Ask a team admin to invite you, then
+				sign in again to accept.
 			</p>
 		{:else}
 			<ul class="space-y-3">

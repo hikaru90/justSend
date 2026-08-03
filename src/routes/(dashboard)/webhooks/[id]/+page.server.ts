@@ -5,7 +5,7 @@ import {
 	setWebhookStatus,
 	deleteWebhook,
 	testWebhook,
-	retryCall
+	retryCall,
 } from '$lib/server/service/webhook-service';
 import { requireDomainId, requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		}
 		return {
 			webhook,
-			calls: listWebhookCalls({ teamId, webhookId: params.id, limit: 30, cursor })
+			calls: listWebhookCalls({ teamId, webhookId: params.id, limit: 30, cursor }),
 		};
 	} catch (e) {
 		if (e && typeof e === 'object' && 'status' in e) throw e;
@@ -47,7 +47,7 @@ export const actions: Actions = {
 		setWebhookStatus({
 			id: params.id,
 			teamId,
-			status: webhook.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE'
+			status: webhook.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE',
 		});
 	},
 	test: async ({ locals, params }) => {
@@ -70,5 +70,5 @@ export const actions: Actions = {
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Retry failed' });
 		}
-	}
+	},
 };

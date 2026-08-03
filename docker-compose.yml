@@ -1,5 +1,7 @@
 services:
   app:
+    # Prefer the published image when available:
+    #   image: ghcr.io/hikaru90/owlery:latest
     build: .
     ports:
       - '3000:3000'
@@ -9,8 +11,21 @@ services:
       DATABASE_URL: file:./data/owlery.db
       HOST_URL: ${HOST_URL:-http://localhost:3000}
     volumes:
+      # Persists owlery.db (+ WAL), design assets, and Pi agent state.
       - owlery-data:/app/data
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # Optional dedicated worker (use when you want to scale workers separately).
   # Default app image already runs a supervised worker via scripts/supervisor.mjs —

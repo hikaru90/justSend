@@ -8,7 +8,7 @@ import { scheduleCampaign } from '$lib/server/service/campaign-service';
 
 const scheduleSchema = z.object({
 	scheduledAt: z.string().optional(),
-	batchSize: z.number().int().optional()
+	batchSize: z.number().int().optional(),
 });
 
 export const POST: RequestHandler = async ({ request, params }) => {
@@ -25,7 +25,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
 			campaignId: params.id,
 			teamId: team.id,
 			scheduledAt,
-			batchSize: body.batchSize
+			batchSize: body.batchSize,
 		});
 
 		return json({ success: true });

@@ -8,7 +8,7 @@ import {
 	getWorkerControl,
 	getWorkerStatus,
 	requestWorkerAction,
-	WORKER_STALE_MS
+	WORKER_STALE_MS,
 } from './worker-status-service';
 
 beforeEach(() => {
@@ -56,8 +56,8 @@ describe('worker-status-service', () => {
 					startedAt: stale,
 					lastBeatAt: stale,
 					queues: ['q'],
-					state: 'running'
-				})
+					state: 'running',
+				}),
 			})
 			.where(eq(appSettings.key, 'worker:heartbeat'))
 			.run();

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetDb } from '../../../tests/helpers/db';
-import { createTeam as createTeamFactory, createUser, addUserToTeam } from '../../../tests/helpers/factories';
+import {
+	createTeam as createTeamFactory,
+	createUser,
+	addUserToTeam,
+} from '../../../tests/helpers/factories';
 import {
 	createTeam,
 	createTeamInvite,
@@ -10,7 +14,7 @@ import {
 	getTeamUsers,
 	getUserTeams,
 	updateTeam,
-	updateTeamUserRole
+	updateTeamUserRole,
 } from './team-service';
 
 beforeEach(() => resetDb());
@@ -41,7 +45,7 @@ describe('team-service', () => {
 			await createTeam(user1.id, 'First Team');
 
 			await expect(createTeam(user2.id, 'Second Team')).rejects.toThrow(
-				"Can't have multiple teams in self hosted version"
+				"Can't have multiple teams in self hosted version",
 			);
 		});
 	});
@@ -98,7 +102,7 @@ describe('team-service', () => {
 			addUserToTeam(team.id, admin.id, 'ADMIN');
 
 			await expect(updateTeamUserRole(team.id, admin.id, 'MEMBER')).rejects.toThrow(
-				'Need at least one admin'
+				'Need at least one admin',
 			);
 		});
 	});
@@ -122,7 +126,7 @@ describe('team-service', () => {
 			addUserToTeam(team.id, admin.id, 'ADMIN');
 
 			await expect(deleteTeamUser(team.id, admin.id, 'ADMIN', admin.id)).rejects.toThrow(
-				'Need at least one admin'
+				'Need at least one admin',
 			);
 		});
 	});

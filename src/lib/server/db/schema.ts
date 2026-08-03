@@ -6,7 +6,7 @@ import {
 	real,
 	primaryKey,
 	uniqueIndex,
-	index
+	index,
 } from 'drizzle-orm/sqlite-core';
 
 export const roles = ['ADMIN', 'MEMBER'] as const;
@@ -17,7 +17,7 @@ export const domainStatuses = [
 	'PENDING',
 	'SUCCESS',
 	'FAILED',
-	'TEMPORARY_FAILURE'
+	'TEMPORARY_FAILURE',
 ] as const;
 export type DomainStatus = (typeof domainStatuses)[number];
 
@@ -38,7 +38,7 @@ export const emailStatuses = [
 	'COMPLAINED',
 	'FAILED',
 	'CANCELLED',
-	'SUPPRESSED'
+	'SUPPRESSED',
 ] as const;
 export type EmailStatus = (typeof emailStatuses)[number];
 
@@ -56,7 +56,7 @@ export const automationExecutionEvents = [
 	'email_queued',
 	'wait_scheduled',
 	'completed',
-	'error'
+	'error',
 ] as const;
 export type AutomationExecutionEvent = (typeof automationExecutionEvents)[number];
 
@@ -77,7 +77,7 @@ export const webhookCallStatuses = [
 	'IN_PROGRESS',
 	'DELIVERED',
 	'FAILED',
-	'DISCARDED'
+	'DISCARDED',
 ] as const;
 export type WebhookCallStatus = (typeof webhookCallStatuses)[number];
 
@@ -94,7 +94,7 @@ export const templateElementTypes = [
 	'cta',
 	'link',
 	'image',
-	'component'
+	'component',
 ] as const;
 export type TemplateElementType = (typeof templateElementTypes)[number];
 
@@ -113,12 +113,12 @@ const timestamps = {
 		.default(sql`(datetime('now'))`),
 	updatedAt: text('updated_at')
 		.notNull()
-		.default(sql`(datetime('now'))`)
+		.default(sql`(datetime('now'))`),
 };
 
 export const appSettings = sqliteTable('app_settings', {
 	key: text('key').primaryKey(),
-	value: text('value').notNull()
+	value: text('value').notNull(),
 });
 
 export const sesSettings = sqliteTable('ses_settings', {
@@ -141,7 +141,7 @@ export const sesSettings = sqliteTable('ses_settings', {
 	configFull: text('config_full'),
 	configFullSuccess: integer('config_full_success', { mode: 'boolean' }).notNull().default(false),
 	sesEmailRateLimit: integer('ses_email_rate_limit').notNull().default(1),
-	...timestamps
+	...timestamps,
 });
 
 export const users = sqliteTable('users', {
@@ -152,7 +152,7 @@ export const users = sqliteTable('users', {
 	image: text('image'),
 	createdAt: text('created_at')
 		.notNull()
-		.default(sql`(datetime('now'))`)
+		.default(sql`(datetime('now'))`),
 });
 
 export const accounts = sqliteTable(
@@ -172,9 +172,9 @@ export const accounts = sqliteTable(
 		tokenType: text('token_type'),
 		scope: text('scope'),
 		idToken: text('id_token'),
-		sessionState: text('session_state')
+		sessionState: text('session_state'),
 	},
-	(t) => [uniqueIndex('accounts_provider_account_idx').on(t.provider, t.providerAccountId)]
+	(t) => [uniqueIndex('accounts_provider_account_idx').on(t.provider, t.providerAccountId)],
 );
 
 export const sessions = sqliteTable('sessions', {
@@ -183,7 +183,7 @@ export const sessions = sqliteTable('sessions', {
 	userId: integer('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
-	expires: text('expires').notNull()
+	expires: text('expires').notNull(),
 });
 
 export const verificationTokens = sqliteTable(
@@ -191,9 +191,9 @@ export const verificationTokens = sqliteTable(
 	{
 		identifier: text('identifier').notNull(),
 		token: text('token').notNull().unique(),
-		expires: text('expires').notNull()
+		expires: text('expires').notNull(),
 	},
-	(t) => [uniqueIndex('verification_tokens_identifier_token_idx').on(t.identifier, t.token)]
+	(t) => [uniqueIndex('verification_tokens_identifier_token_idx').on(t.identifier, t.token)],
 );
 
 export const teams = sqliteTable('teams', {
@@ -205,7 +205,7 @@ export const teams = sqliteTable('teams', {
 	isVerified: integer('is_verified', { mode: 'boolean' }).notNull().default(false),
 	dailyEmailLimit: integer('daily_email_limit').notNull().default(10000),
 	isBlocked: integer('is_blocked', { mode: 'boolean' }).notNull().default(false),
-	...timestamps
+	...timestamps,
 });
 
 export const teamInvites = sqliteTable(
@@ -217,9 +217,9 @@ export const teamInvites = sqliteTable(
 			.references(() => teams.id, { onDelete: 'cascade' }),
 		email: text('email').notNull(),
 		role: text('role', { enum: roles }).notNull(),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [uniqueIndex('team_invites_team_email_idx').on(t.teamId, t.email)]
+	(t) => [uniqueIndex('team_invites_team_email_idx').on(t.teamId, t.email)],
 );
 
 export const teamUsers = sqliteTable(
@@ -231,9 +231,9 @@ export const teamUsers = sqliteTable(
 		userId: integer('user_id')
 			.notNull()
 			.references(() => users.id, { onDelete: 'cascade' }),
-		role: text('role', { enum: roles }).notNull()
+		role: text('role', { enum: roles }).notNull(),
 	},
-	(t) => [primaryKey({ columns: [t.teamId, t.userId] })]
+	(t) => [primaryKey({ columns: [t.teamId, t.userId] })],
 );
 
 export const domains = sqliteTable('domains', {
@@ -255,7 +255,7 @@ export const domains = sqliteTable('domains', {
 	subdomain: text('subdomain'),
 	sesTenantId: text('ses_tenant_id'),
 	isVerifying: integer('is_verifying', { mode: 'boolean' }).notNull().default(false),
-	...timestamps
+	...timestamps,
 });
 
 export const apiKeys = sqliteTable('api_keys', {
@@ -270,7 +270,7 @@ export const apiKeys = sqliteTable('api_keys', {
 	teamId: integer('team_id')
 		.notNull()
 		.references(() => teams.id, { onDelete: 'cascade' }),
-	...timestamps
+	...timestamps,
 });
 
 export const emails = sqliteTable(
@@ -298,12 +298,12 @@ export const emails = sqliteTable(
 		contactId: text('contact_id'),
 		inReplyToId: text('in_reply_to_id'),
 		headers: text('headers'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		index('emails_campaign_contact_idx').on(t.campaignId, t.contactId),
-		index('emails_created_at_idx').on(t.createdAt)
-	]
+		index('emails_created_at_idx').on(t.createdAt),
+	],
 );
 
 export const campaignEmails = sqliteTable(
@@ -314,9 +314,9 @@ export const campaignEmails = sqliteTable(
 		emailId: text('email_id').notNull(),
 		createdAt: text('created_at')
 			.notNull()
-			.default(sql`(datetime('now'))`)
+			.default(sql`(datetime('now'))`),
 	},
-	(t) => [primaryKey({ columns: [t.campaignId, t.contactId] })]
+	(t) => [primaryKey({ columns: [t.campaignId, t.contactId] })],
 );
 
 export const emailEvents = sqliteTable(
@@ -331,12 +331,12 @@ export const emailEvents = sqliteTable(
 		teamId: integer('team_id'),
 		createdAt: text('created_at')
 			.notNull()
-			.default(sql`(datetime('now'))`)
+			.default(sql`(datetime('now'))`),
 	},
 	(t) => [
 		index('email_events_email_id_idx').on(t.emailId),
-		index('email_events_team_id_idx').on(t.teamId)
-	]
+		index('email_events_team_id_idx').on(t.teamId),
+	],
 );
 
 export const contactBooks = sqliteTable(
@@ -357,12 +357,12 @@ export const contactBooks = sqliteTable(
 		doubleOptInSubject: text('double_opt_in_subject'),
 		doubleOptInContent: text('double_opt_in_content'),
 		emoji: text('emoji').notNull().default('📙'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		index('contact_books_team_id_idx').on(t.teamId),
-		index('contact_books_team_domain_idx').on(t.teamId, t.domainId)
-	]
+		index('contact_books_team_domain_idx').on(t.teamId, t.domainId),
+	],
 );
 
 export const contacts = sqliteTable(
@@ -378,12 +378,12 @@ export const contacts = sqliteTable(
 		contactBookId: text('contact_book_id')
 			.notNull()
 			.references(() => contactBooks.id, { onDelete: 'cascade' }),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		uniqueIndex('contacts_book_email_idx').on(t.contactBookId, t.email),
-		index('contacts_book_id_idx').on(t.contactBookId, t.id)
-	]
+		index('contacts_book_id_idx').on(t.contactBookId, t.id),
+	],
 );
 
 export const campaigns = sqliteTable(
@@ -420,12 +420,12 @@ export const campaigns = sqliteTable(
 		batchWindowMinutes: integer('batch_window_minutes').notNull().default(0),
 		lastCursor: text('last_cursor'),
 		lastSentAt: text('last_sent_at'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		index('campaigns_created_at_idx').on(t.createdAt),
-		index('campaigns_status_scheduled_idx').on(t.status, t.scheduledAt)
-	]
+		index('campaigns_status_scheduled_idx').on(t.status, t.scheduledAt),
+	],
 );
 
 export const templates = sqliteTable(
@@ -443,12 +443,12 @@ export const templates = sqliteTable(
 		prompt: text('prompt'),
 		designSnapshot: text('design_snapshot'),
 		tags: text('tags').notNull().default('[]'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		index('templates_created_at_idx').on(t.createdAt),
-		index('templates_team_domain_idx').on(t.teamId, t.domainId)
-	]
+		index('templates_team_domain_idx').on(t.teamId, t.domainId),
+	],
 );
 
 export const automationFlows = sqliteTable(
@@ -466,9 +466,9 @@ export const automationFlows = sqliteTable(
 		triggerType: text('trigger_type').notNull().default('contact.created'),
 		triggerConfig: text('trigger_config').notNull().default('{}'),
 		graph: text('graph').notNull().default('{"nodes":[],"edges":[]}'),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [index('automation_flows_team_status_idx').on(t.teamId, t.status)]
+	(t) => [index('automation_flows_team_status_idx').on(t.teamId, t.status)],
 );
 
 export const automationEnrollments = sqliteTable(
@@ -482,12 +482,12 @@ export const automationEnrollments = sqliteTable(
 		status: text('status', { enum: automationEnrollmentStatuses }).notNull().default('active'),
 		currentNodeId: text('current_node_id'),
 		waitUntil: text('wait_until'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		index('automation_enrollments_flow_status_idx').on(t.flowId, t.status),
-		index('automation_enrollments_contact_idx').on(t.contactId)
-	]
+		index('automation_enrollments_contact_idx').on(t.contactId),
+	],
 );
 
 export const automationExecutionLog = sqliteTable(
@@ -501,9 +501,9 @@ export const automationExecutionLog = sqliteTable(
 		detail: text('detail'),
 		createdAt: text('created_at')
 			.notNull()
-			.default(sql`(datetime('now'))`)
+			.default(sql`(datetime('now'))`),
 	},
-	(t) => [index('automation_execution_log_enrollment_idx').on(t.enrollmentId)]
+	(t) => [index('automation_execution_log_enrollment_idx').on(t.enrollmentId)],
 );
 
 export const designSystems = sqliteTable(
@@ -515,9 +515,9 @@ export const designSystems = sqliteTable(
 			.unique()
 			.references(() => teams.id, { onDelete: 'cascade' }),
 		designMd: text('design_md'),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [uniqueIndex('design_systems_team_id_idx').on(t.teamId)]
+	(t) => [uniqueIndex('design_systems_team_id_idx').on(t.teamId)],
 );
 
 export const designAssets = sqliteTable(
@@ -532,9 +532,9 @@ export const designAssets = sqliteTable(
 		filename: text('filename').notNull(),
 		mime: text('mime').notNull(),
 		size: integer('size').notNull(),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [index('design_assets_team_id_idx').on(t.teamId)]
+	(t) => [index('design_assets_team_id_idx').on(t.teamId)],
 );
 
 export const designComponents = sqliteTable(
@@ -555,9 +555,9 @@ export const designComponents = sqliteTable(
 		document: text('document').notNull().default(''),
 		/** ComponentSlot[] JSON — pointers into document block props. */
 		slots: text('slots').notNull().default('[]'),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [index('design_components_team_id_idx').on(t.teamId)]
+	(t) => [index('design_components_team_id_idx').on(t.teamId)],
 );
 
 export const templateElements = sqliteTable(
@@ -572,9 +572,9 @@ export const templateElements = sqliteTable(
 		required: integer('required', { mode: 'boolean' }).notNull().default(true),
 		config: text('config').notNull().default('{}'),
 		order: integer('order').notNull().default(0),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [index('template_elements_template_id_idx').on(t.templateId)]
+	(t) => [index('template_elements_template_id_idx').on(t.templateId)],
 );
 
 export const templateComponents = sqliteTable(
@@ -590,14 +590,14 @@ export const templateComponents = sqliteTable(
 			.notNull()
 			.default('custom'),
 		designComponentId: text('design_component_id').references(() => designComponents.id, {
-			onDelete: 'set null'
+			onDelete: 'set null',
 		}),
 		locked: integer('locked', { mode: 'boolean' }).notNull().default(false),
 		source: text('source').notNull().default(''),
 		order: integer('order').notNull().default(0),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [index('template_components_template_id_idx').on(t.templateId)]
+	(t) => [index('template_components_template_id_idx').on(t.templateId)],
 );
 
 export const dailyEmailUsages = sqliteTable(
@@ -616,9 +616,9 @@ export const dailyEmailUsages = sqliteTable(
 		bounced: integer('bounced').notNull().default(0),
 		complained: integer('complained').notNull().default(0),
 		hardBounced: integer('hard_bounced').notNull().default(0),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [primaryKey({ columns: [t.teamId, t.domainId, t.date, t.type] })]
+	(t) => [primaryKey({ columns: [t.teamId, t.domainId, t.date, t.type] })],
 );
 
 export const cumulatedMetrics = sqliteTable(
@@ -628,9 +628,9 @@ export const cumulatedMetrics = sqliteTable(
 		domainId: integer('domain_id').notNull(),
 		delivered: integer('delivered').notNull().default(0),
 		hardBounced: integer('hard_bounced').notNull().default(0),
-		complained: integer('complained').notNull().default(0)
+		complained: integer('complained').notNull().default(0),
 	},
-	(t) => [primaryKey({ columns: [t.teamId, t.domainId] })]
+	(t) => [primaryKey({ columns: [t.teamId, t.domainId] })],
 );
 
 export const suppressionList = sqliteTable(
@@ -644,12 +644,12 @@ export const suppressionList = sqliteTable(
 		domainId: integer('domain_id').references(() => domains.id, { onDelete: 'cascade' }),
 		reason: text('reason', { enum: suppressionReasons }).notNull(),
 		source: text('source'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		uniqueIndex('suppression_team_email_idx').on(t.teamId, t.email),
-		index('suppression_team_domain_idx').on(t.teamId, t.domainId)
-	]
+		index('suppression_team_domain_idx').on(t.teamId, t.domainId),
+	],
 );
 
 export const webhooks = sqliteTable(
@@ -670,11 +670,11 @@ export const webhooks = sqliteTable(
 		lastFailureAt: text('last_failure_at'),
 		lastSuccessAt: text('last_success_at'),
 		createdByUserId: integer('created_by_user_id').references(() => users.id, {
-			onDelete: 'set null'
+			onDelete: 'set null',
 		}),
-		...timestamps
+		...timestamps,
 	},
-	(t) => [index('webhooks_team_id_idx').on(t.teamId)]
+	(t) => [index('webhooks_team_id_idx').on(t.teamId)],
 );
 
 export const webhookCalls = sqliteTable(
@@ -696,12 +696,12 @@ export const webhookCalls = sqliteTable(
 		responseStatus: integer('response_status'),
 		responseTimeMs: integer('response_time_ms'),
 		responseText: text('response_text'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		index('webhook_calls_team_webhook_status_idx').on(t.teamId, t.webhookId, t.status),
-		index('webhook_calls_created_at_idx').on(t.createdAt)
-	]
+		index('webhook_calls_created_at_idx').on(t.createdAt),
+	],
 );
 
 export const queueJobs = sqliteTable(
@@ -720,12 +720,12 @@ export const queueJobs = sqliteTable(
 		lockedAt: text('locked_at'),
 		lockedBy: text('locked_by'),
 		lastError: text('last_error'),
-		...timestamps
+		...timestamps,
 	},
 	(t) => [
 		index('queue_jobs_poll_idx').on(t.queue, t.status, t.runAt),
-		uniqueIndex('queue_jobs_queue_job_id_idx').on(t.queue, t.jobId)
-	]
+		uniqueIndex('queue_jobs_queue_job_id_idx').on(t.queue, t.jobId),
+	],
 );
 
 export const idempotencyKeys = sqliteTable(
@@ -737,20 +737,20 @@ export const idempotencyKeys = sqliteTable(
 		response: text('response').notNull(),
 		createdAt: text('created_at')
 			.notNull()
-			.default(sql`(datetime('now'))`)
+			.default(sql`(datetime('now'))`),
 	},
-	(t) => [uniqueIndex('idempotency_team_key_idx').on(t.teamId, t.key)]
+	(t) => [uniqueIndex('idempotency_team_key_idx').on(t.teamId, t.key)],
 );
 
 export const usersRelations = relations(users, ({ many }) => ({
 	accounts: many(accounts),
 	sessions: many(sessions),
-	teamUsers: many(teamUsers)
+	teamUsers: many(teamUsers),
 }));
 
 export const teamsRelations = relations(teams, ({ many }) => ({
 	teamUsers: many(teamUsers),
 	domains: many(domains),
 	apiKeys: many(apiKeys),
-	emails: many(emails)
+	emails: many(emails),
 }));

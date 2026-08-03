@@ -6,7 +6,7 @@ import {
 	signCookieValue,
 	OAUTH_STATE_COOKIE,
 	OAUTH_VERIFIER_COOKIE,
-	OAUTH_PROVIDER_COOKIE
+	OAUTH_PROVIDER_COOKIE,
 } from '$lib/server/auth';
 
 export const GET: RequestHandler = async ({ cookies }) => {
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		httpOnly: true,
 		secure: process.env.NODE_ENV === 'production',
 		sameSite: 'lax' as const,
-		maxAge: 60 * 10
+		maxAge: 60 * 10,
 	};
 
 	cookies.set(OAUTH_STATE_COOKIE, signCookieValue(state), cookieOptions);

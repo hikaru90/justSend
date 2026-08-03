@@ -9,7 +9,7 @@
 	import { renderEmailHtml } from './render';
 	import {
 		applyPreviewColorScheme,
-		substitutePreviewPlaceholders
+		substitutePreviewPlaceholders,
 	} from '$lib/design/extractTokens';
 	import BuilderCanvas from './BuilderCanvas.svelte';
 	import InspectorPanel from './InspectorPanel.svelte';
@@ -48,7 +48,7 @@
 		aiDescription,
 		aiSlots,
 		onAiEdit,
-		onAiResult
+		onAiResult,
 	}: {
 		document?: TEditorConfiguration | null;
 		designComponents?: DesignLibraryComponent[];
@@ -56,8 +56,7 @@
 		designAssets?: DesignLibraryAsset[];
 		previewOverrides?: Record<string, string>;
 		onUploadAsset?:
-			| ((file: File) => Promise<{ id: string; name: string; kind: string } | null>)
-			| null;
+			((file: File) => Promise<{ id: string; name: string; kind: string } | null>) | null;
 		onSave?: (payload: { document: TEditorConfiguration; html: string }) => void | Promise<void>;
 		saving?: boolean;
 		aiEnabled?: boolean;
@@ -74,10 +73,7 @@
 			document: TEditorConfiguration;
 			slots: ComponentSlot[];
 		} | null>;
-		onAiResult?: (result: {
-			document: TEditorConfiguration;
-			slots: ComponentSlot[];
-		}) => void;
+		onAiResult?: (result: { document: TEditorConfiguration; slots: ComponentSlot[] }) => void;
 	} = $props();
 
 	const editor = new Editor();
@@ -157,7 +153,7 @@
 					kind: 'tool',
 					label: name,
 					detail: event.message,
-					pending: true
+					pending: true,
 				});
 				const key = event.toolCallId ?? name;
 				openTools[key] = id;
@@ -171,7 +167,7 @@
 					patchAiFeed(id, {
 						pending: false,
 						error: event.isError,
-						detail: event.isError ? 'error' : 'done'
+						detail: event.isError ? 'error' : 'done',
 					});
 					delete openTools[key];
 				}
@@ -215,7 +211,7 @@
 				document: editor.document,
 				slots: aiSlots ?? [],
 				signal: controller.signal,
-				onEvent: (event) => handleAiEvent(event, openTools)
+				onEvent: (event) => handleAiEvent(event, openTools),
 			});
 
 			if (result) {
@@ -246,12 +242,14 @@
 	const previewHtml = $derived(
 		applyPreviewColorScheme(
 			substitutePreviewPlaceholders(renderEmailHtml(editor.document), previewOverrides),
-			editor.colorScheme
-		)
+			editor.colorScheme,
+		),
 	);
 </script>
 
-<div class="email-builder w-full max-w-full overflow-hidden rounded-md border border-[hsl(var(--border))] bg-white text-[#111]">
+<div
+	class="email-builder w-full max-w-full overflow-hidden rounded-md border border-[hsl(var(--border))] bg-white text-[#111]"
+>
 	<div
 		class="flex flex-wrap items-center justify-between gap-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-2 sm:px-3"
 	>
@@ -330,18 +328,14 @@
 					>
 						<button
 							type="button"
-							class="px-2 py-1 {editor.colorScheme === 'light'
-								? 'bg-[hsl(var(--secondary))]'
-								: ''}"
+							class="px-2 py-1 {editor.colorScheme === 'light' ? 'bg-[hsl(var(--secondary))]' : ''}"
 							onclick={() => (editor.colorScheme = 'light')}
 						>
 							Light
 						</button>
 						<button
 							type="button"
-							class="px-2 py-1 {editor.colorScheme === 'dark'
-								? 'bg-[hsl(var(--secondary))]'
-								: ''}"
+							class="px-2 py-1 {editor.colorScheme === 'dark' ? 'bg-[hsl(var(--secondary))]' : ''}"
 							onclick={() => (editor.colorScheme = 'dark')}
 						>
 							Dark
@@ -398,12 +392,20 @@
 				</div>
 			{:else if editor.tab === 'html'}
 				<pre
-					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{renderEmailHtml(editor.document)}</pre>
+					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{renderEmailHtml(
+						editor.document,
+					)}</pre>
 			{:else if editor.tab === 'json'}
 				<pre
-					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{JSON.stringify(editor.document, null, 2)}</pre>
+					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{JSON.stringify(
+						editor.document,
+						null,
+						2,
+					)}</pre>
 			{:else if editor.tab === 'ai'}
-				<div class="flex h-full min-h-[420px] flex-col bg-[hsl(var(--card))] p-3 sm:min-h-[640px] sm:p-4">
+				<div
+					class="flex h-full min-h-[420px] flex-col bg-[hsl(var(--card))] p-3 sm:min-h-[640px] sm:p-4"
+				>
 					<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
 						Describe the component to generate or how to change the current blocks. Example: hero
 						with image, headline, and CTA button.
@@ -438,7 +440,7 @@
 							{/if}
 							{#each aiFeed as line (line.id)}
 								{#if line.kind === 'user'}
-									<p class="whitespace-pre-wrap font-sans text-[hsl(var(--foreground))]">
+									<p class="font-sans whitespace-pre-wrap text-[hsl(var(--foreground))]">
 										<span class="opacity-70">you </span>{line.label}
 									</p>
 								{:else if line.kind === 'step'}
@@ -493,19 +495,13 @@
 							disabled={aiEditing}
 							placeholder="e.g. Add a hero section with logo, headline, and primary CTA button"
 							rows="3"
-							class="w-full resize-y rounded-md border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-1 focus:ring-[hsl(var(--ring))] disabled:opacity-50"
+							class="w-full resize-y rounded-md border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:ring-1 focus:ring-[hsl(var(--ring))] focus:outline-none disabled:opacity-50"
 						></textarea>
 						<div class="flex flex-wrap items-center gap-2">
 							{#if aiEditing}
-								<Button type="button" size="sm" variant="outline" onclick={stopAiEdit}>
-									Stop
-								</Button>
+								<Button type="button" size="sm" variant="outline" onclick={stopAiEdit}>Stop</Button>
 							{:else}
-								<Button
-									type="submit"
-									size="sm"
-									disabled={!aiInstruction.trim() || !onAiEdit}
-								>
+								<Button type="submit" size="sm" disabled={!aiInstruction.trim() || !onAiEdit}>
 									Generate
 								</Button>
 							{/if}

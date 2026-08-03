@@ -17,6 +17,9 @@
 			integrate via your application using the public API at
 			<code class="rounded bg-[hsl(var(--muted))] px-1">{data.hostUrl}/api/v1</code>.
 		</p>
-		<p>For inbound testing in development, use magic-link auth and check server logs for outbound mail.</p>
+		<p>
+			For inbound testing in development, use magic-link auth and check server logs for outbound
+			mail.
+		</p>
 	</div>
 </Card>

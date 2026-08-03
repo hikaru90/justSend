@@ -12,8 +12,7 @@ export function designAssetUrl(assetId: string, baseUrl = ''): string {
 	return base ? `${base}${designAssetPath(assetId)}` : designAssetPath(assetId);
 }
 
-const ABSOLUTE_DESIGN_ASSET =
-	/https?:\/\/[^/"'\s)]+\/(api\/design-asset\/[^"'?\s)#]+)/gi;
+const ABSOLUTE_DESIGN_ASSET = /https?:\/\/[^/"'\s)]+\/(api\/design-asset\/[^"'?\s)#]+)/gi;
 
 /**
  * Strip any host from design-asset URLs so stored HTML/documents are
@@ -36,8 +35,5 @@ export function rewriteDesignAssetUrls(html: string, baseUrl: string): string {
 		.replace(ABSOLUTE_DESIGN_ASSET, `${origin}/$1`)
 		.replace(/(\bsrc=["'])\/(api\/design-asset\/[^"']+)/gi, `$1${origin}/$2`)
 		.replace(/(\bhref=["'])\/(api\/design-asset\/[^"']+)/gi, `$1${origin}/$2`)
-		.replace(
-			/url\(\s*(["']?)\/(api\/design-asset\/[^"')\s]+)\1\s*\)/gi,
-			`url($1${origin}/$2$1)`
-		);
+		.replace(/url\(\s*(["']?)\/(api\/design-asset\/[^"')\s]+)\1\s*\)/gi, `url($1${origin}/$2$1)`);
 }

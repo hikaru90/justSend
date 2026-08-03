@@ -1,9 +1,5 @@
 import { error } from '@sveltejs/kit';
-import {
-	exportDbParts,
-	parsePartsList,
-	partsNeedTeam
-} from '$lib/server/service/db-parts-service';
+import { exportDbParts, parsePartsList, partsNeedTeam } from '$lib/server/service/db-parts-service';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
@@ -27,8 +23,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 			headers: {
 				'Content-Type': 'application/zip',
 				'Content-Disposition': `attachment; filename="${filename}"`,
-				'Cache-Control': 'no-store'
-			}
+				'Cache-Control': 'no-store',
+			},
 		});
 	} catch (e) {
 		error(400, e instanceof Error ? e.message : 'Export failed');

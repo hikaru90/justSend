@@ -18,7 +18,7 @@ const GENERAL_EVENTS: EventType[] = [
 	'REJECT',
 	'RENDERING_FAILURE',
 	'SEND',
-	'SUBSCRIPTION'
+	'SUBSCRIPTION',
 ];
 
 const cache = new Map<string, SesSetting>();
@@ -65,13 +65,13 @@ async function isValidJustsendUrl(url: string) {
 		return {
 			isValid: response.status === 200,
 			code: response.status,
-			error: response.statusText
+			error: response.statusText,
 		};
 	} catch (e) {
 		return {
 			isValid: false,
 			code: 500,
-			error: e instanceof Error ? e.message : String(e)
+			error: e instanceof Error ? e.message : String(e),
 		};
 	}
 }
@@ -90,7 +90,7 @@ async function registerConfigurationSet(setting: SesSetting): Promise<SesSetting
 		configGeneral,
 		setting.topicArn,
 		GENERAL_EVENTS,
-		setting.region
+		setting.region,
 	);
 
 	const configClick = `${setting.idPrefix}-${setting.region}-unsend-click`;
@@ -98,7 +98,7 @@ async function registerConfigurationSet(setting: SesSetting): Promise<SesSetting
 		configClick,
 		setting.topicArn,
 		[...GENERAL_EVENTS, 'CLICK'],
-		setting.region
+		setting.region,
 	);
 
 	const configOpen = `${setting.idPrefix}-${setting.region}-unsend-open`;
@@ -106,7 +106,7 @@ async function registerConfigurationSet(setting: SesSetting): Promise<SesSetting
 		configOpen,
 		setting.topicArn,
 		[...GENERAL_EVENTS, 'OPEN'],
-		setting.region
+		setting.region,
 	);
 
 	const configFull = `${setting.idPrefix}-${setting.region}-unsend-full`;
@@ -114,7 +114,7 @@ async function registerConfigurationSet(setting: SesSetting): Promise<SesSetting
 		configFull,
 		setting.topicArn,
 		[...GENERAL_EVENTS, 'CLICK', 'OPEN'],
-		setting.region
+		setting.region,
 	);
 
 	return db
@@ -127,7 +127,7 @@ async function registerConfigurationSet(setting: SesSetting): Promise<SesSetting
 			configOpen,
 			configOpenSuccess: openStatus,
 			configFull,
-			configFullSuccess: fullStatus
+			configFullSuccess: fullStatus,
 		})
 		.where(eq(sesSettings.id, setting.id))
 		.returning()
@@ -138,7 +138,7 @@ export async function createSesSetting({
 	region,
 	owleryUrl,
 	sendingRateLimit,
-	transactionalQuota
+	transactionalQuota,
 }: {
 	region: string;
 	owleryUrl: string;
@@ -157,7 +157,7 @@ export async function createSesSetting({
 	const validation = await isValidJustsendUrl(parsedUrl);
 	if (!validation.isValid) {
 		throw new Error(
-			`Callback URL: ${owleryUrl} is not valid, status: ${validation.code} message: ${validation.error}`
+			`Callback URL: ${owleryUrl} is not valid, status: ${validation.code} message: ${validation.error}`,
 		);
 	}
 
@@ -182,7 +182,7 @@ export async function createSesSetting({
 				topicArn,
 				sesEmailRateLimit: sendingRateLimit,
 				transactionalQuota,
-				idPrefix
+				idPrefix,
 			})
 			.returning()
 			.get();
@@ -215,7 +215,7 @@ export async function createSesSetting({
 export async function updateSesSetting({
 	id,
 	sendingRateLimit,
-	transactionalQuota
+	transactionalQuota,
 }: {
 	id: string;
 	sendingRateLimit: number;
@@ -227,7 +227,7 @@ export async function updateSesSetting({
 		.update(sesSettings)
 		.set({
 			transactionalQuota,
-			sesEmailRateLimit: sendingRateLimit
+			sesEmailRateLimit: sendingRateLimit,
 		})
 		.where(eq(sesSettings.id, id))
 		.returning()

@@ -9,7 +9,7 @@ import {
 	getFlow,
 	listFlows,
 	pauseFlow,
-	updateFlow
+	updateFlow,
 } from './flow-service';
 
 beforeEach(() => resetDb());
@@ -55,11 +55,11 @@ describe('flow-service', () => {
 			id: 'sendEmail-1',
 			type: 'sendEmail',
 			position: { x: 80, y: 180 },
-			data: { label: 'Send', from: `hi@${domain.name}`, subject: 'Hi', templateId: '' }
+			data: { label: 'Send', from: `hi@${domain.name}`, subject: 'Hi', templateId: '' },
 		});
 		graph.edges = [
 			{ id: 'e1', source: 'trigger-1', target: 'sendEmail-1' },
-			{ id: 'e2', source: 'sendEmail-1', target: 'end-1' }
+			{ id: 'e2', source: 'sendEmail-1', target: 'end-1' },
 		];
 
 		const updated = updateFlow(
@@ -68,9 +68,9 @@ describe('flow-service', () => {
 			{
 				name: 'Updated',
 				triggerConfig: { contactBookId: 'book-1' },
-				graph
+				graph,
 			},
-			domain.id
+			domain.id,
 		);
 		expect(updated.name).toBe('Updated');
 		expect(updated.triggerConfig.contactBookId).toBe('book-1');

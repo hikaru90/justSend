@@ -5,14 +5,14 @@ import type { TEditorConfiguration } from '$lib/email-builder/types';
 import {
 	elementSlug,
 	parseElementConfig,
-	type TemplateElementType
+	type TemplateElementType,
 } from '$lib/template-element-config';
 import {
 	parseComponentDocument,
 	parseComponentProps,
 	parseComponentSlots,
 	type DesignAsset,
-	type DesignComponent
+	type DesignComponent,
 } from './design-system-service';
 import type { TemplateElement } from './template-element-service';
 import type { Template } from './template-service';
@@ -76,7 +76,7 @@ export function parseScaffoldContent(raw: string | null | undefined): ScaffoldCo
 		return {
 			subject: typeof obj.subject === 'string' ? obj.subject : undefined,
 			preheader: typeof obj.preheader === 'string' ? obj.preheader : undefined,
-			slots
+			slots,
 		};
 	} catch {
 		return { slots: {} };
@@ -87,7 +87,7 @@ export function serializeScaffoldContent(content: ScaffoldContent): string {
 	return JSON.stringify({
 		...(content.subject !== undefined ? { subject: content.subject } : {}),
 		...(content.preheader !== undefined ? { preheader: content.preheader } : {}),
-		slots: content.slots
+		slots: content.slots,
 	});
 }
 
@@ -97,10 +97,7 @@ function assetUrl(assetBaseUrl: string, assetId: string): string {
 	return designAssetUrl(assetId, assetBaseUrl);
 }
 
-function buildLogoSlots(
-	assets: DesignAsset[],
-	assetBaseUrl: string
-): Record<string, string> {
+function buildLogoSlots(assets: DesignAsset[], assetBaseUrl: string): Record<string, string> {
 	const logos = assets.filter((a) => a.kind === 'logo');
 	const pair = pickEmailLogos(logos);
 	if (!pair) return {};
@@ -111,14 +108,11 @@ function buildLogoSlots(
 		logo_url: light,
 		logo_light: light,
 		logo_dark: dark,
-		logo_dark_url: dark
+		logo_dark_url: dark,
 	};
 }
 
-function elementConfigSlots(
-	el: TemplateElement,
-	assetBaseUrl: string
-): Record<string, string> {
+function elementConfigSlots(el: TemplateElement, assetBaseUrl: string): Record<string, string> {
 	const config = parseElementConfig(el.config);
 	const slug = elementSlug(el.label, el.type);
 	const slots: Record<string, string> = {};
@@ -176,10 +170,7 @@ function elementConfigSlots(
 	return slots;
 }
 
-function fixedSectionHtml(
-	type: TemplateElementType,
-	slots: Record<string, string>
-): string {
+function fixedSectionHtml(type: TemplateElementType, slots: Record<string, string>): string {
 	if (type === 'logo' || type === 'image') {
 		const src = slots.logo_url || slots.image_url || slots[Object.keys(slots)[0]] || '';
 		if (!src) return '';
@@ -210,13 +201,8 @@ function fixedSectionHtml(
 
 	if (type === 'cta' || type === 'button' || type === 'link') {
 		const label =
-			slots.primary_cta_label ||
-			slots.cta_label ||
-			slots.button_label ||
-			slots.link_label ||
-			'';
-		const url =
-			slots.primary_cta_url || slots.cta_url || slots.button_url || slots.link_url || '#';
+			slots.primary_cta_label || slots.cta_label || slots.button_label || slots.link_label || '';
+		const url = slots.primary_cta_url || slots.cta_url || slots.button_url || slots.link_url || '#';
 		if (!label) return '';
 		if (type === 'link') {
 			return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;" data-owl-section="link">
@@ -243,11 +229,7 @@ function fixedSectionHtml(
 	return '';
 }
 
-function wrapRoot(opts: {
-	subject: string;
-	preheader: string;
-	sectionsHtml: string;
-}): string {
+function wrapRoot(opts: { subject: string; preheader: string; sectionsHtml: string }): string {
 	const subjectAttr = escapeHtmlAttr(opts.subject || 'Email');
 	const preheaderText = escapeHtmlText(opts.preheader || opts.subject || '');
 	const filler = Array.from({ length: 40 }, () => '&zwnj;&nbsp;').join('');
@@ -298,7 +280,7 @@ ${opts.sectionsHtml}
  */
 export function collectExpectedSlots(
 	elements: TemplateElement[],
-	components: DesignComponent[]
+	components: DesignComponent[],
 ): string[] {
 	const byId = new Map(components.map((c) => [c.id, c]));
 	const names = new Set<string>();
@@ -364,7 +346,7 @@ function buildComposeSlots(input: ComposeEmailInput): {
 	const slots: Record<string, string> = {
 		...logoSlots,
 		...scaffold.slots,
-		...(input.extraSlots ?? {})
+		...(input.extraSlots ?? {}),
 	};
 
 	if (!slots.unsubscribe_label) slots.unsubscribe_label = 'Unsubscribe';
@@ -401,14 +383,14 @@ export function composeEmailSections(input: ComposeEmailInput): ComposedSection[
 					document: doc,
 					slots: parseComponentSlots(lib),
 					slotValues: merged,
-					idPrefix: `${el.id}-`
+					idPrefix: `${el.id}-`,
 				});
 				sections.push({
 					html: '',
 					tree,
 					componentId: lib.id,
 					componentName: lib.name,
-					slots: sectionSlots
+					slots: sectionSlots,
 				});
 				continue;
 			}
@@ -420,7 +402,7 @@ export function composeEmailSections(input: ComposeEmailInput): ComposedSection[
 				html,
 				componentId: lib.id,
 				componentName: lib.name,
-				slots: sectionSlots
+				slots: sectionSlots,
 			});
 			continue;
 		}
@@ -445,6 +427,6 @@ export function composeEmailHtml(input: ComposeEmailInput): string {
 	return wrapRoot({
 		subject,
 		preheader,
-		sectionsHtml: htmlParts.join('\n')
+		sectionsHtml: htmlParts.join('\n'),
 	});
 }

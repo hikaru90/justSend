@@ -19,7 +19,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 		const origin = url.origin;
 		const variables: Record<string, string> = {};
 		const pair = pickEmailLogos(
-			getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo')
+			getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo'),
 		);
 		if (pair) {
 			const light = `${origin}/api/design-asset/${pair.light.id}`;
@@ -41,10 +41,10 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 				'Content-Type': 'text/html; charset=utf-8',
 				...(download
 					? {
-							'Content-Disposition': `attachment; filename="${filename}"`
+							'Content-Disposition': `attachment; filename="${filename}"`,
 						}
-					: { 'Cache-Control': 'no-store' })
-			}
+					: { 'Cache-Control': 'no-store' }),
+			},
 		});
 	} catch (e) {
 		if (e && typeof e === 'object' && 'status' in e) throw e;

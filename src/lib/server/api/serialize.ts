@@ -11,6 +11,6 @@ export function serializeEmail(email: Email) {
 		to: parseJsonArray(email.to),
 		cc: parseJsonArray(email.cc),
 		bcc: parseJsonArray(email.bcc),
-		replyTo: parseJsonArray(email.replyTo)
+		replyTo: parseJsonArray(email.replyTo),
 	};
 }

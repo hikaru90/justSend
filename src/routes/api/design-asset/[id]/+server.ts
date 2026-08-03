@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ params }) => {
 			'Content-Type': asset.mime,
 			'Content-Length': String(asset.size),
 			'Cache-Control': 'public, max-age=86400',
-			'Content-Disposition': `inline; filename="${asset.filename.replace(/"/g, '')}"`
-		}
+			'Content-Disposition': `inline; filename="${asset.filename.replace(/"/g, '')}"`,
+		},
 	});
 };

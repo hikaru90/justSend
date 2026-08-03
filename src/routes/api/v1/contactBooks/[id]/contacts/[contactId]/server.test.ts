@@ -3,7 +3,7 @@ import { resetDb } from '../../../../../../../tests/helpers/db';
 import {
 	createTeamWithApiKey,
 	createContactBook,
-	createContact
+	createContact,
 } from '../../../../../../../tests/helpers/factories';
 import { buildApiEvent, bearer, invokeHandler } from '../../../../../../../tests/helpers/api';
 import { GET, PATCH, PUT, DELETE } from './+server';
@@ -20,7 +20,7 @@ describe('GET /api/v1/contactBooks/[id]/contacts/[contactId]', () => {
 			method: 'GET',
 			path: `/api/v1/contactBooks/${book.id}/contacts/${contact.id}`,
 			params: { id: book.id, contactId: contact.id },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -42,7 +42,7 @@ describe('PATCH /api/v1/contactBooks/[id]/contacts/[contactId]', () => {
 			path: `/api/v1/contactBooks/${book.id}/contacts/${contact.id}`,
 			params: { id: book.id, contactId: contact.id },
 			body: { firstName: 'Updated' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(PATCH, event);
 
@@ -63,7 +63,7 @@ describe('PUT /api/v1/contactBooks/[id]/contacts/[contactId]', () => {
 			path: `/api/v1/contactBooks/${book.id}/contacts/ignored`,
 			params: { id: book.id, contactId: 'ignored' },
 			body: { email: 'put@example.com', firstName: 'Put' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(PUT, event);
 
@@ -84,7 +84,7 @@ describe('DELETE /api/v1/contactBooks/[id]/contacts/[contactId]', () => {
 			method: 'DELETE',
 			path: `/api/v1/contactBooks/${book.id}/contacts/${contact.id}`,
 			params: { id: book.id, contactId: contact.id },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(DELETE, event);
 

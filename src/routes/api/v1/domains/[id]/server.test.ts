@@ -10,8 +10,8 @@ vi.mock('$lib/server/aws/ses', () => ({
 	getDomainIdentity: vi.fn(async () => ({
 		VerificationStatus: 'SUCCESS',
 		DkimAttributes: { Status: 'SUCCESS', Tokens: [] },
-		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' }
-	}))
+		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' },
+	})),
 }));
 
 describe('GET /api/v1/domains/[id]', () => {
@@ -24,7 +24,7 @@ describe('GET /api/v1/domains/[id]', () => {
 			method: 'GET',
 			path: `/api/v1/domains/${domain.id}`,
 			params: { id: String(domain.id) },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -47,7 +47,7 @@ describe('DELETE /api/v1/domains/[id]', () => {
 			method: 'DELETE',
 			path: `/api/v1/domains/${domain.id}`,
 			params: { id: String(domain.id) },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(DELETE, event);
 

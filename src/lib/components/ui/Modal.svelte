@@ -9,7 +9,7 @@
 		description,
 		class: className = '',
 		children,
-		onClose
+		onClose,
 	}: {
 		open?: boolean;
 		title?: string;
@@ -38,7 +38,7 @@
 		}}
 		class={cn(
 			'fixed inset-0 m-auto max-h-[min(90vh,900px)] w-[calc(100%-2rem)] max-w-none overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-0 text-[hsl(var(--card-foreground))] shadow-lg open:flex open:flex-col',
-			className
+			className,
 		)}
 		onclose={requestClose}
 		onclick={onDialogClick}
@@ -51,7 +51,7 @@
 			>
 				<div class="min-w-0 space-y-1">
 					{#if title}
-						<h2 id="modal-title" class="text-lg font-semibold leading-none tracking-tight">
+						<h2 id="modal-title" class="text-lg leading-none font-semibold tracking-tight">
 							{title}
 						</h2>
 					{/if}

@@ -143,9 +143,7 @@ function renderImage(block: TEditorBlock): string {
 			? `<a href="${escapeAttr(props.linkHref)}" target="_blank" rel="noopener" style="text-decoration:none;border:0;">${img}</a>`
 			: img;
 	// No background-color unless the block style explicitly sets one.
-	const bg = style.backgroundColor
-		? `background-color:${escapeAttr(style.backgroundColor)};`
-		: '';
+	const bg = style.backgroundColor ? `background-color:${escapeAttr(style.backgroundColor)};` : '';
 	return `<div style="${paddingCss(style.padding)}${bg}text-align:${align};">${linked}</div>`;
 }
 
@@ -182,8 +180,7 @@ function renderContainer(document: TEditorConfiguration, block: TEditorBlock): s
 
 	const pad = paddingCss(style.padding);
 	const border = style.borderColor ? `border:1px solid ${escapeAttr(style.borderColor)};` : '';
-	const radius =
-		style.borderRadius != null ? `border-radius:${style.borderRadius}px;` : '';
+	const radius = style.borderRadius != null ? `border-radius:${style.borderRadius}px;` : '';
 	const textAlign = style.textAlign ? `text-align:${style.textAlign};` : '';
 	const valign =
 		style.contentAlignment === 'middle'
@@ -246,8 +243,7 @@ function renderColumns(document: TEditorConfiguration, block: TEditorBlock): str
 				: 'top';
 	const bg = style.backgroundColor ? `background-color:${escapeAttr(style.backgroundColor)};` : '';
 	const border = style.borderColor ? `border:1px solid ${escapeAttr(style.borderColor)};` : '';
-	const radius =
-		style.borderRadius != null ? `border-radius:${style.borderRadius}px;` : '';
+	const radius = style.borderRadius != null ? `border-radius:${style.borderRadius}px;` : '';
 	const count = Math.max(cols.length, 1);
 	const widthPct = Math.floor(100 / count);
 	const cells = cols

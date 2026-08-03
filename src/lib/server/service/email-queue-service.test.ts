@@ -6,14 +6,14 @@ import {
 	createDomain,
 	createEmail,
 	createSesSetting,
-	createDailyUsage
+	createDailyUsage,
 } from '../../../tests/helpers/factories';
 import { emails, emailEvents, queueJobs } from '$lib/server/db/schema';
 import { transactionalQueueName } from '../queue/constants';
 import { executeEmail, queueEmail } from './email-queue-service';
 
 vi.mock('$lib/server/aws/ses', () => ({
-	sendRawEmail: vi.fn(async () => 'ses-message-id-123')
+	sendRawEmail: vi.fn(async () => 'ses-message-id-123'),
 }));
 
 beforeEach(() => {
@@ -28,12 +28,12 @@ describe('email-queue-service', () => {
 		const domain = createDomain(team.id, {
 			name: 'mail.example.com',
 			region: 'us-east-1',
-			status: 'SUCCESS'
+			status: 'SUCCESS',
 		});
 		const email = createEmail(team.id, {
 			from: `noreply@${domain.name}`,
 			domainId: domain.id,
-			latestStatus: 'QUEUED'
+			latestStatus: 'QUEUED',
 		});
 		return { team, domain, email };
 	}
@@ -60,7 +60,7 @@ describe('email-queue-service', () => {
 			await executeEmail({
 				emailId: email.id,
 				teamId: team.id,
-				timestamp: Date.now()
+				timestamp: Date.now(),
 			});
 
 			const updated = db.select().from(emails).where(eq(emails.id, email.id)).get();
@@ -76,13 +76,13 @@ describe('email-queue-service', () => {
 
 			createDailyUsage(team.id, domain.id, {
 				date: new Date().toISOString().slice(0, 10),
-				sent: 5
+				sent: 5,
 			});
 
 			await executeEmail({
 				emailId: email.id,
 				teamId: team.id,
-				timestamp: Date.now()
+				timestamp: Date.now(),
 			});
 
 			const updated = db.select().from(emails).where(eq(emails.id, email.id)).get();
@@ -101,7 +101,7 @@ describe('email-queue-service', () => {
 			await executeEmail({
 				emailId: email.id,
 				teamId: team.id,
-				timestamp: Date.now()
+				timestamp: Date.now(),
 			});
 
 			const updated = db.select().from(emails).where(eq(emails.id, email.id)).get();

@@ -11,7 +11,7 @@ import {
 	templateComponents,
 	templateElements,
 	templates,
-	type DesignAssetKind
+	type DesignAssetKind,
 } from '../db/schema';
 import { createZip, readZip } from './parts-zip';
 
@@ -42,30 +42,33 @@ export const DB_PARTS: readonly DbPartDef[] = [
 		id: 'ses',
 		label: 'SES settings',
 		scope: 'global',
-		tables: ['ses_settings']
+		tables: ['ses_settings'],
 	},
 	{
 		id: 'domains',
 		label: 'Domains',
 		scope: 'team',
-		tables: ['domains']
+		tables: ['domains'],
 	},
 	{
 		id: 'templates',
 		label: 'Templates',
 		scope: 'team',
-		tables: ['templates', 'template_elements', 'template_components']
+		tables: ['templates', 'template_elements', 'template_components'],
 	},
 	{
 		id: 'design',
 		label: 'Design system',
 		scope: 'team',
 		tables: ['design_systems', 'design_assets', 'design_components'],
-		needsAssets: true
-	}
+		needsAssets: true,
+	},
 ] as const;
 
-const PART_BY_ID = Object.fromEntries(DB_PARTS.map((p) => [p.id, p])) as Record<DbPartId, DbPartDef>;
+const PART_BY_ID = Object.fromEntries(DB_PARTS.map((p) => [p.id, p])) as Record<
+	DbPartId,
+	DbPartDef
+>;
 
 export const PARTS_PACK_VERSION = 1;
 
@@ -122,7 +125,11 @@ function utf8(data: unknown): Uint8Array {
 function buildDomainMap(teamId?: number): Record<string, string> {
 	const rows =
 		teamId !== undefined
-			? db.select({ id: domains.id, name: domains.name }).from(domains).where(eq(domains.teamId, teamId)).all()
+			? db
+					.select({ id: domains.id, name: domains.name })
+					.from(domains)
+					.where(eq(domains.teamId, teamId))
+					.all()
 			: db.select({ id: domains.id, name: domains.name }).from(domains).all();
 	const map: Record<string, string> = {};
 	for (const r of rows) map[String(r.id)] = r.name;
@@ -139,7 +146,7 @@ function parseJsonArray(buf: Buffer | undefined, label: string): Record<string, 
 function remapDomainId(
 	sourceId: unknown,
 	domainMap: Record<string, string>,
-	nameToId: Map<string, number>
+	nameToId: Map<string, number>,
 ): number | null {
 	if (sourceId === null || sourceId === undefined) return null;
 	const name = domainMap[String(sourceId)];
@@ -147,7 +154,11 @@ function remapDomainId(
 	return nameToId.get(name) ?? null;
 }
 
-function findAssetBytes(files: Map<string, Buffer>, assetId: string, filename: string): Buffer | undefined {
+function findAssetBytes(
+	files: Map<string, Buffer>,
+	assetId: string,
+	filename: string,
+): Buffer | undefined {
 	const exact = files.get(`assets/${assetId}/${filename}`);
 	if (exact) return exact;
 	for (const [path, data] of files) {
@@ -172,19 +183,22 @@ export async function exportDbParts(input: {
 		exportedAt: new Date().toISOString(),
 		sourceTeamId: teamId,
 		parts,
-		domainMap: buildDomainMap(teamId)
+		domainMap: buildDomainMap(teamId),
 	};
 	entries.push({ path: 'manifest.json', data: utf8(manifest) });
 
 	if (parts.includes('ses')) {
-		entries.push({ path: 'tables/ses_settings.json', data: utf8(db.select().from(sesSettings).all()) });
+		entries.push({
+			path: 'tables/ses_settings.json',
+			data: utf8(db.select().from(sesSettings).all()),
+		});
 	}
 
 	if (parts.includes('domains')) {
 		assertTeamId(teamId);
 		entries.push({
 			path: 'tables/domains.json',
-			data: utf8(db.select().from(domains).where(eq(domains.teamId, teamId)).all())
+			data: utf8(db.select().from(domains).where(eq(domains.teamId, teamId)).all()),
 		});
 	}
 
@@ -195,7 +209,11 @@ export async function exportDbParts(input: {
 		const elements =
 			tplIds.length === 0
 				? []
-				: db.select().from(templateElements).where(inArray(templateElements.templateId, tplIds)).all();
+				: db
+						.select()
+						.from(templateElements)
+						.where(inArray(templateElements.templateId, tplIds))
+						.all();
 		const comps =
 			tplIds.length === 0
 				? []
@@ -228,7 +246,7 @@ export async function exportDbParts(input: {
 				const bytes = await readFile(disk);
 				entries.push({
 					path: `assets/${asset.id}/${asset.filename}`,
-					data: new Uint8Array(bytes)
+					data: new Uint8Array(bytes),
 				});
 			} catch {
 				// Missing on-disk file — row still exported; import will warn.
@@ -254,7 +272,9 @@ export async function importDbParts(input: {
 
 	const manifest = JSON.parse(manifestBuf.toString('utf8')) as PartsManifest;
 	if (manifest.version !== PARTS_PACK_VERSION) {
-		throw new Error(`Unsupported pack version ${manifest.version} (expected ${PARTS_PACK_VERSION})`);
+		throw new Error(
+			`Unsupported pack version ${manifest.version} (expected ${PARTS_PACK_VERSION})`,
+		);
 	}
 
 	const warnings: string[] = [];
@@ -304,7 +324,7 @@ export async function importDbParts(input: {
 						configFullSuccess: Boolean(row.configFullSuccess),
 						sesEmailRateLimit: Number(row.sesEmailRateLimit ?? 1),
 						createdAt: row.createdAt ? String(row.createdAt) : undefined,
-						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
 			}
@@ -332,7 +352,7 @@ export async function importDbParts(input: {
 					subdomain: (row.subdomain as string | null) ?? null,
 					sesTenantId: (row.sesTenantId as string | null) ?? null,
 					isVerifying: Boolean(row.isVerifying),
-					updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+					updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 				};
 				if (existing) {
 					db.update(domains).set(values).where(eq(domains.id, existing.id)).run();
@@ -341,7 +361,7 @@ export async function importDbParts(input: {
 						.values({
 							name,
 							...values,
-							createdAt: row.createdAt ? String(row.createdAt) : undefined
+							createdAt: row.createdAt ? String(row.createdAt) : undefined,
 						})
 						.run();
 				}
@@ -354,26 +374,29 @@ export async function importDbParts(input: {
 				.select({ id: domains.id, name: domains.name })
 				.from(domains)
 				.all()
-				.map((d) => [d.name, d.id] as const)
+				.map((d) => [d.name, d.id] as const),
 		);
 
 		if (toImport.includes('design')) {
 			assertTeamId(teamId);
 			const systems = parseJsonArray(files.get('tables/design_systems.json'), 'design_systems');
 			const assets = parseJsonArray(files.get('tables/design_assets.json'), 'design_assets');
-			const components = parseJsonArray(files.get('tables/design_components.json'), 'design_components');
+			const components = parseJsonArray(
+				files.get('tables/design_components.json'),
+				'design_components',
+			);
 
 			rawDb
 				.prepare(
 					`UPDATE template_components SET design_component_id = NULL
-           WHERE template_id IN (SELECT id FROM templates WHERE team_id = ?)`
+           WHERE template_id IN (SELECT id FROM templates WHERE team_id = ?)`,
 				)
 				.run(teamId);
 			if (components.length) {
 				rawDb
 					.prepare(
 						`UPDATE template_components SET design_component_id = NULL
-             WHERE design_component_id IN (${components.map(() => '?').join(',')})`
+             WHERE design_component_id IN (${components.map(() => '?').join(',')})`,
 					)
 					.run(...components.map((r) => String(r.id)));
 			}
@@ -385,7 +408,7 @@ export async function importDbParts(input: {
 			if (componentIds.length) {
 				rawDb
 					.prepare(
-						`DELETE FROM design_components WHERE team_id = ? OR id IN (${componentIds.map(() => '?').join(',')})`
+						`DELETE FROM design_components WHERE team_id = ? OR id IN (${componentIds.map(() => '?').join(',')})`,
 					)
 					.run(teamId, ...componentIds);
 			} else {
@@ -394,7 +417,7 @@ export async function importDbParts(input: {
 			if (assetIds.length) {
 				rawDb
 					.prepare(
-						`DELETE FROM design_assets WHERE team_id = ? OR id IN (${assetIds.map(() => '?').join(',')})`
+						`DELETE FROM design_assets WHERE team_id = ? OR id IN (${assetIds.map(() => '?').join(',')})`,
 					)
 					.run(teamId, ...assetIds);
 			} else {
@@ -403,7 +426,7 @@ export async function importDbParts(input: {
 			if (systemIds.length) {
 				rawDb
 					.prepare(
-						`DELETE FROM design_systems WHERE team_id = ? OR id IN (${systemIds.map(() => '?').join(',')})`
+						`DELETE FROM design_systems WHERE team_id = ? OR id IN (${systemIds.map(() => '?').join(',')})`,
 					)
 					.run(teamId, ...systemIds);
 			} else {
@@ -417,7 +440,7 @@ export async function importDbParts(input: {
 						teamId,
 						designMd: (row.designMd as string | null) ?? null,
 						createdAt: row.createdAt ? String(row.createdAt) : undefined,
-						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
 			}
@@ -430,7 +453,7 @@ export async function importDbParts(input: {
 				if (bytes) {
 					pendingAssetWrites.push({
 						disk: assetDiskPath(teamId, kind, id, filename),
-						bytes
+						bytes,
 					});
 				} else {
 					warnings.push(`Missing asset file for ${id}/${filename}`);
@@ -445,7 +468,7 @@ export async function importDbParts(input: {
 						mime: String(row.mime),
 						size: Number(row.size ?? 0),
 						createdAt: row.createdAt ? String(row.createdAt) : undefined,
-						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
 			}
@@ -465,7 +488,7 @@ export async function importDbParts(input: {
 						document: String(row.document ?? ''),
 						slots: String(row.slots ?? '[]'),
 						createdAt: row.createdAt ? String(row.createdAt) : undefined,
-						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
 			}
@@ -473,24 +496,27 @@ export async function importDbParts(input: {
 			imported.design = {
 				design_systems: systems.length,
 				design_assets: assets.length,
-				design_components: components.length
+				design_components: components.length,
 			};
 		}
 
 		if (toImport.includes('templates')) {
 			assertTeamId(teamId);
 			const tpl = parseJsonArray(files.get('tables/templates.json'), 'templates');
-			const elements = parseJsonArray(files.get('tables/template_elements.json'), 'template_elements');
+			const elements = parseJsonArray(
+				files.get('tables/template_elements.json'),
+				'template_elements',
+			);
 			const comps = parseJsonArray(
 				files.get('tables/template_components.json'),
-				'template_components'
+				'template_components',
 			);
 
 			const tplIds = tpl.map((r) => String(r.id));
 			if (tplIds.length) {
 				rawDb
 					.prepare(
-						`DELETE FROM templates WHERE team_id = ? OR id IN (${tplIds.map(() => '?').join(',')})`
+						`DELETE FROM templates WHERE team_id = ? OR id IN (${tplIds.map(() => '?').join(',')})`,
 					)
 					.run(teamId, ...tplIds);
 			} else {
@@ -503,7 +529,7 @@ export async function importDbParts(input: {
 					.from(designComponents)
 					.where(eq(designComponents.teamId, teamId))
 					.all()
-					.map((r) => r.id)
+					.map((r) => r.id),
 			);
 
 			for (const row of tpl) {
@@ -520,7 +546,7 @@ export async function importDbParts(input: {
 						designSnapshot: (row.designSnapshot as string | null) ?? null,
 						tags: String(row.tags ?? '[]'),
 						createdAt: row.createdAt ? String(row.createdAt) : undefined,
-						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
 			}
@@ -536,7 +562,7 @@ export async function importDbParts(input: {
 						config: String(row.config ?? '{}'),
 						order: Number(row.order ?? 0),
 						createdAt: row.createdAt ? String(row.createdAt) : undefined,
-						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
 			}
@@ -548,7 +574,7 @@ export async function importDbParts(input: {
 						: null;
 				if (row.designComponentId && !designComponentId) {
 					warnings.push(
-						`template_component ${row.id}: design_component_id not found on target — set null`
+						`template_component ${row.id}: design_component_id not found on target — set null`,
 					);
 				}
 				db.insert(templateComponents)
@@ -564,7 +590,7 @@ export async function importDbParts(input: {
 						source: String(row.source ?? ''),
 						order: Number(row.order ?? 0),
 						createdAt: row.createdAt ? String(row.createdAt) : undefined,
-						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined
+						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
 			}
@@ -572,7 +598,7 @@ export async function importDbParts(input: {
 			imported.templates = {
 				templates: tpl.length,
 				template_elements: elements.length,
-				template_components: comps.length
+				template_components: comps.length,
 			};
 		}
 	})();

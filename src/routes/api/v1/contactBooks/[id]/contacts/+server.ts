@@ -13,7 +13,7 @@ const contactSchema = z.object({
 	firstName: z.string().optional(),
 	lastName: z.string().optional(),
 	properties: z.record(z.string(), z.unknown()).optional(),
-	subscribed: z.boolean().optional()
+	subscribed: z.boolean().optional(),
 });
 
 function serializeContact(contact: {
@@ -29,7 +29,7 @@ function serializeContact(contact: {
 }) {
 	return {
 		...contact,
-		properties: parseJsonObject(contact.properties)
+		properties: parseJsonObject(contact.properties),
 	};
 }
 
@@ -53,12 +53,12 @@ export const GET: RequestHandler = async ({ request, params, url }) => {
 		search,
 		subscribed,
 		limit: limit ? Number(limit) : undefined,
-		cursor
+		cursor,
 	});
 
 	return json({
 		data: result.items.map(serializeContact),
-		nextCursor: result.nextCursor
+		nextCursor: result.nextCursor,
 	});
 };
 

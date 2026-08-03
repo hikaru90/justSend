@@ -6,7 +6,7 @@ import {
 	getTemplate,
 	createTemplate,
 	updateTemplate,
-	deleteTemplate
+	deleteTemplate,
 } from './template-service';
 import { db } from '../db';
 import { templates } from '../db/schema';
@@ -22,7 +22,7 @@ describe('template-service', () => {
 			teamId: team.id,
 			name: 'Welcome',
 			subject: 'Hello {{name}}',
-			html: '<p>Hi {{name}}</p>'
+			html: '<p>Hi {{name}}</p>',
 		});
 
 		expect(template.teamId).toBe(team.id);
@@ -49,7 +49,7 @@ describe('template-service', () => {
 		const created = createTemplate({
 			teamId: team.id,
 			name: 'Fetch Me',
-			subject: 'Subject'
+			subject: 'Subject',
 		});
 
 		const fetched = getTemplate(created.id, team.id);
@@ -73,13 +73,13 @@ describe('template-service', () => {
 			teamId: team.id,
 			name: 'Old',
 			subject: 'Old Subject',
-			html: '<p>Old</p>'
+			html: '<p>Old</p>',
 		});
 
 		const updated = updateTemplate(created.id, team.id, {
 			name: 'New',
 			subject: 'New Subject',
-			html: '<p>New</p>'
+			html: '<p>New</p>',
 		});
 
 		expect(updated.name).toBe('New');
@@ -92,11 +92,11 @@ describe('template-service', () => {
 		const created = createTemplate({
 			teamId: team.id,
 			name: 'Tagged',
-			subject: 'Subject'
+			subject: 'Subject',
 		});
 
 		const updated = updateTemplate(created.id, team.id, {
-			tags: [' Welcome ', 'welcome', 'Onboarding', '']
+			tags: [' Welcome ', 'welcome', 'Onboarding', ''],
 		});
 
 		expect(updated.tags).toBe(JSON.stringify(['welcome', 'onboarding']));
@@ -109,7 +109,7 @@ describe('template-service', () => {
 		const created = createTemplate({
 			teamId: team.id,
 			name: 'Delete Me',
-			subject: 'Bye'
+			subject: 'Bye',
 		});
 
 		const deleted = deleteTemplate(created.id, team.id);

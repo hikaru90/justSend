@@ -3,10 +3,7 @@ import { pathToFileURL } from 'node:url';
 import * as esbuild from 'esbuild';
 import { compile, parse } from 'svelte/compiler';
 import type { Component } from 'svelte';
-import {
-	listComponentsByTemplateId,
-	type TemplateComponent
-} from './template-component-service';
+import { listComponentsByTemplateId, type TemplateComponent } from './template-component-service';
 
 export type CompileTarget = 'server' | 'client';
 
@@ -28,7 +25,7 @@ export type LinkedBundle = {
 export class TemplateCompileError extends Error {
 	constructor(
 		message: string,
-		public readonly componentName?: string
+		public readonly componentName?: string,
 	) {
 		super(message);
 		this.name = 'TemplateCompileError';
@@ -36,7 +33,10 @@ export class TemplateCompileError extends Error {
 }
 
 const CACHE_LIMIT = 64;
-const compileCache = new Map<string, { js: string; css: string; warnings: CompiledComponentMap['warnings'] }>();
+const compileCache = new Map<
+	string,
+	{ js: string; css: string; warnings: CompiledComponentMap['warnings'] }
+>();
 
 /** Identifiers that may appear in markup expressions without being props. */
 const TEMPLATE_GLOBALS = new Set([
@@ -54,7 +54,7 @@ const TEMPLATE_GLOBALS = new Set([
 	'Object',
 	'JSON',
 	'Date',
-	'console'
+	'console',
 ]);
 
 function hashSource(source: string, generate: CompileTarget): string {
@@ -140,7 +140,7 @@ export function healMissingPropBindings(source: string): string {
 					propsPattern = {
 						start: objectPattern.start ?? 0,
 						end: objectPattern.end ?? 0,
-						names
+						names,
 					};
 				}
 			}
@@ -152,7 +152,8 @@ export function healMissingPropBindings(source: string): string {
 	const fragment = (ast as { fragment?: unknown }).fragment ?? (ast as { html?: unknown }).html;
 	walkAst(fragment, (node) => {
 		if (node.type === 'LetDirective' || node.type === 'BindDirective') {
-			const name = (node.name as string | undefined) ?? (node.id as { name?: string } | undefined)?.name;
+			const name =
+				(node.name as string | undefined) ?? (node.id as { name?: string } | undefined)?.name;
 			if (typeof name === 'string') blockBound.add(name);
 		}
 		if (node.type === 'EachBlock') {
@@ -245,7 +246,7 @@ export function findTopLevelScripts(source: string): TopLevelScriptMatch[] {
 			end: m.index + m[0].length,
 			attrs,
 			body: m[2] ?? '',
-			isModule: /\bmodule\b/i.test(attrs)
+			isModule: /\bmodule\b/i.test(attrs),
 		});
 	}
 	return matches;
@@ -275,7 +276,7 @@ export function healDuplicateScripts(source: string): string {
 		edits.push({
 			start: first.start,
 			end: first.end,
-			text: `<script${first.attrs}>\n${mergedBody}\n</script>`
+			text: `<script${first.attrs}>\n${mergedBody}\n</script>`,
 		});
 		for (const extra of group.slice(1)) {
 			let end = extra.end;
@@ -300,7 +301,8 @@ export function healDuplicateScripts(source: string): string {
 
 function isWhitespaceTextNode(node: Record<string, unknown>): boolean {
 	if (node.type !== 'Text') return false;
-	const data = typeof node.data === 'string' ? node.data : typeof node.raw === 'string' ? node.raw : '';
+	const data =
+		typeof node.data === 'string' ? node.data : typeof node.raw === 'string' ? node.raw : '';
 	return /^\s*$/.test(data);
 }
 
@@ -441,7 +443,7 @@ function cacheGet(key: string) {
 
 function cacheSet(
 	key: string,
-	value: { js: string; css: string; warnings: CompiledComponentMap['warnings'] }
+	value: { js: string; css: string; warnings: CompiledComponentMap['warnings'] },
 ) {
 	compileCache.set(key, value);
 	while (compileCache.size > CACHE_LIMIT) {
@@ -468,7 +470,7 @@ export function assertSafeEmailComponentSource(source: string, componentName = '
 	if (ast.module) {
 		throw new TemplateCompileError(
 			`${componentName}: <script module> is not allowed in email components`,
-			componentName
+			componentName,
 		);
 	}
 
@@ -479,15 +481,12 @@ export function assertSafeEmailComponentSource(source: string, componentName = '
 		if (stmt.type === 'ImportDeclaration') {
 			const src = stmt.source.value;
 			if (typeof src !== 'string') {
-				throw new TemplateCompileError(
-					`${componentName}: invalid import source`,
-					componentName
-				);
+				throw new TemplateCompileError(`${componentName}: invalid import source`, componentName);
 			}
 			if (!src.startsWith('./') || !src.endsWith('.svelte')) {
 				throw new TemplateCompileError(
 					`${componentName}: only relative .svelte imports are allowed (got "${src}")`,
-					componentName
+					componentName,
 				);
 			}
 			continue;
@@ -498,26 +497,26 @@ export function assertSafeEmailComponentSource(source: string, componentName = '
 				if (!decl.init || decl.init.type !== 'CallExpression') {
 					throw new TemplateCompileError(
 						`${componentName}: only \`let { … } = $props()\` is allowed in <script>`,
-						componentName
+						componentName,
 					);
 				}
 				const callee = decl.init.callee;
 				if (callee.type !== 'Identifier' || callee.name !== '$props') {
 					throw new TemplateCompileError(
 						`${componentName}: only \`let { … } = $props()\` is allowed in <script>`,
-						componentName
+						componentName,
 					);
 				}
 				if (decl.init.arguments.length > 0) {
 					throw new TemplateCompileError(
 						`${componentName}: $props() must be called with no arguments`,
-						componentName
+						componentName,
 					);
 				}
 				if (decl.id.type !== 'ObjectPattern') {
 					throw new TemplateCompileError(
 						`${componentName}: $props() must be destructured`,
-						componentName
+						componentName,
 					);
 				}
 			}
@@ -526,7 +525,7 @@ export function assertSafeEmailComponentSource(source: string, componentName = '
 
 		throw new TemplateCompileError(
 			`${componentName}: disallowed statement in <script> (only imports and $props() allowed)`,
-			componentName
+			componentName,
 		);
 	}
 }
@@ -534,7 +533,7 @@ export function assertSafeEmailComponentSource(source: string, componentName = '
 export function compileOneComponent(
 	name: string,
 	source: string,
-	generate: CompileTarget
+	generate: CompileTarget,
 ): { js: string; css: string; warnings: CompiledComponentMap['warnings'] } {
 	const healed = healMissingPropBindings(healTableRowPlacement(healDuplicateScripts(source)));
 	assertSafeEmailComponentSource(healed, name);
@@ -549,19 +548,19 @@ export function compileOneComponent(
 		generate,
 		css: 'injected',
 		dev: false,
-		preserveWhitespace: true
+		preserveWhitespace: true,
 	});
 
 	const warnings = result.warnings.map((w) => ({
 		name,
 		message: w.message,
-		code: w.code
+		code: w.code,
 	}));
 
 	const entry = {
 		js: result.js.code,
 		css: result.css?.code ?? '',
-		warnings
+		warnings,
 	};
 	cacheSet(key, entry);
 	return entry;
@@ -569,7 +568,7 @@ export function compileOneComponent(
 
 export function compileComponentSources(
 	components: Array<{ name: string; source: string; kind?: string }>,
-	generate: CompileTarget = 'server'
+	generate: CompileTarget = 'server',
 ): CompiledComponentMap {
 	const root =
 		components.find((c) => c.kind === 'root') ??
@@ -607,7 +606,7 @@ function componentNameFromImport(path: string): string {
  */
 export async function linkCompiledComponents(
 	compiled: CompiledComponentMap,
-	generate: CompileTarget = 'server'
+	generate: CompileTarget = 'server',
 ): Promise<LinkedBundle> {
 	const virtualFiles = new Map<string, string>();
 	for (const [name, js] of Object.entries(compiled.jsByName)) {
@@ -618,7 +617,9 @@ export async function linkCompiledComponents(
 
 	const rootEntry = `${compiled.rootName}.svelte`;
 	if (!virtualFiles.has(rootEntry)) {
-		throw new TemplateCompileError(`Root component "${compiled.rootName}" missing from compile map`);
+		throw new TemplateCompileError(
+			`Root component "${compiled.rootName}" missing from compile map`,
+		);
 	}
 
 	const result = await esbuild.build({
@@ -626,7 +627,7 @@ export async function linkCompiledComponents(
 			contents: virtualFiles.get(rootEntry)!,
 			sourcefile: rootEntry,
 			loader: 'js',
-			resolveDir: '/'
+			resolveDir: '/',
 		},
 		bundle: true,
 		write: false,
@@ -655,20 +656,18 @@ export async function linkCompiledComponents(
 						const js = compiled.jsByName[args.path];
 						if (!js) {
 							return {
-								errors: [{ text: `Unknown component "${args.path}"` }]
+								errors: [{ text: `Unknown component "${args.path}"` }],
 							};
 						}
 						return { contents: js, loader: 'js' };
 					});
-				}
-			}
-		]
+				},
+			},
+		],
 	});
 
 	if (result.errors.length > 0) {
-		throw new TemplateCompileError(
-			`Bundle failed: ${result.errors.map((e) => e.text).join('; ')}`
-		);
+		throw new TemplateCompileError(`Bundle failed: ${result.errors.map((e) => e.text).join('; ')}`);
 	}
 
 	const code = result.outputFiles?.[0]?.text;
@@ -679,14 +678,18 @@ export async function linkCompiledComponents(
 	return {
 		rootName: compiled.rootName,
 		code,
-		css: ''
+		css: '',
 	};
 }
 
 export async function compileTemplateComponents(
 	templateId: string,
-	generate: CompileTarget = 'server'
-): Promise<{ compiled: CompiledComponentMap; linked: LinkedBundle; components: TemplateComponent[] }> {
+	generate: CompileTarget = 'server',
+): Promise<{
+	compiled: CompiledComponentMap;
+	linked: LinkedBundle;
+	components: TemplateComponent[];
+}> {
 	const components = listComponentsByTemplateId(templateId);
 	if (components.length === 0) {
 		throw new TemplateCompileError('Template has no Svelte components — regenerate it');
@@ -725,7 +728,7 @@ async function rewriteSvelteImportsToFileUrls(code: string): Promise<string> {
 			} catch {
 				return `${pre}${spec}${post}`;
 			}
-		}
+		},
 	);
 }
 

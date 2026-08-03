@@ -14,7 +14,7 @@ export type IdempotencyRecord<T = Record<string, unknown>> = {
  */
 export function getIdempotencyKey<T = Record<string, unknown>>(
 	teamId: number,
-	key: string
+	key: string,
 ): IdempotencyRecord<T> | null {
 	const row = db
 		.select()
@@ -28,7 +28,7 @@ export function getIdempotencyKey<T = Record<string, unknown>>(
 
 	return {
 		response: parseJsonObject<Record<string, unknown>>(row.response) as T,
-		createdAt: row.createdAt
+		createdAt: row.createdAt,
 	};
 }
 
@@ -43,10 +43,10 @@ export function setIdempotencyKey(teamId: number, key: string, response: unknown
 			teamId,
 			key,
 			response: JSON.stringify(response ?? {}),
-			createdAt: nowIso()
+			createdAt: nowIso(),
 		})
 		.onConflictDoNothing({
-			target: [idempotencyKeys.teamId, idempotencyKeys.key]
+			target: [idempotencyKeys.teamId, idempotencyKeys.key],
 		})
 		.run();
 }

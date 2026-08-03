@@ -8,7 +8,7 @@ export const DomainEvents = [
 	'domain.created',
 	'domain.verified',
 	'domain.updated',
-	'domain.deleted'
+	'domain.deleted',
 ] as const;
 
 export type DomainWebhookEventType = (typeof DomainEvents)[number];
@@ -26,7 +26,7 @@ export const EmailEvents = [
 	'email.cancelled',
 	'email.suppressed',
 	'email.opened',
-	'email.clicked'
+	'email.clicked',
 ] as const;
 
 export type EmailWebhookEventType = (typeof EmailEvents)[number];
@@ -39,7 +39,7 @@ export const WebhookEvents = [
 	...ContactEvents,
 	...DomainEvents,
 	...EmailEvents,
-	...WebhookTestEvents
+	...WebhookTestEvents,
 ] as const;
 
 export type WebhookEventType = (typeof WebhookEvents)[number];

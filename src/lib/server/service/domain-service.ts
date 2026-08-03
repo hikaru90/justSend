@@ -7,10 +7,7 @@ import * as ses from '../aws/ses';
 import { getSetting } from './ses-settings-service';
 import { checkDomainLimit } from './limit-service';
 import * as webhookService from './webhook-service';
-import {
-	type DomainPayload,
-	type DomainWebhookEventType
-} from '../webhook-events';
+import { type DomainPayload, type DomainWebhookEventType } from '../webhook-events';
 
 export type Domain = typeof domains.$inferSelect;
 
@@ -53,21 +50,21 @@ export function getDnsRecords(domain: Domain): DomainDnsRecord[] {
 			value: `feedback-smtp.${domain.region}.amazonses.com`,
 			ttl: 'Auto',
 			priority: '10',
-			status: spfStatus
+			status: spfStatus,
 		},
 		{
 			type: 'TXT',
 			name: `${dkimSelector}._domainkey${subdomainSuffix}`,
 			value: `p=${domain.publicKey}`,
 			ttl: 'Auto',
-			status: dkimStatus
+			status: dkimStatus,
 		},
 		{
 			type: 'TXT',
 			name: mailDomain,
 			value: 'v=spf1 include:amazonses.com ~all',
 			ttl: 'Auto',
-			status: spfStatus
+			status: spfStatus,
 		},
 		{
 			type: 'TXT',
@@ -75,8 +72,8 @@ export function getDnsRecords(domain: Domain): DomainDnsRecord[] {
 			value: 'v=DMARC1; p=none;',
 			ttl: 'Auto',
 			status: dmarcStatus,
-			recommended: true
-		}
+			recommended: true,
+		},
 	];
 }
 
@@ -98,20 +95,20 @@ function buildDomainPayload(domain: Domain): DomainPayload {
 		sesTenantId: domain.sesTenantId,
 		dkimStatus: domain.dkimStatus,
 		spfDetails: domain.spfDetails,
-		dmarcAdded: domain.dmarcAdded
+		dmarcAdded: domain.dmarcAdded,
 	};
 }
 
 async function emitDomainEvent(domain: Domain, type: DomainWebhookEventType): Promise<void> {
 	try {
 		await webhookService.emit(domain.teamId, type, buildDomainPayload(domain), {
-			domainId: domain.id
+			domainId: domain.id,
 		});
 	} catch (error) {
 		console.error('[domain] Failed to emit domain webhook event', {
 			domainId: domain.id,
 			type,
-			error
+			error,
 		});
 	}
 }
@@ -127,13 +124,9 @@ async function getDmarcRecord(domain: string): Promise<string[][] | null> {
 function shouldContinueVerifying(
 	verificationStatus: DomainStatus,
 	dkimStatus: string | undefined,
-	spfDetails: string | undefined
+	spfDetails: string | undefined,
 ): boolean {
-	if (
-		verificationStatus === 'SUCCESS' &&
-		dkimStatus === 'SUCCESS' &&
-		spfDetails === 'SUCCESS'
-	) {
+	if (verificationStatus === 'SUCCESS' && dkimStatus === 'SUCCESS' && spfDetails === 'SUCCESS') {
 		return false;
 	}
 	return verificationStatus !== 'FAILED';
@@ -167,7 +160,7 @@ export async function validateDomainFromEmail(email: string, teamId: number): Pr
 
 	if (!domain) {
 		throw new Error(
-			`Domain: ${fromDomain} of from email is wrong. Use the domain verified by Owlery`
+			`Domain: ${fromDomain} of from email is wrong. Use the domain verified by Owlery`,
 		);
 	}
 
@@ -181,7 +174,7 @@ export async function validateDomainFromEmail(email: string, teamId: number): Pr
 export async function validateApiKeyDomainAccess(
 	email: string,
 	teamId: number,
-	apiKey: typeof apiKeys.$inferSelect & { domain?: { name: string } | null }
+	apiKey: typeof apiKeys.$inferSelect & { domain?: { name: string } | null },
 ): Promise<Domain> {
 	const domain = await validateDomainFromEmail(email, teamId);
 
@@ -200,7 +193,7 @@ export async function createDomain(
 	teamId: number,
 	name: string,
 	region: string,
-	sesTenantId?: string
+	sesTenantId?: string,
 ): Promise<DomainWithDnsRecords> {
 	const domainStr = tldts.getDomain(name);
 	if (!domainStr) {
@@ -232,7 +225,7 @@ export async function createDomain(
 			sesTenantId: sesTenantId ?? null,
 			dkimSelector,
 			dkimStatus: 'NOT_STARTED',
-			spfDetails: 'NOT_STARTED'
+			spfDetails: 'NOT_STARTED',
 		})
 		.returning()
 		.get();
@@ -244,17 +237,12 @@ export async function createDomain(
 
 /** Lightweight sync list of a team's domains (no DNS records). Ordered by id ASC. */
 export function listTeamDomains(teamId: number): Domain[] {
-	return db
-		.select()
-		.from(domains)
-		.where(eq(domains.teamId, teamId))
-		.orderBy(domains.id)
-		.all();
+	return db.select().from(domains).where(eq(domains.teamId, teamId)).orderBy(domains.id).all();
 }
 
 export async function getDomains(
 	teamId: number,
-	options?: { domainId?: number }
+	options?: { domainId?: number },
 ): Promise<DomainWithDnsRecords[]> {
 	const conditions = [eq(domains.teamId, teamId)];
 	if (options?.domainId) {
@@ -297,7 +285,7 @@ export type DomainVerificationRefreshResult = DomainWithDnsRecords & {
 };
 
 export async function refreshDomainVerification(
-	domainOrId: number | Domain
+	domainOrId: number | Domain,
 ): Promise<DomainVerificationRefreshResult> {
 	const domain =
 		typeof domainOrId === 'number'
@@ -329,7 +317,7 @@ export async function refreshDomainVerification(
 			status: verificationStatus,
 			errorMessage: verificationError,
 			dmarcAdded: Boolean(dmarcRecord),
-			isVerifying: shouldContinueVerifying(verificationStatus, dkimStatus, spfDetails)
+			isVerifying: shouldContinueVerifying(verificationStatus, dkimStatus, spfDetails),
 		})
 		.where(eq(domains.id, domain.id))
 		.returning()
@@ -355,19 +343,19 @@ export async function refreshDomainVerification(
 		verificationError,
 		lastCheckedTime: normalizedLastCheckedTime,
 		previousStatus,
-		statusChanged: previousStatus !== updatedDomain.status
+		statusChanged: previousStatus !== updatedDomain.status,
 	};
 }
 
 export async function updateDomain(
 	id: number,
-	data: { clickTracking?: boolean; openTracking?: boolean }
+	data: { clickTracking?: boolean; openTracking?: boolean },
 ): Promise<Domain> {
 	const updated = db
 		.update(domains)
 		.set({
 			...(data.clickTracking !== undefined ? { clickTracking: data.clickTracking } : {}),
-			...(data.openTracking !== undefined ? { openTracking: data.openTracking } : {})
+			...(data.openTracking !== undefined ? { openTracking: data.openTracking } : {}),
 		})
 		.where(eq(domains.id, id))
 		.returning()
@@ -388,7 +376,7 @@ export async function deleteDomain(id: number): Promise<Domain> {
 	const deleted = await ses.deleteDomain(
 		domain.name,
 		domain.region,
-		domain.sesTenantId ?? undefined
+		domain.sesTenantId ?? undefined,
 	);
 
 	if (!deleted) {

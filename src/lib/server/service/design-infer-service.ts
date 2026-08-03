@@ -7,7 +7,7 @@ import {
 	upsertComponent,
 	upsertDesignMd,
 	type DesignComponent,
-	type DesignSystem
+	type DesignSystem,
 } from './design-system-service';
 import { openRouterChat, openRouterModel } from './openrouter';
 import {
@@ -17,7 +17,7 @@ import {
 	extractLogoUrl,
 	fetchCssText,
 	parseFontFaces,
-	uniqueFontsByFamily
+	uniqueFontsByFamily,
 } from './design-asset-fetch-service';
 
 const MAX_PAGE_CHARS = 60_000;
@@ -42,8 +42,8 @@ async function fetchPageHtml(url: URL): Promise<{ raw: string; text: string }> {
 			redirect: 'follow',
 			headers: {
 				'User-Agent': 'OwleryDesignInfer/1.0',
-				Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8'
-			}
+				Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+			},
 		});
 		if (!response.ok) {
 			throw new Error(`Failed to fetch URL (${response.status})`);
@@ -120,7 +120,7 @@ export type InferDesignOptions = {
 async function downloadLogoAndFonts(
 	teamId: number,
 	rawHtml: string,
-	pageUrl: URL
+	pageUrl: URL,
 ): Promise<number> {
 	let assetsDownloaded = 0;
 
@@ -133,7 +133,7 @@ async function downloadLogoAndFonts(
 				name: 'Logo',
 				filename: asset.filename,
 				mime: asset.mime,
-				bytes: asset.bytes
+				bytes: asset.bytes,
 			});
 			assetsDownloaded += 1;
 		} catch {
@@ -157,14 +157,14 @@ async function downloadLogoAndFonts(
 		try {
 			const asset = await downloadAssetBytes(face.url, {
 				fallbackFilename: `${face.family.replace(/\s+/g, '_')}.woff2`,
-				formatHint: face.format
+				formatHint: face.format,
 			});
 			await addAsset(teamId, {
 				kind: 'font',
 				name: face.family,
 				filename: asset.filename,
 				mime: asset.mime,
-				bytes: asset.bytes
+				bytes: asset.bytes,
 			});
 			assetsDownloaded += 1;
 		} catch {
@@ -177,7 +177,7 @@ async function downloadLogoAndFonts(
 
 export async function inferDesignSystemFromUrl(
 	teamIdOrOpts: number | InferDesignOptions,
-	rawUrlMaybe?: string
+	rawUrlMaybe?: string,
 ): Promise<{ system: DesignSystem; assetsDownloaded: number }> {
 	const opts: InferDesignOptions =
 		typeof teamIdOrOpts === 'number'
@@ -195,35 +195,35 @@ export async function inferDesignSystemFromUrl(
 		'Return ONLY valid JSON (no markdown fences) with this shape:',
 		'{ "designMd": string }',
 		'designMd must be a markdown document covering: brand voice, colors (hex), typography, spacing, buttons, links, logo usage, and email-friendly layout notes.',
-		'Do not invent or return email components — components are managed separately.'
+		'Do not invent or return email components — components are managed separately.',
 	].join(' ');
 
 	const userPrompt = [
 		`Source URL: ${url.toString()}`,
 		'',
 		'Page content (scripts/styles removed, truncated):',
-		pageText
+		pageText,
 	].join('\n');
 
 	const model = openRouterModel();
 	emit({
 		stage: 'calling_model',
 		message: `Streaming design system from ${model}…`,
-		model
+		model,
 	});
 
 	const rawAi = await openRouterChat(
 		[
 			{ role: 'system', content: systemPrompt },
-			{ role: 'user', content: userPrompt }
+			{ role: 'user', content: userPrompt },
 		],
 		{
 			signal: opts.signal,
 			stream: true,
 			onDelta: (delta, chars) => {
 				emit({ stage: 'delta', delta, chars });
-			}
-		}
+			},
+		},
 	);
 
 	if (!rawAi?.trim()) {
@@ -238,7 +238,7 @@ export async function inferDesignSystemFromUrl(
 
 	emit({
 		stage: 'done',
-		message: `Saved design.md (${assetsDownloaded} assets downloaded). Components were not changed.`
+		message: `Saved design.md (${assetsDownloaded} assets downloaded). Components were not changed.`,
 	});
 	return { system, assetsDownloaded };
 }
@@ -265,7 +265,7 @@ export type ReapplyDesignOptions = {
  */
 export async function reapplyDesignSystemToComponent(
 	teamIdOrOpts: number | ReapplyDesignOptions,
-	componentIdMaybe?: string
+	componentIdMaybe?: string,
 ): Promise<DesignComponent> {
 	const opts: ReapplyDesignOptions =
 		typeof teamIdOrOpts === 'number'
@@ -293,7 +293,7 @@ export async function reapplyDesignSystemToComponent(
 		'Return ONLY valid JSON (no markdown fences) with this shape:',
 		'{ "document": <TEditorConfiguration> }',
 		'Preserve every block id, type, childrenIds, and prop keys. Update colors, typography, spacing, and other visual style fields to match design.md.',
-		'Do not invent new blocks or rename ids.'
+		'Do not invent new blocks or rename ids.',
 	].join(' ');
 
 	const userPrompt = [
@@ -305,7 +305,7 @@ export async function reapplyDesignSystemToComponent(
 		designMd,
 		'',
 		'## Current document',
-		JSON.stringify(document, null, 2)
+		JSON.stringify(document, null, 2),
 	]
 		.filter((line): line is string => line != null)
 		.join('\n');
@@ -314,21 +314,21 @@ export async function reapplyDesignSystemToComponent(
 	emit({
 		stage: 'calling_model',
 		message: `Streaming restyle from ${model}…`,
-		model
+		model,
 	});
 
 	const rawAi = await openRouterChat(
 		[
 			{ role: 'system', content: systemPrompt },
-			{ role: 'user', content: userPrompt }
+			{ role: 'user', content: userPrompt },
 		],
 		{
 			signal: opts.signal,
 			stream: true,
 			onDelta: (delta, chars) => {
 				emit({ stage: 'delta', delta, chars });
-			}
-		}
+			},
+		},
 	);
 
 	emit({ stage: 'saving', message: 'Saving updated component…' });
@@ -354,7 +354,7 @@ export async function reapplyDesignSystemToComponent(
 		role: component.role,
 		description: component.description,
 		document: nextDocument,
-		slots
+		slots,
 	});
 	emit({ stage: 'done', message: 'Component updated.' });
 	return updated;

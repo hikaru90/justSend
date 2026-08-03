@@ -35,7 +35,7 @@ const envSchema = z.object({
 	PI_MODEL: z.string().optional(),
 	DISCORD_WEBHOOK_URL: z.string().optional(),
 	EMAIL_CLEANUP_DAYS: z.coerce.number().optional(),
-	NODE_ENV: z.enum(['development', 'production', 'test']).default('development')
+	NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
 export type Env = z.infer<typeof envSchema>;

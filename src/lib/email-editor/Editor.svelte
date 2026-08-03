@@ -3,7 +3,7 @@
 
 	let {
 		value = $bindable(''),
-		label = 'HTML content'
+		label = 'HTML content',
 	}: {
 		value?: string;
 		label?: string;
@@ -19,9 +19,8 @@
 			id="email-editor"
 			bind:value
 			rows="16"
-			class="min-h-[320px] w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 font-mono text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
-			placeholder={'<p>Hello {{firstName}}</p>'}
-		></textarea>
+			class="min-h-[320px] w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 font-mono text-sm focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none"
+			placeholder={'<p>Hello {{firstName}}</p>'}></textarea>
 	</div>
 	<div>
 		<p class="mb-2 text-sm font-medium">Preview</p>

@@ -4,7 +4,7 @@ import {
 	createTeamWithApiKey,
 	createContactBook,
 	createContact,
-	createCampaign
+	createCampaign,
 } from '../../../../../../tests/helpers/factories';
 import { buildApiEvent, bearer, invokeHandler } from '../../../../../../tests/helpers/api';
 import { POST } from './+server';
@@ -21,7 +21,7 @@ describe('POST /api/v1/campaigns/[id]/schedule', () => {
 		const campaign = createCampaign(team.id, domain.id, {
 			from: 'noreply@mail.example.com',
 			contactBookId: book.id,
-			html: UNSUB_HTML
+			html: UNSUB_HTML,
 		});
 
 		const event = buildApiEvent({
@@ -29,7 +29,7 @@ describe('POST /api/v1/campaigns/[id]/schedule', () => {
 			path: `/api/v1/campaigns/${campaign.id}/schedule`,
 			params: { id: campaign.id },
 			body: {},
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

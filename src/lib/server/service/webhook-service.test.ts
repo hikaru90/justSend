@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { resetDb, db } from '../../../tests/helpers/db';
-import { createTeam, createDomain, createUser, addUserToTeam } from '../../../tests/helpers/factories';
+import {
+	createTeam,
+	createDomain,
+	createUser,
+	addUserToTeam,
+} from '../../../tests/helpers/factories';
 import { queueJobs, webhookCalls } from '$lib/server/db/schema';
 import { QUEUES } from '../queue/constants';
 import {
@@ -15,7 +20,7 @@ import {
 	retryCall,
 	setWebhookStatus,
 	testWebhook,
-	updateWebhook
+	updateWebhook,
 } from './webhook-service';
 
 beforeEach(() => {
@@ -46,7 +51,7 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com/hook',
-				eventTypes: ['email.delivered']
+				eventTypes: ['email.delivered'],
 			});
 
 			expect(webhook.status).toBe('ACTIVE');
@@ -61,13 +66,13 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://a.example.com',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 			await createWebhook({
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://b.example.com',
-				eventTypes: ['email.delivered']
+				eventTypes: ['email.delivered'],
 			});
 
 			expect(listWebhooks(team.id)).toHaveLength(2);
@@ -81,7 +86,7 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com/hook',
-				eventTypes: ['email.delivered']
+				eventTypes: ['email.delivered'],
 			});
 
 			const found = getWebhook({ id: created.id, teamId: team.id });
@@ -96,14 +101,14 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://old.example.com',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 
 			const updated = await updateWebhook({
 				id: webhook.id,
 				teamId: team.id,
 				url: 'https://new.example.com',
-				eventTypes: ['email.delivered', 'email.bounced']
+				eventTypes: ['email.delivered', 'email.bounced'],
 			});
 
 			expect(updated.url).toBe('https://new.example.com');
@@ -115,13 +120,13 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 
 			const updated = await updateWebhook({
 				id: webhook.id,
 				teamId: team.id,
-				rotateSecret: true
+				rotateSecret: true,
 			});
 
 			expect(updated.secret).not.toBe(webhook.secret);
@@ -135,7 +140,7 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 
 			const paused = setWebhookStatus({ id: webhook.id, teamId: team.id, status: 'PAUSED' });
@@ -153,7 +158,7 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 
 			deleteWebhook({ id: webhook.id, teamId: team.id });
@@ -169,7 +174,7 @@ describe('webhook-service', () => {
 				userId: user.id,
 				url: 'https://example.com/hook',
 				eventTypes: ['email.delivered'],
-				domainIds: [domain.id]
+				domainIds: [domain.id],
 			});
 
 			await emit(
@@ -182,9 +187,9 @@ describe('webhook-service', () => {
 					to: ['b@example.com'],
 					occurredAt: new Date().toISOString(),
 					domainId: domain.id,
-					subject: 'Test'
+					subject: 'Test',
 				},
-				{ domainId: domain.id }
+				{ domainId: domain.id },
 			);
 
 			const calls = db.select().from(webhookCalls).where(eq(webhookCalls.teamId, team.id)).all();
@@ -207,7 +212,7 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 
 			const callId = await testWebhook({ webhookId: webhook.id, teamId: team.id });
@@ -223,7 +228,7 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 
 			const callId = await testWebhook({ webhookId: webhook.id, teamId: team.id });
@@ -244,7 +249,7 @@ describe('webhook-service', () => {
 		it('delivers webhook on successful fetch', async () => {
 			vi.stubGlobal(
 				'fetch',
-				vi.fn(async () => new Response('ok', { status: 200 }))
+				vi.fn(async () => new Response('ok', { status: 200 })),
 			);
 
 			const { team, user } = setup();
@@ -252,7 +257,7 @@ describe('webhook-service', () => {
 				teamId: team.id,
 				userId: user.id,
 				url: 'https://example.com/hook',
-				eventTypes: ['email.sent']
+				eventTypes: ['email.sent'],
 			});
 
 			const callId = await testWebhook({ webhookId: webhook.id, teamId: team.id });

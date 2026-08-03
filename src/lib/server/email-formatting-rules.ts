@@ -1,6 +1,6 @@
 /**
  * Email HTML formatting rules for AI generation / editing.
- * Keep in sync with `/email-formatting-rules.md` at the repo root.
+ * Keep in sync with `docs/email-formatting-rules.md`.
  */
 export const EMAIL_FORMATTING_RULES = `# Email Formatting Rules
 

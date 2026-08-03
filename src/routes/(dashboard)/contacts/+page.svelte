@@ -19,10 +19,14 @@
 
 <div class="space-y-2">
 	{#each data.books as book}
-		<a href="/contacts/{book.id}" class="block rounded-lg border p-4 hover:bg-[hsl(var(--accent))]/50">
+		<a
+			href="/contacts/{book.id}"
+			class="block rounded-lg border p-4 hover:bg-[hsl(var(--accent))]/50"
+		>
 			<div class="flex justify-between">
 				<span class="font-medium">{book.name}</span>
-				<span class="text-sm text-[hsl(var(--muted-foreground))]">{book.contactCount} contacts</span>
+				<span class="text-sm text-[hsl(var(--muted-foreground))]">{book.contactCount} contacts</span
+				>
 			</div>
 		</a>
 	{:else}

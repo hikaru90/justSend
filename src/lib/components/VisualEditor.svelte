@@ -5,7 +5,7 @@
 	let {
 		html = $bindable(''),
 		onSave,
-		saving = false
+		saving = false,
 	}: {
 		html?: string;
 		onSave?: (html: string) => void | Promise<void>;
@@ -39,7 +39,7 @@
 		'text-align',
 		'border-radius',
 		'width',
-		'max-width'
+		'max-width',
 	];
 
 	function parseStyle(styleText: string): StyleRow[] {
@@ -52,7 +52,7 @@
 				if (idx < 0) return { prop: part.trim(), value: '' };
 				return {
 					prop: part.slice(0, idx).trim(),
-					value: part.slice(idx + 1).trim()
+					value: part.slice(idx + 1).trim(),
 				};
 			})
 			.filter((r) => r.prop);
@@ -90,12 +90,12 @@
 		};
 		if (doc.body) walk(doc.body);
 		// Prefer explicit data-owl-section markers
-		const marked = Array.from(doc.querySelectorAll('[data-owl-section]')).map(
-			(el) => el.getAttribute('data-owl-id')!
+		const marked = Array.from(doc.querySelectorAll('[data-owl-section]')).map((el) =>
+			el.getAttribute('data-owl-id')!,
 		);
 		return {
 			html: `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`,
-			sections: marked.length ? marked : sections
+			sections: marked.length ? marked : sections,
 		};
 	}
 
@@ -170,7 +170,7 @@
 					tag: data.tag,
 					styleText: data.styleText || '',
 					text: data.text || '',
-					isSection: Boolean(data.isSection)
+					isSection: Boolean(data.isSection),
 				};
 				styleRows = parseStyle(data.styleText || '');
 				textDraft = data.text || '';
@@ -232,7 +232,7 @@
 			if (!el || !el.parentElement) return;
 			const parent = el.parentElement;
 			const siblings = Array.from(parent.children).filter((c) =>
-				c.hasAttribute('data-owl-section')
+				c.hasAttribute('data-owl-section'),
 			);
 			const idx = siblings.indexOf(el);
 			const swap = siblings[idx + direction];
@@ -296,14 +296,16 @@
 			bind:this={iframeEl}
 			title="Email visual editor"
 			sandbox="allow-scripts"
-			srcdoc={srcdoc}
+			{srcdoc}
 			class="min-h-[520px] w-full rounded-md border border-[hsl(var(--border))] bg-white"
 		></iframe>
 	</div>
 
 	<div class="space-y-4">
 		<div class="rounded-md border border-[hsl(var(--border))] p-3">
-			<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+			<p
+				class="mb-2 text-xs font-semibold tracking-wide text-[hsl(var(--muted-foreground))] uppercase"
+			>
 				Layers
 			</p>
 			{#if sectionIds.length === 0}
@@ -325,7 +327,7 @@
 										tag: 'section',
 										styleText: '',
 										text: '',
-										isSection: true
+										isSection: true,
 									};
 								}}
 							>
@@ -370,7 +372,9 @@
 		</div>
 
 		<div class="rounded-md border border-[hsl(var(--border))] p-3">
-			<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+			<p
+				class="mb-2 text-xs font-semibold tracking-wide text-[hsl(var(--muted-foreground))] uppercase"
+			>
 				Inspector
 			</p>
 			{#if !selected}
@@ -426,7 +430,9 @@
 					{/each}
 				</datalist>
 				<div class="mt-2 flex gap-2">
-					<Button type="button" size="sm" variant="outline" onclick={addStyleRow}>Add property</Button>
+					<Button type="button" size="sm" variant="outline" onclick={addStyleRow}
+						>Add property</Button
+					>
 					<Button type="button" size="sm" onclick={applyStyles}>Apply</Button>
 				</div>
 			{/if}

@@ -3,7 +3,7 @@
 
 	let {
 		domains,
-		domainId
+		domainId,
 	}: {
 		domains: Array<{ id: number; name: string }>;
 		domainId: number | null;
@@ -18,7 +18,7 @@
 		await fetch('/api/domain/switch', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ domainId: id })
+			body: JSON.stringify({ domainId: id }),
 		});
 		window.location.reload();
 	}
@@ -52,7 +52,7 @@
 		</button>
 		{#if open}
 			<div
-				class="absolute left-0 right-0 top-full z-10 mt-1 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--popover))] py-1 shadow-md"
+				class="absolute top-full right-0 left-0 z-10 mt-1 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--popover))] py-1 shadow-md"
 			>
 				{#each domains as domain (domain.id)}
 					<button

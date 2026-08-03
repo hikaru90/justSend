@@ -28,7 +28,7 @@ const GENERIC_FONTS = new Set([
 	'inherit',
 	'initial',
 	'unset',
-	'default'
+	'default',
 ]);
 
 function normalizeHex(hex: string): string {
@@ -232,7 +232,13 @@ export function removeHexColor(md: string, hex: string): string {
 		if (/^[-*+]\s+[A-Za-z][\w\s-]*:\s*$/.test(withoutHex)) {
 			continue;
 		}
-		kept.push(line.replace(new RegExp(hexAlt, 'gi'), '').replace(/[ \t]+\n/g, '\n').replace(/`\s*`/g, '').trimEnd());
+		kept.push(
+			line
+				.replace(new RegExp(hexAlt, 'gi'), '')
+				.replace(/[ \t]+\n/g, '\n')
+				.replace(/`\s*`/g, '')
+				.trimEnd(),
+		);
 	}
 	return kept.join('\n').replace(/\n{3,}/g, '\n\n');
 }
@@ -252,12 +258,12 @@ export function isDarkLogoAsset(asset: { name: string; filename: string }): bool
  * If only one logo exists, both slots point at it.
  */
 export function pickEmailLogos<T extends { id: string; name: string; filename: string }>(
-	logos: T[]
+	logos: T[],
 ): EmailLogoPair<T> | undefined {
 	if (logos.length === 0) return undefined;
 
 	const sorted = [...logos].sort(
-		(a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+		(a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
 	);
 	const light = sorted.find((a) => !isDarkLogoAsset(a)) ?? sorted[0];
 	const dark = sorted.find((a) => isDarkLogoAsset(a)) ?? light;
@@ -294,7 +300,11 @@ export function applyPreviewColorScheme(html: string, scheme: 'light' | 'dark'):
 
 function parseHexRgb(hex: string): [number, number, number] | null {
 	let h = hex.slice(1);
-	if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+	if (h.length === 3)
+		h = h
+			.split('')
+			.map((c) => c + c)
+			.join('');
 	if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
 	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
@@ -311,7 +321,11 @@ function formatHex(r: number, g: number, b: number): string {
 	return (
 		'#' +
 		[r, g, b]
-			.map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, '0'))
+			.map((c) =>
+				Math.max(0, Math.min(255, Math.round(c)))
+					.toString(16)
+					.padStart(2, '0'),
+			)
 			.join('')
 	);
 }
@@ -340,27 +354,33 @@ function lightenDarkForeground(hex: string): string {
  * Does not touch images or already-dark accents.
  */
 function simulateClientAutoDarken(html: string): string {
-	let out = html.replace(/\bbgcolor\s*=\s*(["']?)(#[0-9a-fA-F]{3,8})\1/gi, (_, q: string, hex: string) => {
-		return `bgcolor=${q}${darkenLightBackground(hex)}${q}`;
-	});
+	let out = html.replace(
+		/\bbgcolor\s*=\s*(["']?)(#[0-9a-fA-F]{3,8})\1/gi,
+		(_, q: string, hex: string) => {
+			return `bgcolor=${q}${darkenLightBackground(hex)}${q}`;
+		},
+	);
 
 	out = out.replace(
 		/style\s*=\s*("([^"]*)"|'([^']*)')/gi,
 		(full, _quoted: string, dbl?: string, sgl?: string) => {
 			const quote = dbl != null ? '"' : "'";
 			const style = dbl ?? sgl ?? '';
-			const next = style.replace(
-				/(background(?:-color)?\s*:\s*)(#[0-9a-fA-F]{3,8})\b/gi,
-				(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex)
-			).replace(
-				/(border(?:-(?:top|right|bottom|left))?(?:-color)?\s*:\s*[^;#]*?)(#[0-9a-fA-F]{3,8})\b/gi,
-				(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex)
-			).replace(
-				/(?<![\w-])color\s*:\s*(#[0-9a-fA-F]{3,8})\b/gi,
-				(_m, hex: string) => `color:${lightenDarkForeground(hex)}`
-			);
+			const next = style
+				.replace(
+					/(background(?:-color)?\s*:\s*)(#[0-9a-fA-F]{3,8})\b/gi,
+					(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex),
+				)
+				.replace(
+					/(border(?:-(?:top|right|bottom|left))?(?:-color)?\s*:\s*[^;#]*?)(#[0-9a-fA-F]{3,8})\b/gi,
+					(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex),
+				)
+				.replace(
+					/(?<![\w-])color\s*:\s*(#[0-9a-fA-F]{3,8})\b/gi,
+					(_m, hex: string) => `color:${lightenDarkForeground(hex)}`,
+				);
 			return `style=${quote}${next}${quote}`;
-		}
+		},
 	);
 
 	return out;
@@ -373,7 +393,7 @@ function simulateClientAutoDarken(html: string): string {
 function unwrapPrefersColorSchemeBlocks(
 	html: string,
 	mediaStartRe: RegExp,
-	mode: 'keep' | 'strip'
+	mode: 'keep' | 'strip',
 ): string {
 	let out = '';
 	let i = 0;
@@ -409,14 +429,14 @@ function unwrapPrefersColorSchemeBlocks(
 }
 
 const PLACEHOLDER_LOGO =
-	"data:image/svg+xml," +
+	'data:image/svg+xml,' +
 	encodeURIComponent(
-		`<svg xmlns="http://www.w3.org/2000/svg" width="140" height="40" viewBox="0 0 140 40"><rect width="140" height="40" rx="6" fill="#e2e8f0"/><text x="70" y="25" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#64748b">Logo</text></svg>`
+		`<svg xmlns="http://www.w3.org/2000/svg" width="140" height="40" viewBox="0 0 140 40"><rect width="140" height="40" rx="6" fill="#e2e8f0"/><text x="70" y="25" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" fill="#64748b">Logo</text></svg>`,
 	);
 const PLACEHOLDER_IMAGE =
-	"data:image/svg+xml," +
+	'data:image/svg+xml,' +
 	encodeURIComponent(
-		`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300"><rect width="600" height="300" rx="12" fill="#e2e8f0"/><text x="300" y="155" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" fill="#64748b">Image</text></svg>`
+		`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300"><rect width="600" height="300" rx="12" fill="#e2e8f0"/><text x="300" y="155" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" fill="#64748b">Image</text></svg>`,
 	);
 
 /** Sample prop / {{placeholder}} values for design-system and template previews. */
@@ -457,14 +477,14 @@ export function previewSampleValues(overrides?: Record<string, string>): Record<
 		image: PLACEHOLDER_IMAGE,
 		image_url: PLACEHOLDER_IMAGE,
 		year: String(new Date().getFullYear()),
-		...overrides
+		...overrides,
 	};
 }
 
 function resolvePreviewSample(
 	key: string,
 	samples: Record<string, string>,
-	overrides?: Record<string, string>
+	overrides?: Record<string, string>,
 ): string {
 	const lower = key.toLowerCase();
 	const byLower = new Map(Object.entries(samples).map(([k, v]) => [k.toLowerCase(), v]));
@@ -508,12 +528,12 @@ function resolvePreviewSample(
  */
 export function substitutePreviewPlaceholders(
 	html: string,
-	overrides?: Record<string, string>
+	overrides?: Record<string, string>,
 ): string {
 	const samples = previewSampleValues(overrides);
 
 	return html.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_full, key: string) =>
-		resolvePreviewSample(key, samples, overrides)
+		resolvePreviewSample(key, samples, overrides),
 	);
 }
 
@@ -523,7 +543,7 @@ export function substitutePreviewPlaceholders(
  */
 export function renderSvelteComponentPreview(
 	source: string,
-	overrides?: Record<string, string>
+	overrides?: Record<string, string>,
 ): string {
 	const samples = previewSampleValues(overrides);
 	let markup = source.replace(/<script[\s\S]*?<\/script>/gi, '');
@@ -542,7 +562,7 @@ export function renderSvelteComponentPreview(
 	// Attribute bindings: src={logo_url}, href={primary_cta_url || '#'}, alt={brand_name || 'Logo'}
 	markup = markup.replace(
 		/\b([a-zA-Z_:][a-zA-Z0-9_:-]*)=\{([a-z][a-z0-9_]*)(?:\s*\|\|\s*(?:'[^']*'|"[^"]*"|[a-z][a-z0-9_]*))?\}/g,
-		(_full, attr: string, key: string) => `${attr}="${sampleFor(key)}"`
+		(_full, attr: string, key: string) => `${attr}="${sampleFor(key)}"`,
 	);
 
 	// Text expressions: {headline}, {body || body_text}, {brand_name || 'Logo'}
@@ -553,7 +573,7 @@ export function renderSvelteComponentPreview(
 			if (primary && primary !== key.replace(/_/g, ' ')) return primary;
 			if (altKey) return sampleFor(altKey);
 			return primary;
-		}
+		},
 	);
 
 	return substitutePreviewPlaceholders(markup.trim(), overrides);

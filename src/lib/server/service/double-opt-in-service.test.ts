@@ -6,15 +6,13 @@ import { env } from '../env';
 import {
 	confirmDoubleOptInSubscription,
 	hasDoubleOptInUrlPlaceholder,
-	DEFAULT_DOUBLE_OPT_IN_CONTENT
+	DEFAULT_DOUBLE_OPT_IN_CONTENT,
 } from './double-opt-in-service';
 
 beforeEach(() => resetDb());
 
 function validHash(contactId: string, expiresAt: number) {
-	return createHash('sha256')
-		.update(`${contactId}-${expiresAt}-${env.AUTH_SECRET}`)
-		.digest('hex');
+	return createHash('sha256').update(`${contactId}-${expiresAt}-${env.AUTH_SECRET}`).digest('hex');
 }
 
 describe('double-opt-in-service', () => {
@@ -25,7 +23,7 @@ describe('double-opt-in-service', () => {
 
 		it('detects placeholder with fallback syntax', () => {
 			expect(
-				hasDoubleOptInUrlPlaceholder('{{ doubleOptInUrl, fallback=https://example.com }}')
+				hasDoubleOptInUrlPlaceholder('{{ doubleOptInUrl, fallback=https://example.com }}'),
 			).toBe(true);
 		});
 
@@ -50,7 +48,7 @@ describe('double-opt-in-service', () => {
 			const updated = confirmDoubleOptInSubscription({
 				contactId: contact.id,
 				expiresAt: String(expiresAt),
-				hash
+				hash,
 			});
 
 			expect(updated.subscribed).toBe(true);
@@ -67,8 +65,8 @@ describe('double-opt-in-service', () => {
 				confirmDoubleOptInSubscription({
 					contactId: contact.id,
 					expiresAt: String(expiresAt),
-					hash: 'invalid-hash'
-				})
+					hash: 'invalid-hash',
+				}),
 			).toThrow('Invalid confirmation link');
 		});
 
@@ -83,8 +81,8 @@ describe('double-opt-in-service', () => {
 				confirmDoubleOptInSubscription({
 					contactId: contact.id,
 					expiresAt: String(expiresAt),
-					hash
-				})
+					hash,
+				}),
 			).toThrow('Confirmation link has expired');
 		});
 
@@ -98,7 +96,7 @@ describe('double-opt-in-service', () => {
 			const result = confirmDoubleOptInSubscription({
 				contactId: contact.id,
 				expiresAt: String(expiresAt),
-				hash
+				hash,
 			});
 
 			expect(result.id).toBe(contact.id);
@@ -113,8 +111,8 @@ describe('double-opt-in-service', () => {
 				confirmDoubleOptInSubscription({
 					contactId: 'missing-contact',
 					expiresAt: String(expiresAt),
-					hash
-				})
+					hash,
+				}),
 			).toThrow('Contact not found');
 		});
 	});

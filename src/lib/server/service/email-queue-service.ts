@@ -55,10 +55,7 @@ function stripHtml(html: string): string {
  * Resolve the SES configuration set for a domain based on its open/click
  * tracking preferences.
  */
-export function getConfigurationSetName(
-	domain: Domain | null,
-	setting: SesSetting
-): string | null {
+export function getConfigurationSetName(domain: Domain | null, setting: SesSetting): string | null {
 	const clickTracking = domain?.clickTracking ?? false;
 	const openTracking = domain?.openTracking ?? false;
 
@@ -84,7 +81,7 @@ export function queueEmail(
 	region: string,
 	transactional: boolean,
 	unsubUrl?: string,
-	delayMs?: number
+	delayMs?: number,
 ): string {
 	const queue = transactional ? transactionalQueueName(region) : marketingQueueName(region);
 	const payload: QueueEmailPayload = {
@@ -92,7 +89,7 @@ export function queueEmail(
 		teamId,
 		timestamp: Date.now(),
 		unsubUrl,
-		isBulk: !transactional
+		isBulk: !transactional,
 	};
 
 	return enqueue(queue, payload, { jobId: emailId, delayMs });
@@ -111,7 +108,7 @@ export function queueBulk(jobs: QueueBulkJob[]): void {
 			teamId: job.teamId,
 			timestamp: job.timestamp ?? Date.now(),
 			unsubUrl: job.unsubUrl,
-			isBulk: !job.transactional
+			isBulk: !job.transactional,
 		};
 		enqueue(queue, payload, { jobId: job.emailId, delayMs: job.delayMs });
 	}
@@ -124,10 +121,13 @@ function markFailed(emailId: string, teamId: number, error: string): void {
 			emailId,
 			status: 'FAILED',
 			data: JSON.stringify({ error }),
-			teamId
+			teamId,
 		})
 		.run();
-	db.update(emails).set({ latestStatus: 'FAILED', updatedAt: nowIso() }).where(eq(emails.id, emailId)).run();
+	db.update(emails)
+		.set({ latestStatus: 'FAILED', updatedAt: nowIso() })
+		.where(eq(emails.id, emailId))
+		.run();
 }
 
 /**
@@ -171,9 +171,9 @@ export async function executeEmail(payload: unknown): Promise<void> {
 				data: JSON.stringify({
 					error: 'Email sending limit reached',
 					reason: limitCheck.reason,
-					limit: limitCheck.limit
+					limit: limitCheck.limit,
 				}),
-				teamId: email.teamId
+				teamId: email.teamId,
 			})
 			.run();
 		db.update(emails)
@@ -220,7 +220,7 @@ export async function executeEmail(payload: unknown): Promise<void> {
 			inReplyToMessageId,
 			emailId: email.id,
 			sesTenantId: domain?.sesTenantId ?? undefined,
-			headers
+			headers,
 		});
 
 		db.update(emails)
@@ -230,7 +230,7 @@ export async function executeEmail(payload: unknown): Promise<void> {
 				text: text ?? email.text,
 				attachments: null,
 				headers: null,
-				updatedAt: nowIso()
+				updatedAt: nowIso(),
 			})
 			.where(eq(emails.id, email.id))
 			.run();

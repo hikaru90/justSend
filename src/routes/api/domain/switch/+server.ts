@@ -20,7 +20,7 @@ export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		maxAge: 60 * 60 * 24 * 365
+		maxAge: 60 * 60 * 24 * 365,
 	});
 
 	return json({ ok: true });

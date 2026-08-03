@@ -9,7 +9,7 @@
 
 	const worker = $derived(data.worker);
 	const lastBeatLabel = $derived(
-		worker.heartbeat ? new Date(worker.heartbeat.lastBeatAt).toLocaleString() : 'Never'
+		worker.heartbeat ? new Date(worker.heartbeat.lastBeatAt).toLocaleString() : 'Never',
 	);
 
 	const statusLabel = $derived(
@@ -18,9 +18,9 @@
 				running: 'Running',
 				paused: 'Paused',
 				stopped: 'Stopped',
-				offline: 'Not running'
+				offline: 'Not running',
 			} as const
-		)[worker.status]
+		)[worker.status],
 	);
 
 	const statusVariant = $derived(
@@ -29,9 +29,9 @@
 				running: 'success',
 				paused: 'secondary',
 				stopped: 'destructive',
-				offline: 'destructive'
+				offline: 'destructive',
 			} as const
-		)[worker.status]
+		)[worker.status],
 	);
 
 	let pendingAction = $state<string | null>(null);
@@ -226,7 +226,9 @@
 				</tr>
 			{:else}
 				<tr>
-					<td colspan="4" class="p-6 text-center text-[hsl(var(--muted-foreground))]">No emails yet</td>
+					<td colspan="4" class="p-6 text-center text-[hsl(var(--muted-foreground))]"
+						>No emails yet</td
+					>
 				</tr>
 			{/each}
 		</tbody>

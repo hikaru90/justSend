@@ -6,7 +6,7 @@ import {
 	getTeamAndApiKey,
 	updateApiKey,
 	deleteApiKey,
-	listApiKeys
+	listApiKeys,
 } from './api-service';
 import { db } from '../db';
 import { apiKeys } from '../db/schema';
@@ -20,7 +20,7 @@ describe('api-service', () => {
 		const token = await addApiKey({
 			name: 'Test Key',
 			permission: 'FULL',
-			teamId: team.id
+			teamId: team.id,
 		});
 
 		expect(token).toMatch(/^us_[0-9a-z]{10}_[0-9a-f]{32}$/);
@@ -33,7 +33,7 @@ describe('api-service', () => {
 			name: 'Valid Key',
 			permission: 'FULL',
 			teamId: team.id,
-			domainId: domain.id
+			domainId: domain.id,
 		});
 
 		const result = await getTeamAndApiKey(token);
@@ -49,7 +49,7 @@ describe('api-service', () => {
 		const token = await addApiKey({
 			name: 'Key',
 			permission: 'FULL',
-			teamId: team.id
+			teamId: team.id,
 		});
 
 		const tampered = token.slice(0, -1) + (token.slice(-1) === 'a' ? 'b' : 'a');
@@ -75,8 +75,8 @@ describe('api-service', () => {
 				name: 'Bad Domain',
 				permission: 'FULL',
 				teamId: team.id,
-				domainId: otherDomain.id
-			})
+				domainId: otherDomain.id,
+			}),
 		).rejects.toThrow('DOMAIN_NOT_FOUND');
 
 		await expect(
@@ -84,8 +84,8 @@ describe('api-service', () => {
 				name: 'Missing Domain',
 				permission: 'FULL',
 				teamId: team.id,
-				domainId: 99999
-			})
+				domainId: 99999,
+			}),
 		).rejects.toThrow('DOMAIN_NOT_FOUND');
 	});
 
@@ -97,7 +97,7 @@ describe('api-service', () => {
 			name: 'Original',
 			permission: 'FULL',
 			teamId: team.id,
-			domainId: domain1.id
+			domainId: domain1.id,
 		});
 		const resolved = await getTeamAndApiKey(token);
 		const keyId = resolved!.apiKey.id;
@@ -106,7 +106,7 @@ describe('api-service', () => {
 			id: keyId,
 			teamId: team.id,
 			name: 'Renamed',
-			domainId: domain2.id
+			domainId: domain2.id,
 		});
 
 		expect(updated?.name).toBe('Renamed');
@@ -118,9 +118,9 @@ describe('api-service', () => {
 		const token = await addApiKey({ name: 'Key', permission: 'FULL', teamId: team.id });
 		const keyId = (await getTeamAndApiKey(token))!.apiKey.id;
 
-		await expect(
-			updateApiKey({ id: keyId, teamId: team.id, domainId: 99999 })
-		).rejects.toThrow('DOMAIN_NOT_FOUND');
+		await expect(updateApiKey({ id: keyId, teamId: team.id, domainId: 99999 })).rejects.toThrow(
+			'DOMAIN_NOT_FOUND',
+		);
 	});
 
 	it('deleteApiKey removes the key', async () => {

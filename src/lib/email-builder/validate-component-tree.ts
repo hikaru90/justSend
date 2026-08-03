@@ -1,10 +1,7 @@
 import type { ComponentSlot, TEditorBlock, TEditorConfiguration } from '$lib/email-builder/types';
 import { BLOCK_FACTORIES } from '$lib/email-builder/types';
 
-const ALLOWED_TYPES = new Set([
-	'EmailLayout',
-	...BLOCK_FACTORIES.map((f) => f.type)
-]);
+const ALLOWED_TYPES = new Set(['EmailLayout', ...BLOCK_FACTORIES.map((f) => f.type)]);
 
 const SLOT_TYPES = new Set(['text', 'url', 'asset', 'color']);
 
@@ -19,8 +16,7 @@ function allReferencedIds(doc: TEditorConfiguration): Set<string> {
 	for (const block of Object.values(doc)) {
 		for (const id of getChildrenIds(block)) ids.add(id);
 		if (block.type === 'ColumnsContainer') {
-			const cols = (block.data.props as { columns?: Array<{ childrenIds: string[] }> })
-				?.columns;
+			const cols = (block.data.props as { columns?: Array<{ childrenIds: string[] }> })?.columns;
 			for (const col of cols ?? []) {
 				for (const id of col.childrenIds ?? []) ids.add(id);
 			}
@@ -44,9 +40,7 @@ export type ValidateComponentTreeResult =
 	| { ok: false; error: string };
 
 /** Validate a Pi/AI-produced component block tree + slots. */
-export function validateComponentTree(
-	raw: unknown
-): ValidateComponentTreeResult {
+export function validateComponentTree(raw: unknown): ValidateComponentTreeResult {
 	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
 		return { ok: false, error: 'Response must be a JSON object' };
 	}
@@ -98,7 +92,7 @@ export function validateComponentTree(
 			if (!pathExists(document[blockId], prop)) {
 				return {
 					ok: false,
-					error: `Slot "${name}" prop "${prop}" not found on block "${blockId}"`
+					error: `Slot "${name}" prop "${prop}" not found on block "${blockId}"`,
 				};
 			}
 			slots.push({
@@ -106,9 +100,7 @@ export function validateComponentTree(
 				blockId,
 				prop,
 				type: type as ComponentSlot['type'],
-				...(typeof s.label === 'string' && s.label.trim()
-					? { label: s.label.trim() }
-					: {})
+				...(typeof s.label === 'string' && s.label.trim() ? { label: s.label.trim() } : {}),
 			});
 		}
 	}

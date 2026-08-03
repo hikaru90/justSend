@@ -62,12 +62,12 @@ export function parseEmailBuilderContent(raw: string | null | undefined): {
 				scaffold = {
 					subject: typeof s.subject === 'string' ? s.subject : undefined,
 					preheader: typeof s.preheader === 'string' ? s.preheader : undefined,
-					slots
+					slots,
 				};
 			}
 			return {
 				document: obj.document as TEditorConfiguration,
-				scaffold
+				scaffold,
 			};
 		}
 
@@ -84,8 +84,8 @@ export function parseEmailBuilderContent(raw: string | null | undefined): {
 			scaffold: {
 				subject: typeof obj.subject === 'string' ? obj.subject : undefined,
 				preheader: typeof obj.preheader === 'string' ? obj.preheader : undefined,
-				slots
-			}
+				slots,
+			},
 		};
 	} catch {
 		return { document: null, scaffold: emptyScaffold };
@@ -94,12 +94,12 @@ export function parseEmailBuilderContent(raw: string | null | undefined): {
 
 export function serializeEmailBuilderContent(
 	document: TEditorConfiguration,
-	scaffold?: ScaffoldSlots
+	scaffold?: ScaffoldSlots,
 ): string {
 	const payload: EmailBuilderContent = {
 		format: 'email-builder',
 		document,
-		...(scaffold ? { scaffold } : {})
+		...(scaffold ? { scaffold } : {}),
 	};
 	return JSON.stringify(payload);
 }
@@ -118,16 +118,16 @@ export function documentFromComposedHtml(html: string): TEditorConfiguration {
 				canvasColor: '#FFFFFF',
 				textColor: '#262626',
 				fontFamily: 'MODERN_SANS',
-				childrenIds: ['composed-html']
-			}
+				childrenIds: ['composed-html'],
+			},
 		},
 		'composed-html': {
 			type: 'Html',
 			data: {
 				props: { contents },
-				style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
-			}
-		}
+				style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } },
+			},
+		},
 	};
 }
 
@@ -139,7 +139,7 @@ export function documentFromComposedSections(
 		componentId?: string;
 		componentName?: string;
 		slots?: Record<string, string>;
-	}>
+	}>,
 ): TEditorConfiguration {
 	const trees = sections.filter((s) => s.tree).map((s) => s.tree!);
 	if (trees.length === sections.length && trees.length > 0) {
@@ -156,9 +156,9 @@ export function documentFromComposedSections(
 				canvasColor: '#FFFFFF',
 				textColor: '#262626',
 				fontFamily: 'MODERN_SANS',
-				childrenIds
-			}
-		}
+				childrenIds,
+			},
+		},
 	};
 
 	sections.forEach((section, index) => {
@@ -173,8 +173,8 @@ export function documentFromComposedSections(
 			type: 'Html',
 			data: {
 				props: { contents: section.html },
-				style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
-			}
+				style: { padding: { top: 0, bottom: 0, left: 0, right: 0 } },
+			},
 		};
 	});
 
@@ -192,7 +192,7 @@ export function cloneDocument(doc: TEditorConfiguration): TEditorConfiguration {
 	if (Array.isArray(doc)) {
 		const arr: unknown[] = [];
 		for (let i = 0; i < doc.length; i++) arr[i] = cloneDocument(doc[i] as TEditorConfiguration);
-		return arr as TEditorConfiguration;
+		return arr as unknown as TEditorConfiguration;
 	}
 	const obj: Record<string, unknown> = {};
 	for (const key in doc) {

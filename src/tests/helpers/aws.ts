@@ -11,13 +11,13 @@ export function mockSesModule() {
 		getDomainIdentity: vi.fn(async () => ({
 			VerificationStatus: 'SUCCESS',
 			DkimAttributes: { Status: 'SUCCESS', Tokens: [] },
-			MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' }
+			MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' },
 		})),
 		sendRawEmail: vi.fn(async () => ({ MessageId: 'ses-message-id-1' })),
 		getAccount: vi.fn(async () => ({})),
 		addWebhookConfiguration: vi.fn(async () => 'config-set-name'),
 		deleteFromSesSuppressionList: vi.fn(async () => undefined),
-		buildHeaders: vi.fn(() => ({}))
+		buildHeaders: vi.fn(() => ({})),
 	};
 }
 
@@ -26,6 +26,6 @@ export function mockSnsModule() {
 		createTopic: vi.fn(async () => 'arn:aws:sns:us-east-1:123:topic'),
 		deleteTopic: vi.fn(async () => undefined),
 		subscribeHttp: vi.fn(async () => 'subscription-arn'),
-		confirmSubscription: vi.fn(async () => undefined)
+		confirmSubscription: vi.fn(async () => undefined),
 	};
 }

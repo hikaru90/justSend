@@ -32,7 +32,7 @@ export async function requireApiTeam(request: Request): Promise<ApiAuthContext> 
 	return {
 		team: result.team,
 		apiKey: result.apiKey,
-		apiKeyId: result.apiKey.id
+		apiKeyId: result.apiKey.id,
 	};
 }
 

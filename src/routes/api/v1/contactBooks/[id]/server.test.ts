@@ -15,7 +15,7 @@ describe('GET /api/v1/contactBooks/[id]', () => {
 			method: 'GET',
 			path: `/api/v1/contactBooks/${book.id}`,
 			params: { id: book.id },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -36,7 +36,7 @@ describe('PATCH /api/v1/contactBooks/[id]', () => {
 			path: `/api/v1/contactBooks/${book.id}`,
 			params: { id: book.id },
 			body: { name: 'New name' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(PATCH, event);
 
@@ -56,7 +56,7 @@ describe('DELETE /api/v1/contactBooks/[id]', () => {
 			method: 'DELETE',
 			path: `/api/v1/contactBooks/${book.id}`,
 			params: { id: book.id },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(DELETE, event);
 

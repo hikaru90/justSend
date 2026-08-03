@@ -3,7 +3,7 @@ import { resetDb } from '../../../../../../tests/helpers/db';
 import {
 	createTeamWithApiKey,
 	createContactBook,
-	createContact
+	createContact,
 } from '../../../../../../tests/helpers/factories';
 import { buildApiEvent, bearer, invokeHandler } from '../../../../../../tests/helpers/api';
 import { GET, POST } from './+server';
@@ -20,7 +20,7 @@ describe('GET /api/v1/contactBooks/[id]/contacts', () => {
 			method: 'GET',
 			path: `/api/v1/contactBooks/${book.id}/contacts`,
 			params: { id: book.id },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -41,7 +41,7 @@ describe('POST /api/v1/contactBooks/[id]/contacts', () => {
 			path: `/api/v1/contactBooks/${book.id}/contacts`,
 			params: { id: book.id },
 			body: { email: 'new@example.com', firstName: 'New' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

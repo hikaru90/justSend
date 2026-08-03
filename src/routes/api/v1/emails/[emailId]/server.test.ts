@@ -3,7 +3,7 @@ import { resetDb } from '../../../../../tests/helpers/db';
 import {
 	createTeamWithApiKey,
 	createEmail,
-	createSesSetting
+	createSesSetting,
 } from '../../../../../tests/helpers/factories';
 import { buildApiEvent, bearer, invokeHandler } from '../../../../../tests/helpers/api';
 import { POST as sendEmail } from '../+server';
@@ -17,14 +17,14 @@ describe('GET /api/v1/emails/[emailId]', () => {
 		const email = createEmail(team.id, {
 			domainId: domain.id,
 			from: 'noreply@mail.example.com',
-			subject: 'Fetch me'
+			subject: 'Fetch me',
 		});
 
 		const event = buildApiEvent({
 			method: 'GET',
 			path: `/api/v1/emails/${email.id}`,
 			params: { emailId: email.id },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -51,10 +51,10 @@ describe('PATCH /api/v1/emails/[emailId]', () => {
 					from: 'noreply@mail.example.com',
 					subject: 'Scheduled',
 					text: 'Later',
-					scheduledAt
+					scheduledAt,
 				},
-				headers: bearer(apiKey)
-			})
+				headers: bearer(apiKey),
+			}),
 		);
 		const emailId = (created.json as { id: string }).id;
 		const newScheduledAt = new Date(Date.now() + 7200_000).toISOString();
@@ -64,7 +64,7 @@ describe('PATCH /api/v1/emails/[emailId]', () => {
 			path: `/api/v1/emails/${emailId}`,
 			params: { emailId },
 			body: { scheduledAt: newScheduledAt },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(PATCH, event);
 

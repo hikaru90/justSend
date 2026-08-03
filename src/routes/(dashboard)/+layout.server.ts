@@ -13,6 +13,6 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		teamId: locals.teamId,
 		domains: locals.domains,
 		domainId: locals.domainId,
-		domain: locals.domain
+		domain: locals.domain,
 	};
 };

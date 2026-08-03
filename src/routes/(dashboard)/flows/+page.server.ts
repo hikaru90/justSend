@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 	return {
 		needsDomain: false as const,
-		flows: listFlows(teamId, locals.domainId)
+		flows: listFlows(teamId, locals.domainId),
 	};
 };
 
@@ -39,5 +39,5 @@ export const actions: Actions = {
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Delete failed' });
 		}
-	}
+	},
 };

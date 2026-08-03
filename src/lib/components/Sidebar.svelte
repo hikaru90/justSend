@@ -13,7 +13,7 @@
 		Webhook,
 		Settings,
 		Code,
-		Shield
+		Shield,
 	} from '@lucide/svelte';
 	import { cn } from '$lib/utils';
 	import logo from '$lib/assets/owlery.svg';
@@ -26,7 +26,7 @@
 		teams,
 		teamId,
 		domains,
-		domainId
+		domainId,
 	}: {
 		user: { name: string | null; email: string | null; isAdmin: boolean };
 		teams: Array<{ id: number; name: string }>;
@@ -47,16 +47,16 @@
 		{ href: '/suppressions', label: 'Suppressions', icon: Ban },
 		{ href: '/webhooks', label: 'Webhooks', icon: Webhook },
 		{ href: '/settings', label: 'Settings', icon: Settings },
-		{ href: '/dev-settings/api-keys', label: 'API Keys', icon: Code }
+		{ href: '/dev-settings/api-keys', label: 'API Keys', icon: Code },
 	]);
 
 	const adminLinks = $derived(
 		user.isAdmin
 			? [
 					{ href: '/admin', label: 'SES Settings', icon: Shield },
-					{ href: '/admin/teams', label: 'Teams', icon: Users }
+					{ href: '/admin/teams', label: 'Teams', icon: Users },
 				]
-			: []
+			: [],
 	);
 </script>
 
@@ -70,12 +70,12 @@
 			<span class="text-lg font-semibold tracking-tight">Owlery</span>
 		</a>
 		<div class="mt-3">
-			<p class="mb-1.5 text-xs font-medium uppercase tracking-wide opacity-60">Project</p>
+			<p class="mb-1.5 text-xs font-medium tracking-wide uppercase opacity-60">Project</p>
 			<DomainSwitcher {domains} {domainId} />
 		</div>
 		{#if teams.length > 1}
 			<div class="mt-3">
-				<p class="mb-1.5 text-xs font-medium uppercase tracking-wide opacity-60">Team</p>
+				<p class="mb-1.5 text-xs font-medium tracking-wide uppercase opacity-60">Team</p>
 				<TeamSwitcher {teams} {teamId} />
 			</div>
 		{/if}
@@ -90,7 +90,7 @@
 					'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-[hsl(var(--accent))]',
 					page.url.pathname === link.href || page.url.pathname.startsWith(link.href + '/')
 						? 'bg-[hsl(var(--accent))] font-medium'
-						: ''
+						: '',
 				)}
 			>
 				<Icon class="h-4 w-4" />
@@ -100,16 +100,14 @@
 
 		{#if adminLinks.length > 0}
 			<div class="pt-4">
-				<p class="mb-2 px-3 text-xs font-medium uppercase tracking-wide opacity-60">Admin</p>
+				<p class="mb-2 px-3 text-xs font-medium tracking-wide uppercase opacity-60">Admin</p>
 				{#each adminLinks as link (link.href)}
 					{@const Icon = link.icon}
 					<a
 						href={link.href}
 						class={cn(
 							'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-[hsl(var(--accent))]',
-							page.url.pathname.startsWith(link.href)
-								? 'bg-[hsl(var(--accent))] font-medium'
-								: ''
+							page.url.pathname.startsWith(link.href) ? 'bg-[hsl(var(--accent))] font-medium' : '',
 						)}
 					>
 						<Icon class="h-4 w-4" />

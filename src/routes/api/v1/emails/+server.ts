@@ -24,7 +24,7 @@ const sendSchema = z.object({
 	variables: z.record(z.string(), z.string()).optional(),
 	attachments: z.array(z.object({ filename: z.string(), content: z.string() })).optional(),
 	headers: z.record(z.string(), z.string()).optional(),
-	inReplyToId: z.string().optional()
+	inReplyToId: z.string().optional(),
 });
 
 export const GET: RequestHandler = async ({ request, url }) => {
@@ -35,12 +35,12 @@ export const GET: RequestHandler = async ({ request, url }) => {
 	const result = listEmails({
 		teamId: team.id,
 		limit: limit ? Number(limit) : undefined,
-		cursor
+		cursor,
 	});
 
 	return json({
 		data: result.items.map(serializeEmail),
-		nextCursor: result.nextCursor
+		nextCursor: result.nextCursor,
 	});
 };
 

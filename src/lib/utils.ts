@@ -21,7 +21,7 @@ export function parseJsonArray(value: string | null | undefined): string[] {
 
 export function parseJsonObject<T extends Record<string, unknown> = Record<string, unknown>>(
 	value: string | null | undefined,
-	fallback: T = {} as T
+	fallback: T = {} as T,
 ): T {
 	if (!value) return fallback;
 	try {

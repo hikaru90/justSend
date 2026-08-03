@@ -20,8 +20,8 @@
 			...block,
 			data: {
 				...block.data,
-				props: { ...(block.data.props ?? {}), ...patch }
-			}
+				props: { ...(block.data.props ?? {}), ...patch },
+			},
 		});
 	}
 
@@ -29,7 +29,7 @@
 		if (!selectedId || !block || block.type !== 'EmailLayout') return;
 		editor.updateBlock(selectedId, {
 			...block,
-			data: { ...block.data, [key]: value }
+			data: { ...block.data, [key]: value },
 		});
 	}
 
@@ -55,8 +55,8 @@
 			...block,
 			data: {
 				...block.data,
-				style: { ...prev, ...patch }
-			}
+				style: { ...prev, ...patch },
+			},
 		});
 	}
 
@@ -66,7 +66,7 @@
 			top: 0,
 			right: 0,
 			bottom: 0,
-			left: 0
+			left: 0,
 		};
 		setStyle({
 			padding: {
@@ -74,8 +74,8 @@
 				right: prev.right ?? 0,
 				bottom: prev.bottom ?? 0,
 				left: prev.left ?? 0,
-				[side]: value
-			}
+				[side]: value,
+			},
 		});
 	}
 
@@ -89,16 +89,12 @@
 	const htmlValue = $derived(String((block?.data.props as { contents?: string })?.contents ?? ''));
 	const imageUrl = $derived(String((block?.data.props as { url?: string })?.url ?? ''));
 	const imageAlt = $derived(String((block?.data.props as { alt?: string })?.alt ?? ''));
-	const imageWidth = $derived(
-		(block?.data.props as { width?: number | null })?.width ?? null
-	);
+	const imageWidth = $derived((block?.data.props as { width?: number | null })?.width ?? null);
 	const imageContentAlignment = $derived(
-		String(
-			(block?.data.props as { contentAlignment?: string })?.contentAlignment ?? 'middle'
-		)
+		String((block?.data.props as { contentAlignment?: string })?.contentAlignment ?? 'middle'),
 	);
 	const imageTextAlign = $derived(
-		String((block?.data.style as BlockStyle | undefined)?.textAlign ?? 'left')
+		String((block?.data.style as BlockStyle | undefined)?.textAlign ?? 'left'),
 	);
 	const blockStyle = $derived((block?.data.style as BlockStyle | undefined) ?? {});
 	const padding = $derived(blockStyle.padding ?? { top: 0, right: 0, bottom: 0, left: 0 });
@@ -109,7 +105,7 @@
 	const overlayColor = $derived(blockStyle.overlayColor ?? null);
 	const containerTextAlign = $derived(blockStyle.textAlign ?? 'left');
 	const containerContentAlignment = $derived(
-		blockStyle.contentAlignment ?? (bgImageUrl ? 'middle' : 'top')
+		blockStyle.contentAlignment ?? (bgImageUrl ? 'middle' : 'top'),
 	);
 	const columnsProps = $derived(
 		(block?.data.props as {
@@ -117,7 +113,7 @@
 			columnsCount?: number;
 			columnsGap?: number;
 			contentAlignment?: string;
-		}) ?? {}
+		}) ?? {},
 	);
 
 	function setColumnsCount(count: 2 | 3) {
@@ -159,7 +155,7 @@
 			if (asset?.id) {
 				library.assets = [
 					{ id: asset.id, name: asset.name, kind: asset.kind },
-					...library.assets.filter((a) => a.id !== asset.id)
+					...library.assets.filter((a) => a.id !== asset.id),
 				];
 				if (target === 'background') pickBackgroundAsset(asset.id);
 				else pickLibraryAsset(asset.id);
@@ -186,7 +182,17 @@
 					: 'border-[hsl(var(--border))]'} flex items-center justify-center bg-white text-[hsl(var(--muted-foreground))]"
 				onclick={() => onSelect(null)}
 			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg
+				>
 			</button>
 			{#each designColors as color (color)}
 				<button
@@ -223,18 +229,21 @@
 						if (!root) return;
 						editor.updateBlock('root', {
 							...root,
-							data: { ...root.data, canvasColor: e.currentTarget.value }
+							data: { ...root.data, canvasColor: e.currentTarget.value },
 						});
 					}}
 				/>
-				{@render colorSwatches(String(editor.document.root.data.canvasColor ?? '#FFFFFF'), (color) => {
-					const root = editor.document.root;
-					if (!root) return;
-					editor.updateBlock('root', {
-						...root,
-						data: { ...root.data, canvasColor: color ?? '' }
-					});
-				})}
+				{@render colorSwatches(
+					String(editor.document.root.data.canvasColor ?? '#FFFFFF'),
+					(color) => {
+						const root = editor.document.root;
+						if (!root) return;
+						editor.updateBlock('root', {
+							...root,
+							data: { ...root.data, canvasColor: color ?? '' },
+						});
+					},
+				)}
 			</label>
 			<label class="block space-y-1 text-xs">
 				<span class="text-[hsl(var(--muted-foreground))]">Backdrop</span>
@@ -247,34 +256,33 @@
 						if (!root) return;
 						editor.updateBlock('root', {
 							...root,
-							data: { ...root.data, backdropColor: e.currentTarget.value }
+							data: { ...root.data, backdropColor: e.currentTarget.value },
 						});
 					}}
 				/>
-				{@render colorSwatches(String(editor.document.root.data.backdropColor ?? '#F5F5F5'), (color) => {
-					const root = editor.document.root;
-					if (!root) return;
-					editor.updateBlock('root', {
-						...root,
-						data: { ...root.data, backdropColor: color ?? '' }
-					});
-				})}
+				{@render colorSwatches(
+					String(editor.document.root.data.backdropColor ?? '#F5F5F5'),
+					(color) => {
+						const root = editor.document.root;
+						if (!root) return;
+						editor.updateBlock('root', {
+							...root,
+							data: { ...root.data, backdropColor: color ?? '' },
+						});
+					},
+				)}
 			</label>
 		{/if}
 	</div>
 {:else}
-	<div
-		class="{block.type === 'Text'
-			? 'flex min-h-0 flex-1 flex-col gap-3'
-			: 'space-y-3'}"
-	>
+	<div class={block.type === 'Text' ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-3'}>
 		<p class="shrink-0 text-sm font-medium">{block.type} block</p>
 
 		{#if block.type === 'Heading' || block.type === 'Text' || block.type === 'Button'}
 			<label
-				class="{block.type === 'Text'
+				class={block.type === 'Text'
 					? 'flex min-h-0 flex-1 flex-col gap-1 text-xs'
-					: 'block space-y-1 text-xs'}"
+					: 'block space-y-1 text-xs'}
 			>
 				<span class="shrink-0 text-[hsl(var(--muted-foreground))]">
 					{block.type === 'Button' ? 'Label' : 'Content'}
@@ -290,9 +298,8 @@
 						setProps(
 							block.type === 'Text'
 								? { text: e.currentTarget.value, markdown: true }
-								: { text: e.currentTarget.value }
-						)}
-				></textarea>
+								: { text: e.currentTarget.value },
+						)}></textarea>
 				{#if block.type === 'Text'}
 					<span class="shrink-0 text-[hsl(var(--muted-foreground))]">
 						Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
@@ -401,7 +408,7 @@
 					onchange={(e) => {
 						const v = e.currentTarget.value;
 						setStyle({
-							textAlign: v === 'center' || v === 'right' ? v : 'left'
+							textAlign: v === 'center' || v === 'right' ? v : 'left',
 						});
 					}}
 				>
@@ -418,7 +425,7 @@
 					onchange={(e) => {
 						const v = e.currentTarget.value;
 						setProps({
-							contentAlignment: v === 'top' || v === 'bottom' ? v : 'middle'
+							contentAlignment: v === 'top' || v === 'bottom' ? v : 'middle',
 						});
 					}}
 				>
@@ -436,8 +443,7 @@
 					rows={12}
 					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 font-mono text-xs"
 					value={htmlValue}
-					oninput={(e) => setProps({ contents: e.currentTarget.value })}
-				></textarea>
+					oninput={(e) => setProps({ contents: e.currentTarget.value })}></textarea>
 			</label>
 			<p class="text-xs text-[hsl(var(--muted-foreground))]">
 				Tip: replace this with Heading / Text / Button blocks (+ between sections) for easier copy
@@ -470,7 +476,8 @@
 					oninput={(e) => setLayoutField('canvasColor', e.currentTarget.value)}
 				/>
 				{@render colorSwatches(String(block.data.canvasColor ?? '#FFFFFF'), (color) =>
-					setLayoutField('canvasColor', color ?? ''))}
+					setLayoutField('canvasColor', color ?? ''),
+				)}
 			</label>
 		{/if}
 
@@ -484,7 +491,8 @@
 					oninput={(e) => setStyle({ backgroundColor: e.currentTarget.value })}
 				/>
 				{@render colorSwatches(blockStyle.backgroundColor ?? null, (color) =>
-					setStyle({ backgroundColor: color }))}
+					setStyle({ backgroundColor: color }),
+				)}
 			</label>
 
 			{#if block.type === 'Container'}
@@ -535,8 +543,7 @@
 							type="url"
 							class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
 							value={bgImageUrl}
-							oninput={(e) =>
-								setStyle({ backgroundImage: e.currentTarget.value || null })}
+							oninput={(e) => setStyle({ backgroundImage: e.currentTarget.value || null })}
 						/>
 					</label>
 					{#if bgImageUrl}
@@ -556,7 +563,7 @@
 						value={bgSize}
 						onchange={(e) =>
 							setStyle({
-								backgroundSize: e.currentTarget.value === 'contain' ? 'contain' : 'cover'
+								backgroundSize: e.currentTarget.value === 'contain' ? 'contain' : 'cover',
 							})}
 					>
 						<option value="cover">Cover</option>
@@ -584,8 +591,7 @@
 						min="0"
 						class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
 						value={bgMinHeight}
-						oninput={(e) =>
-							setStyle({ minHeight: Number(e.currentTarget.value) || 0 })}
+						oninput={(e) => setStyle({ minHeight: Number(e.currentTarget.value) || 0 })}
 					/>
 				</label>
 				<label class="block space-y-1 text-xs">
@@ -607,7 +613,8 @@
 						oninput={(e) => setStyle({ borderColor: e.currentTarget.value })}
 					/>
 					{@render colorSwatches(blockStyle.borderColor ?? null, (color) =>
-						setStyle({ borderColor: color }))}
+						setStyle({ borderColor: color }),
+					)}
 				</label>
 				<label class="block space-y-1 text-xs">
 					<span class="text-[hsl(var(--muted-foreground))]">Border radius (px)</span>
@@ -616,8 +623,7 @@
 						min="0"
 						class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
 						value={blockStyle.borderRadius ?? 0}
-						oninput={(e) =>
-							setStyle({ borderRadius: Number(e.currentTarget.value) || 0 })}
+						oninput={(e) => setStyle({ borderRadius: Number(e.currentTarget.value) || 0 })}
 					/>
 				</label>
 				<label class="block space-y-1 text-xs">
@@ -628,7 +634,7 @@
 						onchange={(e) => {
 							const v = e.currentTarget.value;
 							setStyle({
-								textAlign: v === 'center' || v === 'right' ? v : 'left'
+								textAlign: v === 'center' || v === 'right' ? v : 'left',
 							});
 						}}
 					>
@@ -645,7 +651,7 @@
 						onchange={(e) => {
 							const v = e.currentTarget.value;
 							setStyle({
-								contentAlignment: v === 'middle' || v === 'bottom' ? v : 'top'
+								contentAlignment: v === 'middle' || v === 'bottom' ? v : 'top',
 							});
 						}}
 					>

@@ -63,7 +63,7 @@
 	const testVariables = $derived({
 		email: testEmail,
 		firstName: testFirstName,
-		lastName: testLastName
+		lastName: testLastName,
 	});
 
 	$effect(() => {
@@ -85,9 +85,7 @@
 	let pickerEditElementId = $state<string | null>(null);
 
 	const designComponents = $derived((data.designComponents ?? []) as DesignComponentOption[]);
-	const emailDocument = $derived(
-		(data.emailDocument ?? null) as TEditorConfiguration | null
-	);
+	const emailDocument = $derived((data.emailDocument ?? null) as TEditorConfiguration | null);
 	const builderPreviewOverrides = $derived.by((): Record<string, string> => {
 		const overrides: Record<string, string> = { ...testVariables };
 		const pair = pickEmailLogos(data.logoAssets ?? []);
@@ -104,7 +102,7 @@
 	});
 
 	const subjectPreview = $derived(
-		substitutePreviewPlaceholders(data.template.subject ?? '', testVariables)
+		substitutePreviewPlaceholders(data.template.subject ?? '', testVariables),
 	);
 
 	$effect(() => {
@@ -129,8 +127,8 @@
 			'data-owl-section',
 			'data-owl-id',
 			'data-owl-column',
-			'data-owl-sections'
-		]
+			'data-owl-sections',
+		],
 	};
 
 	function componentPreviewHtml(html: string): string {
@@ -152,7 +150,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
 				body: JSON.stringify({ prompt }),
-				signal: controller.signal
+				signal: controller.signal,
 			});
 
 			if (!res.ok || !res.body) {
@@ -260,9 +258,7 @@
 		const byId = new Map(server.map((el) => [el.id, el]));
 		const override = elementOrderOverride;
 		const order =
-			override &&
-			override.length === server.length &&
-			override.every((id) => byId.has(id))
+			override && override.length === server.length && override.every((id) => byId.has(id))
 				? override
 				: server.map((el) => el.id);
 		return order.map((id) => byId.get(id)!);
@@ -330,8 +326,8 @@
 				body,
 				headers: {
 					accept: 'application/json',
-					'x-sveltekit-action': 'true'
-				}
+					'x-sveltekit-action': 'true',
+				},
 			});
 			if (!res.ok) {
 				elementOrderOverride = null;
@@ -349,7 +345,7 @@
 	const pickerEditElement = $derived(
 		pickerEditElementId
 			? ((data.elements as ElementRow[]).find((e) => e.id === pickerEditElementId) ?? null)
-			: null
+			: null,
 	);
 
 	function openMultiAddPicker() {
@@ -417,8 +413,8 @@
 				body,
 				headers: {
 					accept: 'application/json',
-					'x-sveltekit-action': 'true'
-				}
+					'x-sveltekit-action': 'true',
+				},
 			});
 			if (!res.ok) throw new Error('Save failed');
 			editorHtml = payload.html;
@@ -429,7 +425,7 @@
 	}
 
 	async function uploadBuilderAsset(
-		file: File
+		file: File,
 	): Promise<{ id: string; name: string; kind: string } | null> {
 		const body = new FormData();
 		body.append('file', file);
@@ -439,8 +435,8 @@
 			body,
 			headers: {
 				accept: 'application/json',
-				'x-sveltekit-action': 'true'
-			}
+				'x-sveltekit-action': 'true',
+			},
 		});
 		if (!res.ok) return null;
 		const result = deserialize(await res.text());
@@ -454,8 +450,8 @@
 		(data.visualAssets ?? []).map((a: VisualAsset) => ({
 			id: a.id,
 			name: a.name,
-			kind: a.kind
-		}))
+			kind: a.kind,
+		})),
 	);
 </script>
 
@@ -476,15 +472,21 @@
 </div>
 
 {#if form?.error}
-	<p class="mb-4 rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-3 py-2 text-sm text-[hsl(var(--destructive))]">
+	<p
+		class="mb-4 rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-3 py-2 text-sm text-[hsl(var(--destructive))]"
+	>
 		{form.error}
 	</p>
 {/if}
 {#if form?.success && form.saved === 'scaffold'}
-	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">AI content ready — use Compose into builder if you want it applied.</p>
+	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
+		AI content ready — use Compose into builder if you want it applied.
+	</p>
 {/if}
 {#if form?.success && form.saved === 'compose'}
-	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">Sections composed into the builder.</p>
+	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
+		Sections composed into the builder.
+	</p>
 {/if}
 {#if form?.success && form.saved === 'html'}
 	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">Email saved.</p>
@@ -535,7 +537,9 @@
 		class="flex flex-wrap items-end gap-2"
 	>
 		<div class="min-w-48 flex-1 space-y-1">
-			<label class="text-xs text-[hsl(var(--muted-foreground))]" for="preview-to">Send preview</label>
+			<label class="text-xs text-[hsl(var(--muted-foreground))]" for="preview-to"
+				>Send preview</label
+			>
 			<Input id="preview-to" name="to" type="email" bind:value={previewTo} required />
 		</div>
 		<Button type="submit" size="sm" disabled={sending || !data.previewFrom || !data.hasHtml}>
@@ -543,7 +547,7 @@
 		</Button>
 		<a
 			href={resolve(`/templates/${data.template.id}/export?download=1`)}
-			class="inline-flex h-8 items-center text-xs underline text-[hsl(var(--muted-foreground))]"
+			class="inline-flex h-8 items-center text-xs text-[hsl(var(--muted-foreground))] underline"
 		>
 			Download
 		</a>
@@ -555,8 +559,8 @@
 		<div>
 			<p class="text-sm font-medium">Test variables</p>
 			<p class="text-xs text-[hsl(var(--muted-foreground))]">
-				Standard contact fields used as <code class="text-[0.7rem]">{"{{…}}"}</code> in the email.
-				Values apply to Preview and Send preview.
+				Standard contact fields used as <code class="text-[0.7rem]">{'{{…}}'}</code> in the email. Values
+				apply to Preview and Send preview.
 			</p>
 		</div>
 		{#if subjectPreview !== (data.template.subject ?? '')}
@@ -570,7 +574,12 @@
 			<label class="font-mono text-xs text-[hsl(var(--muted-foreground))]" for="test-var-email">
 				{'{{email}}'}
 			</label>
-			<Input id="test-var-email" type="email" bind:value={testEmail} placeholder="alex@example.com" />
+			<Input
+				id="test-var-email"
+				type="email"
+				bind:value={testEmail}
+				placeholder="alex@example.com"
+			/>
 		</div>
 		<div class="space-y-1">
 			<label class="font-mono text-xs text-[hsl(var(--muted-foreground))]" for="test-var-firstName">
@@ -590,7 +599,7 @@
 <div class="mb-6">
 	<EmailBuilder
 		document={emailDocument}
-		designComponents={designComponents}
+		{designComponents}
 		designColors={data.designColors}
 		designAssets={builderDesignAssets}
 		previewOverrides={builderPreviewOverrides}
@@ -614,311 +623,330 @@
 </div>
 
 {#if assistOpen}
-<div class="space-y-6">
-	<Card
-		title="Sections"
-		description="Optional: pick design-system sections, then compose them into the builder."
-	>
-		<div class="mb-4 flex flex-wrap gap-2">
-			<Button
-				type="button"
-				variant="outline"
-				disabled={designComponents.length === 0}
-				onclick={openMultiAddPicker}
-			>
-				Add from design system
-			</Button>
-			<Button
-				type="button"
-				variant={customFormOpen ? 'secondary' : 'outline'}
-				onclick={toggleCustomForm}
-			>
-				{customFormOpen ? 'Hide custom form' : 'Add custom element'}
-			</Button>
-		</div>
+	<div class="space-y-6">
+		<Card
+			title="Sections"
+			description="Optional: pick design-system sections, then compose them into the builder."
+		>
+			<div class="mb-4 flex flex-wrap gap-2">
+				<Button
+					type="button"
+					variant="outline"
+					disabled={designComponents.length === 0}
+					onclick={openMultiAddPicker}
+				>
+					Add from design system
+				</Button>
+				<Button
+					type="button"
+					variant={customFormOpen ? 'secondary' : 'outline'}
+					onclick={toggleCustomForm}
+				>
+					{customFormOpen ? 'Hide custom form' : 'Add custom element'}
+				</Button>
+			</div>
 
-		{#if customFormOpen}
-			<form
-				method="POST"
-				action="?/addElement"
-				enctype="multipart/form-data"
-				use:enhance={() => {
-					return async ({ update, result }) => {
-						await update();
-						if (result.type === 'success') {
-							addAssetId = '';
-							addLabel = '';
-							customFormOpen = false;
-						}
-					};
-				}}
-				class="mb-4 space-y-3 rounded-md border border-[hsl(var(--border))] p-3"
-			>
-				<div class="flex flex-wrap items-end gap-3">
-					<div class="min-w-35 flex-1 space-y-1">
-						<label class="text-xs text-[hsl(var(--muted-foreground))]" for="el-label">Label</label>
-						<Input id="el-label" name="label" bind:value={addLabel} placeholder="Primary CTA" required />
-					</div>
-					<div class="space-y-1">
-						<label class="text-xs text-[hsl(var(--muted-foreground))]" for="el-type">Type</label>
-						<select
-							id="el-type"
-							name="type"
-							bind:value={addType}
-							onchange={() => {
+			{#if customFormOpen}
+				<form
+					method="POST"
+					action="?/addElement"
+					enctype="multipart/form-data"
+					use:enhance={() => {
+						return async ({ update, result }) => {
+							await update();
+							if (result.type === 'success') {
 								addAssetId = '';
-							}}
-							class="flex h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-3 text-sm"
-						>
-							<option value="logo">Logo</option>
-							<option value="text">Text</option>
-							<option value="button">Button</option>
-							<option value="cta">CTA</option>
-							<option value="link">Link</option>
-							<option value="image">Image</option>
-						</select>
-					</div>
-					<label class="flex items-center gap-2 text-sm">
-						<input type="checkbox" name="required" checked class="rounded border" />
-						Required
-					</label>
-				</div>
-
-				{#if addType === 'text'}
-					<Input name="text" placeholder="Welcome to Acme" />
-				{:else if addType === 'button' || addType === 'cta' || addType === 'link'}
-					<div class="grid gap-3 sm:grid-cols-2">
-						<Input name="text" placeholder="Shop now" />
-						<Input name="url" type="url" placeholder="https://example.com" />
-					</div>
-				{:else if addType === 'logo' || addType === 'image'}
-					<input type="hidden" name="assetId" value={addAssetId} />
-					{#if libraryAssets.length > 0}
-						<div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
-							{#each libraryAssets as asset (asset.id)}
-								<button
-									type="button"
-									class="rounded-md border p-2 text-left {addAssetId === asset.id
-										? 'border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/50'
-										: 'border-[hsl(var(--border))]'}"
-									onclick={() => (addAssetId = asset.id)}
-								>
-									<img
-										src={resolve(`/api/design-asset/${asset.id}`)}
-										alt=""
-										class="mb-1 h-12 w-full object-contain"
-									/>
-									<p class="truncate text-xs font-medium">{asset.name}</p>
-								</button>
-							{/each}
-						</div>
-					{/if}
-					<input
-						name="file"
-						type="file"
-						accept="image/*"
-						class="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[hsl(var(--secondary))] file:px-3 file:py-1.5"
-					/>
-				{/if}
-
-				<div class="flex gap-2">
-					<Button type="submit">Add</Button>
-					<Button type="button" variant="ghost" onclick={() => (customFormOpen = false)}>Cancel</Button>
-				</div>
-			</form>
-		{/if}
-
-		{#if localElements.length === 0}
-			<p class="text-sm text-[hsl(var(--muted-foreground))]">
-				No sections yet. Skip this and build in the email builder, or add design-system sections here.
-			</p>
-		{:else}
-			<ul class="divide-y divide-[hsl(var(--border))]">
-				{#each localElements as element (element.id)}
-					{@const el = element as ElementRow}
-					{@const libComponent =
-						el.type === 'component' && el.parsedConfig.designComponentId
-							? designComponents.find((c) => c.id === el.parsedConfig.designComponentId)
-							: null}
-					<li
-						class="space-y-3 py-3 {draggingElementId === el.id ? 'opacity-60' : ''} {dragOverElementId ===
-							el.id && draggingElementId !== el.id
-							? 'bg-[hsl(var(--muted))]/30'
-							: ''}"
-						ondragover={(e) => onElementDragOver(e, el.id)}
-						ondrop={(e) => onElementDrop(e, el.id)}
-					>
-						<div class="flex items-start justify-between gap-3">
-							<span
-								role="button"
-								tabindex="0"
-								class="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]/50"
-								draggable="true"
-								aria-label="Drag to reorder {el.label}"
-								ondragstart={(e) => onElementDragStart(e, el.id)}
-								ondragend={onElementDragEnd}
+								addLabel = '';
+								customFormOpen = false;
+							}
+						};
+					}}
+					class="mb-4 space-y-3 rounded-md border border-[hsl(var(--border))] p-3"
+				>
+					<div class="flex flex-wrap items-end gap-3">
+						<div class="min-w-35 flex-1 space-y-1">
+							<label class="text-xs text-[hsl(var(--muted-foreground))]" for="el-label">Label</label
 							>
-								<GripVertical class="size-4" />
-							</span>
-							<div class="min-w-0 flex-1">
-								<p class="text-sm font-medium">{el.label}</p>
-								<p class="text-xs text-[hsl(var(--muted-foreground))]">
-									{el.type === 'component' ? 'design system' : el.type}
-									{el.required ? ' · required' : ' · optional'} · {valueSummary(el)}
-								</p>
-								{#if libComponent}
-									<div
-										class="mt-2 h-24 overflow-hidden rounded-md border border-[hsl(var(--border))] bg-white p-2 text-[#111]"
-									>
-										{@html componentPreviewHtml(libComponent.html)}
-									</div>
-								{/if}
-							</div>
-							<div class="flex shrink-0 gap-2">
-								<Button
-									type="button"
-									size="sm"
-									variant="outline"
-									onclick={() => {
-										if (el.type === 'component') {
-											openSingleEditPicker(el.id);
-											return;
-										}
-										editingId = editingId === el.id ? null : el.id;
-										if (el.parsedConfig.assetId) editAssetIds[el.id] = el.parsedConfig.assetId;
-									}}
-								>
-									Edit
-								</Button>
-								<form method="POST" action="?/deleteElement" use:enhance>
-									<input type="hidden" name="id" value={el.id} />
-									<Button type="submit" size="sm" variant="destructive">Remove</Button>
-								</form>
-							</div>
+							<Input
+								id="el-label"
+								name="label"
+								bind:value={addLabel}
+								placeholder="Primary CTA"
+								required
+							/>
 						</div>
-
-						{#if editingId === el.id && el.type !== 'component'}
-							<form
-								method="POST"
-								action="?/updateElement"
-								enctype="multipart/form-data"
-								use:enhance={() => {
-									return async ({ update, result }) => {
-										await update();
-										if (result.type === 'success') editingId = null;
-									};
+						<div class="space-y-1">
+							<label class="text-xs text-[hsl(var(--muted-foreground))]" for="el-type">Type</label>
+							<select
+								id="el-type"
+								name="type"
+								bind:value={addType}
+								onchange={() => {
+									addAssetId = '';
 								}}
-								class="space-y-3 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-3"
+								class="flex h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-3 text-sm"
 							>
-								<input type="hidden" name="id" value={el.id} />
-								<Input name="label" value={el.label} required />
-								<label class="flex items-center gap-2 text-sm">
-									<input type="checkbox" name="required" checked={el.required} class="rounded border" />
-									Required
-								</label>
-								{#if el.type === 'text'}
-									<Input name="text" value={el.parsedConfig.text ?? ''} />
-								{:else if el.type === 'button' || el.type === 'cta' || el.type === 'link'}
-									<div class="grid gap-3 sm:grid-cols-2">
-										<Input name="text" value={el.parsedConfig.text ?? ''} />
-										<Input name="url" type="url" value={el.parsedConfig.url ?? ''} />
-									</div>
-								{:else if el.type === 'logo' || el.type === 'image'}
-									{@const selectedAssetId = editAssetIds[el.id] ?? el.parsedConfig.assetId ?? ''}
-									<input type="hidden" name="assetId" value={selectedAssetId} />
-									<div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
-										{#each assetsForType(el.type) as asset (asset.id)}
-											<button
-												type="button"
-												class="rounded-md border p-2 {selectedAssetId === asset.id
-													? 'border-[hsl(var(--ring))]'
-													: 'border-[hsl(var(--border))]'}"
-												onclick={() => {
-													editAssetIds[el.id] = asset.id;
-												}}
-											>
-												<img
-													src={resolve(`/api/design-asset/${asset.id}`)}
-													alt=""
-													class="h-12 w-full object-contain"
-												/>
-											</button>
-										{/each}
-									</div>
-								{/if}
-								<Button type="submit" size="sm">Save</Button>
-							</form>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</Card>
+								<option value="logo">Logo</option>
+								<option value="text">Text</option>
+								<option value="button">Button</option>
+								<option value="cta">CTA</option>
+								<option value="link">Link</option>
+								<option value="image">Image</option>
+							</select>
+						</div>
+						<label class="flex items-center gap-2 text-sm">
+							<input type="checkbox" name="required" checked class="rounded border" />
+							Required
+						</label>
+					</div>
 
-	<Card
-		title="Generate content"
-		description="Optional: AI fills slot values for your sections, then compose into the builder."
-	>
-		<div class="space-y-3">
-			<textarea
-				name="prompt"
-				rows="4"
-				bind:value={prompt}
-				disabled={scaffolding}
-				class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm disabled:opacity-50"
-				placeholder="Tone, offer, audience… e.g. Warm welcome email for new signups, mention free trial"
-			></textarea>
-			<div class="flex flex-wrap items-center gap-2">
-				{#if scaffolding}
-					<Button type="button" variant="outline" onclick={stopScaffold}>Stop</Button>
-					<span class="text-sm text-[hsl(var(--muted-foreground))]">{scaffoldStatus}</span>
-				{:else}
-					<Button
-						type="button"
-						disabled={localElements.length === 0}
-						onclick={() => void startScaffold()}
-					>
-						Generate content
-					</Button>
+					{#if addType === 'text'}
+						<Input name="text" placeholder="Welcome to Acme" />
+					{:else if addType === 'button' || addType === 'cta' || addType === 'link'}
+						<div class="grid gap-3 sm:grid-cols-2">
+							<Input name="text" placeholder="Shop now" />
+							<Input name="url" type="url" placeholder="https://example.com" />
+						</div>
+					{:else if addType === 'logo' || addType === 'image'}
+						<input type="hidden" name="assetId" value={addAssetId} />
+						{#if libraryAssets.length > 0}
+							<div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+								{#each libraryAssets as asset (asset.id)}
+									<button
+										type="button"
+										class="rounded-md border p-2 text-left {addAssetId === asset.id
+											? 'border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/50'
+											: 'border-[hsl(var(--border))]'}"
+										onclick={() => (addAssetId = asset.id)}
+									>
+										<img
+											src={resolve(`/api/design-asset/${asset.id}`)}
+											alt=""
+											class="mb-1 h-12 w-full object-contain"
+										/>
+										<p class="truncate text-xs font-medium">{asset.name}</p>
+									</button>
+								{/each}
+							</div>
+						{/if}
+						<input
+							name="file"
+							type="file"
+							accept="image/*"
+							class="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[hsl(var(--secondary))] file:px-3 file:py-1.5"
+						/>
+					{/if}
+
+					<div class="flex gap-2">
+						<Button type="submit">Add</Button>
+						<Button type="button" variant="ghost" onclick={() => (customFormOpen = false)}
+							>Cancel</Button
+						>
+					</div>
+				</form>
+			{/if}
+
+			{#if localElements.length === 0}
+				<p class="text-sm text-[hsl(var(--muted-foreground))]">
+					No sections yet. Skip this and build in the email builder, or add design-system sections
+					here.
+				</p>
+			{:else}
+				<ul class="divide-y divide-[hsl(var(--border))]">
+					{#each localElements as element (element.id)}
+						{@const el = element as ElementRow}
+						{@const libComponent =
+							el.type === 'component' && el.parsedConfig.designComponentId
+								? designComponents.find((c) => c.id === el.parsedConfig.designComponentId)
+								: null}
+						<li
+							class="space-y-3 py-3 {draggingElementId === el.id
+								? 'opacity-60'
+								: ''} {dragOverElementId === el.id && draggingElementId !== el.id
+								? 'bg-[hsl(var(--muted))]/30'
+								: ''}"
+							ondragover={(e) => onElementDragOver(e, el.id)}
+							ondrop={(e) => onElementDrop(e, el.id)}
+						>
+							<div class="flex items-start justify-between gap-3">
+								<span
+									role="button"
+									tabindex="0"
+									class="mt-0.5 shrink-0 cursor-grab touch-none rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]/50"
+									draggable="true"
+									aria-label="Drag to reorder {el.label}"
+									ondragstart={(e) => onElementDragStart(e, el.id)}
+									ondragend={onElementDragEnd}
+								>
+									<GripVertical class="size-4" />
+								</span>
+								<div class="min-w-0 flex-1">
+									<p class="text-sm font-medium">{el.label}</p>
+									<p class="text-xs text-[hsl(var(--muted-foreground))]">
+										{el.type === 'component' ? 'design system' : el.type}
+										{el.required ? ' · required' : ' · optional'} · {valueSummary(el)}
+									</p>
+									{#if libComponent}
+										<div
+											class="mt-2 h-24 overflow-hidden rounded-md border border-[hsl(var(--border))] bg-white p-2 text-[#111]"
+										>
+											{@html componentPreviewHtml(libComponent.html)}
+										</div>
+									{/if}
+								</div>
+								<div class="flex shrink-0 gap-2">
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										onclick={() => {
+											if (el.type === 'component') {
+												openSingleEditPicker(el.id);
+												return;
+											}
+											editingId = editingId === el.id ? null : el.id;
+											if (el.parsedConfig.assetId) editAssetIds[el.id] = el.parsedConfig.assetId;
+										}}
+									>
+										Edit
+									</Button>
+									<form method="POST" action="?/deleteElement" use:enhance>
+										<input type="hidden" name="id" value={el.id} />
+										<Button type="submit" size="sm" variant="destructive">Remove</Button>
+									</form>
+								</div>
+							</div>
+
+							{#if editingId === el.id && el.type !== 'component'}
+								<form
+									method="POST"
+									action="?/updateElement"
+									enctype="multipart/form-data"
+									use:enhance={() => {
+										return async ({ update, result }) => {
+											await update();
+											if (result.type === 'success') editingId = null;
+										};
+									}}
+									class="space-y-3 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-3"
+								>
+									<input type="hidden" name="id" value={el.id} />
+									<Input name="label" value={el.label} required />
+									<label class="flex items-center gap-2 text-sm">
+										<input
+											type="checkbox"
+											name="required"
+											checked={el.required}
+											class="rounded border"
+										/>
+										Required
+									</label>
+									{#if el.type === 'text'}
+										<Input name="text" value={el.parsedConfig.text ?? ''} />
+									{:else if el.type === 'button' || el.type === 'cta' || el.type === 'link'}
+										<div class="grid gap-3 sm:grid-cols-2">
+											<Input name="text" value={el.parsedConfig.text ?? ''} />
+											<Input name="url" type="url" value={el.parsedConfig.url ?? ''} />
+										</div>
+									{:else if el.type === 'logo' || el.type === 'image'}
+										{@const selectedAssetId = editAssetIds[el.id] ?? el.parsedConfig.assetId ?? ''}
+										<input type="hidden" name="assetId" value={selectedAssetId} />
+										<div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+											{#each assetsForType(el.type) as asset (asset.id)}
+												<button
+													type="button"
+													class="rounded-md border p-2 {selectedAssetId === asset.id
+														? 'border-[hsl(var(--ring))]'
+														: 'border-[hsl(var(--border))]'}"
+													onclick={() => {
+														editAssetIds[el.id] = asset.id;
+													}}
+												>
+													<img
+														src={resolve(`/api/design-asset/${asset.id}`)}
+														alt=""
+														class="h-12 w-full object-contain"
+													/>
+												</button>
+											{/each}
+										</div>
+									{/if}
+									<Button type="submit" size="sm">Save</Button>
+								</form>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Card>
+
+		<Card
+			title="Generate content"
+			description="Optional: AI fills slot values for your sections, then compose into the builder."
+		>
+			<div class="space-y-3">
+				<textarea
+					name="prompt"
+					rows="4"
+					bind:value={prompt}
+					disabled={scaffolding}
+					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm disabled:opacity-50"
+					placeholder="Tone, offer, audience… e.g. Warm welcome email for new signups, mention free trial"
+				></textarea>
+				<div class="flex flex-wrap items-center gap-2">
+					{#if scaffolding}
+						<Button type="button" variant="outline" onclick={stopScaffold}>Stop</Button>
+						<span class="text-sm text-[hsl(var(--muted-foreground))]">{scaffoldStatus}</span>
+					{:else}
+						<Button
+							type="button"
+							disabled={localElements.length === 0}
+							onclick={() => void startScaffold()}
+						>
+							Generate content
+						</Button>
+					{/if}
+				</div>
+				{#if scaffoldError}
+					<p class="text-sm text-[hsl(var(--destructive))]">{scaffoldError}</p>
+				{/if}
+				{#if scaffoldStream || scaffolding}
+					<pre
+						class="max-h-64 overflow-auto rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-3 font-mono text-xs whitespace-pre-wrap text-[hsl(var(--foreground))]"
+						aria-live="polite">{scaffoldStream || 'Waiting for model…'}</pre>
 				{/if}
 			</div>
-			{#if scaffoldError}
-				<p class="text-sm text-[hsl(var(--destructive))]">{scaffoldError}</p>
-			{/if}
-			{#if scaffoldStream || scaffolding}
-				<pre
-					class="max-h-64 overflow-auto rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))] p-3 font-mono text-xs whitespace-pre-wrap text-[hsl(var(--foreground))]"
-					aria-live="polite">{scaffoldStream || 'Waiting for model…'}</pre>
-			{/if}
-		</div>
-	</Card>
+		</Card>
 
-	<Card
-		title="Compose into builder"
-		description="Optional: merge sections + generated copy into the email builder (overwrites current document)."
-	>
-		<form
-			method="POST"
-			action="?/compose"
-			use:enhance={() => {
-				if (data.hasHtml && !confirm('This overwrites the current email builder document. Continue?')) {
-					return async () => {};
-				}
-				composing = true;
-				return async ({ update }) => {
-					await update();
-					composing = false;
-					assistOpen = false;
-				};
-			}}
-			class="space-y-3"
+		<Card
+			title="Compose into builder"
+			description="Optional: merge sections + generated copy into the email builder (overwrites current document)."
 		>
-			<Button type="submit" disabled={composing || localElements.length === 0}>
-				{composing ? 'Composing…' : 'Compose into builder'}
-			</Button>
-		</form>
-	</Card>
-</div>
+			<form
+				method="POST"
+				action="?/compose"
+				use:enhance={() => {
+					if (
+						data.hasHtml &&
+						!confirm('This overwrites the current email builder document. Continue?')
+					) {
+						return async () => {};
+					}
+					composing = true;
+					return async ({ update }) => {
+						await update();
+						composing = false;
+						assistOpen = false;
+					};
+				}}
+				class="space-y-3"
+			>
+				<Button type="submit" disabled={composing || localElements.length === 0}>
+					{composing ? 'Composing…' : 'Compose into builder'}
+				</Button>
+			</form>
+		</Card>
+	</div>
 {/if}
 
 <Modal

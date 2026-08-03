@@ -18,9 +18,9 @@ const DEFAULT_DOUBLE_OPT_IN_CONTENT_JSON = {
 			content: [
 				{
 					type: 'text',
-					text: 'Hello, Thank you for signing up. Please confirm that you want to receive emails from us.'
-				}
-			]
+					text: 'Hello, Thank you for signing up. Please confirm that you want to receive emails from us.',
+				},
+			],
 		},
 		{
 			type: 'button',
@@ -28,8 +28,8 @@ const DEFAULT_DOUBLE_OPT_IN_CONTENT_JSON = {
 				component: 'button',
 				text: 'Confirm',
 				url: '{{doubleOptInUrl}}',
-				alignment: 'left'
-			}
+				alignment: 'left',
+			},
 		},
 		{ type: 'horizontalRule' },
 		{
@@ -38,11 +38,11 @@ const DEFAULT_DOUBLE_OPT_IN_CONTENT_JSON = {
 			content: [
 				{
 					type: 'text',
-					text: 'You are receiving this email because you opted in via our site.'
-				}
-			]
-		}
-	]
+					text: 'You are receiving this email because you opted in via our site.',
+				},
+			],
+		},
+	],
 };
 
 export const DEFAULT_DOUBLE_OPT_IN_CONTENT = JSON.stringify(DEFAULT_DOUBLE_OPT_IN_CONTENT_JSON);
@@ -78,9 +78,7 @@ export function hasDoubleOptInUrlPlaceholder(content: string): boolean {
 }
 
 function createDoubleOptInHash(contactId: string, expiresAt: number): string {
-	return createHash('sha256')
-		.update(`${contactId}-${expiresAt}-${env.AUTH_SECRET}`)
-		.digest('hex');
+	return createHash('sha256').update(`${contactId}-${expiresAt}-${env.AUTH_SECRET}`).digest('hex');
 }
 
 function createDoubleOptInConfirmationUrl(contactId: string): string {
@@ -89,7 +87,7 @@ function createDoubleOptInConfirmationUrl(contactId: string): string {
 	const searchParams = new URLSearchParams({
 		contactId,
 		expiresAt: String(expiresAt),
-		hash
+		hash,
 	});
 	return `${env.HOST_URL}/subscribe?${searchParams.toString()}`;
 }
@@ -108,7 +106,7 @@ function replaceTemplateTokens(value: string, variables: Record<string, string>)
 export async function sendDoubleOptInConfirmationEmail({
 	contactId,
 	contactBookId,
-	teamId
+	teamId,
 }: {
 	contactId: string;
 	contactBookId: string;
@@ -141,7 +139,7 @@ export async function sendDoubleOptInConfirmationEmail({
 
 		if (!domain) {
 			throw new Error(
-				'Double opt-in requires at least one verified domain to send confirmation emails'
+				'Double opt-in requires at least one verified domain to send confirmation emails',
 			);
 		}
 		from = `hello@${domain.name}`;
@@ -155,7 +153,7 @@ export async function sendDoubleOptInConfirmationEmail({
 		email: contact.email,
 		firstName: contact.firstName ?? '',
 		lastName: contact.lastName ?? '',
-		doubleOptInUrl: confirmationUrl
+		doubleOptInUrl: confirmationUrl,
 	};
 
 	const content = contactBook.doubleOptInContent ?? DEFAULT_DOUBLE_OPT_IN_CONTENT;
@@ -170,7 +168,7 @@ export async function sendDoubleOptInConfirmationEmail({
 
 	const subject = replaceTemplateTokens(
 		contactBook.doubleOptInSubject ?? DEFAULT_DOUBLE_OPT_IN_SUBJECT,
-		variableValues
+		variableValues,
 	);
 
 	await validateDomainFromEmail(from, teamId);
@@ -180,7 +178,7 @@ export async function sendDoubleOptInConfirmationEmail({
 		to: contact.email,
 		from,
 		subject,
-		html: replaceTemplateTokens(html, { doubleOptInUrl: confirmationUrl })
+		html: replaceTemplateTokens(html, { doubleOptInUrl: confirmationUrl }),
 	});
 }
 
@@ -190,7 +188,7 @@ export async function sendDoubleOptInConfirmationEmail({
 export function confirmDoubleOptInSubscription({
 	contactId,
 	expiresAt,
-	hash
+	hash,
 }: {
 	contactId: string;
 	expiresAt: string;

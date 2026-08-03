@@ -20,7 +20,7 @@ import {
 	SessionManager,
 	SettingsManager,
 	type AgentSession,
-	type AgentSessionEvent
+	type AgentSessionEvent,
 } from '@earendil-works/pi-coding-agent';
 import { cuid } from '$lib/utils';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
@@ -30,11 +30,7 @@ import type { DesignAssetKind, TemplateComponentKind } from '../db/schema';
 import { EMAIL_FORMATTING_RULES } from '../email-formatting-rules';
 import { env } from '../env';
 import { openRouterChat, openRouterModel } from './openrouter';
-import {
-	assetDiskPath,
-	getDesignSystemBundle,
-	type DesignAsset
-} from './design-system-service';
+import { assetDiskPath, getDesignSystemBundle, type DesignAsset } from './design-system-service';
 
 export type PiSessionHandle = {
 	id: string;
@@ -68,7 +64,7 @@ const HTML_EDIT_SYSTEM_PROMPT = [
 	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
-	'Do not create unrelated files. Do not leave the work directory.'
+	'Do not create unrelated files. Do not leave the work directory.',
 ].join(' ');
 
 const EMAIL_TREE_EDIT_SYSTEM_PROMPT = [
@@ -83,7 +79,7 @@ const EMAIL_TREE_EDIT_SYSTEM_PROMPT = [
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
 	'Keep <script> limited to relative .svelte imports and $props() only — a single top-level <script> block (never two).',
-	'Do not modify design.md, components/, or assets/. Do not leave the work directory.'
+	'Do not modify design.md, components/, or assets/. Do not leave the work directory.',
 ].join(' ');
 
 /** A template component read back from a Pi email/ work tree. */
@@ -128,7 +124,9 @@ export function safePiAssetFilename(filename: string): string {
 }
 
 /** Relative path for a design asset inside the Pi work directory. */
-export function piAssetRelativePath(asset: Pick<PiDesignAssetRef, 'id' | 'kind' | 'filename'>): string {
+export function piAssetRelativePath(
+	asset: Pick<PiDesignAssetRef, 'id' | 'kind' | 'filename'>,
+): string {
 	return `assets/${asset.kind}/${asset.id}-${safePiAssetFilename(asset.filename)}`;
 }
 
@@ -144,16 +142,15 @@ export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 	const designMd = design?.designMd?.trim() ?? '';
 	const excludeName = design?.excludeComponentName?.trim() ?? '';
 	const components =
-		design?.components?.filter(
-			(c) => c.html?.trim() && (!excludeName || c.name !== excludeName)
-		) ?? [];
+		design?.components?.filter((c) => c.html?.trim() && (!excludeName || c.name !== excludeName)) ??
+		[];
 	const assets = design?.assets ?? [];
 	const assetBaseUrl = (design?.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
 
 	if (designMd) {
 		files.push({
 			relativePath: 'design.md',
-			content: designMd.endsWith('\n') ? designMd : `${designMd}\n`
+			content: designMd.endsWith('\n') ? designMd : `${designMd}\n`,
 		});
 	}
 
@@ -174,14 +171,14 @@ export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 				c.description?.trim()
 					? `<!-- ${c.name}: ${c.description.trim()} -->`
 					: `<!-- ${c.name} -->`,
-				''
+				'',
 			].join('\n');
 			files.push({
 				relativePath,
-				content: `${header}${c.html.trim()}\n`
+				content: `${header}${c.html.trim()}\n`,
 			});
 			indexLines.push(
-				`- \`${relativePath}\` — ${c.name}${c.description?.trim() ? `: ${c.description.trim()}` : ''}`
+				`- \`${relativePath}\` — ${c.name}${c.description?.trim() ? `: ${c.description.trim()}` : ''}`,
 			);
 		}
 		indexLines.push('');
@@ -196,13 +193,13 @@ export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 			'Use the **embed URL** in HTML `src` / CSS — not the local file path.',
 			'',
 			'| kind | name | mime | size | local file | embed URL |',
-			'| --- | --- | --- | --- | --- | --- |'
+			'| --- | --- | --- | --- | --- | --- |',
 		];
 		for (const a of assets) {
 			const relativePath = piAssetRelativePath(a);
 			const url = `${assetBaseUrl}/api/design-asset/${a.id}`;
 			indexLines.push(
-				`| ${a.kind} | ${a.name} | ${a.mime} | ${a.size} | \`${relativePath}\` | ${url} |`
+				`| ${a.kind} | ${a.name} | ${a.mime} | ${a.size} | \`${relativePath}\` | ${url} |`,
 			);
 		}
 		indexLines.push('');
@@ -216,7 +213,7 @@ export function buildPiDesignWorkspaceFiles(design?: PiDesignContext): Array<{
 export async function copyPiDesignAssetsToWorkDir(
 	workDir: string,
 	teamId: number,
-	assets: DesignAsset[]
+	assets: DesignAsset[],
 ): Promise<void> {
 	for (const asset of assets) {
 		const relative = piAssetRelativePath(asset);
@@ -242,16 +239,20 @@ export function buildPiAgentsMd(opts: {
 	const designSection: string[] = [];
 	if (hasDesignMd || hasComponents || hasAssets) {
 		designSection.push('## Design library (read on demand)', '');
-		designSection.push('- Edit the target file first; open these only when the instruction needs them.');
+		designSection.push(
+			'- Edit the target file first; open these only when the instruction needs them.',
+		);
 		if (hasDesignMd) {
 			designSection.push('- `design.md` — brand tokens, typography, colors.');
 		}
 		if (hasComponents) {
-			designSection.push('- `components/` — reusable HTML patterns (`components/README.md` index).');
+			designSection.push(
+				'- `components/` — reusable HTML patterns (`components/README.md` index).',
+			);
 		}
 		if (hasAssets) {
 			designSection.push(
-				'- `assets/README.md` — uploaded logos/images/fonts with embed URLs for HTML.'
+				'- `assets/README.md` — uploaded logos/images/fonts with embed URLs for HTML.',
 			);
 		}
 		designSection.push('');
@@ -273,7 +274,7 @@ export function buildPiAgentsMd(opts: {
 		'- Do not overwrite design.md, components/, or assets/; they are read-only context.',
 		'- In HTML, reference assets via their embed URLs from assets/README.md.',
 		'',
-		EMAIL_FORMATTING_RULES.trim()
+		EMAIL_FORMATTING_RULES.trim(),
 	].join('\n');
 }
 
@@ -292,17 +293,19 @@ export function buildPiEmailTreeAgentsMd(opts: {
 	if (hasDesignMd || hasComponents || hasAssets) {
 		designSection.push('## Design library (read on demand)', '');
 		designSection.push(
-			'- Prefer editing `email/` first; open these only when the instruction needs them.'
+			'- Prefer editing `email/` first; open these only when the instruction needs them.',
 		);
 		if (hasDesignMd) {
 			designSection.push('- `design.md` — brand tokens, typography, colors.');
 		}
 		if (hasComponents) {
-			designSection.push('- `components/` — reusable HTML patterns (`components/README.md` index).');
+			designSection.push(
+				'- `components/` — reusable HTML patterns (`components/README.md` index).',
+			);
 		}
 		if (hasAssets) {
 			designSection.push(
-				'- `assets/README.md` — uploaded logos/images/fonts with embed URLs for HTML.'
+				'- `assets/README.md` — uploaded logos/images/fonts with embed URLs for HTML.',
 			);
 		}
 		designSection.push('');
@@ -336,7 +339,7 @@ export function buildPiEmailTreeAgentsMd(opts: {
 		'- Do not overwrite design.md, components/, or assets/; they are read-only context.',
 		'- In HTML, reference assets via their embed URLs from assets/README.md.',
 		'',
-		EMAIL_FORMATTING_RULES.trim()
+		EMAIL_FORMATTING_RULES.trim(),
 	].join('\n');
 }
 
@@ -358,7 +361,8 @@ export async function readPiEmailTree(emailDir: string): Promise<PiTemplateTreeC
 	try {
 		entries = await readdir(emailDir);
 	} catch (err) {
-		const code = err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
+		const code =
+			err && typeof err === 'object' && 'code' in err ? (err as { code: string }).code : '';
 		if (code === 'ENOENT') {
 			throw new Error('Pi finished but email/ directory is missing. The tree was not applied.');
 		}
@@ -390,7 +394,7 @@ export async function readPiEmailTree(emailDir: string): Promise<PiTemplateTreeC
 			name: kind === 'root' ? 'Root' : name,
 			kind,
 			source,
-			order: components.length
+			order: components.length,
 		});
 	}
 
@@ -414,7 +418,7 @@ export function resolvePiConfigured(input: {
 export function isPiConfigured(): boolean {
 	return resolvePiConfigured({
 		piEnabled: env.PI_ENABLED,
-		openRouterApiKey: env.OPENROUTER_API_KEY
+		openRouterApiKey: env.OPENROUTER_API_KEY,
 	});
 }
 
@@ -432,7 +436,9 @@ export function resolvePiWorkRoot(): string {
 
 export async function createPiRuntime(): Promise<ModelRuntime> {
 	if (!isPiConfigured()) {
-		throw new Error('Pi is not configured (set OPENROUTER_API_KEY, or PI_ENABLED=false to disable)');
+		throw new Error(
+			'Pi is not configured (set OPENROUTER_API_KEY, or PI_ENABLED=false to disable)',
+		);
 	}
 
 	const agentDir = resolvePiAgentDir();
@@ -440,7 +446,7 @@ export async function createPiRuntime(): Promise<ModelRuntime> {
 
 	const modelRuntime = await ModelRuntime.create({
 		authPath: join(agentDir, 'auth.json'),
-		modelsPath: join(agentDir, 'models.json')
+		modelsPath: join(agentDir, 'models.json'),
 	});
 
 	await modelRuntime.setRuntimeApiKey('openrouter', env.OPENROUTER_API_KEY!);
@@ -462,15 +468,13 @@ export function resetPiRuntimeCache(): void {
 	runtimePromise = null;
 }
 
-export async function spawnPiSession(
-	opts: SpawnPiSessionOptions = {}
-): Promise<PiSessionHandle> {
+export async function spawnPiSession(opts: SpawnPiSessionOptions = {}): Promise<PiSessionHandle> {
 	const modelRuntime = await getSharedRuntime();
 	const modelId = getPiModelId(opts.modelId);
 	const model = modelRuntime.getModel('openrouter', modelId);
 	if (!model) {
 		throw new Error(
-			`Pi model not found for openrouter/${modelId}. Check PI_MODEL / OPENROUTER_MODEL.`
+			`Pi model not found for openrouter/${modelId}. Check PI_MODEL / OPENROUTER_MODEL.`,
 		);
 	}
 
@@ -500,8 +504,8 @@ export async function spawnPiSession(
 			? { systemPrompt }
 			: {
 					agentsFilesOverride: () => ({ agentsFiles: [] }),
-					systemPrompt
-				})
+					systemPrompt,
+				}),
 	});
 	await resourceLoader.reload();
 
@@ -514,19 +518,17 @@ export async function spawnPiSession(
 			model,
 			// Coding edits: enable thinking so the UI can stream it. Connection probes stay quiet.
 			thinkingLevel: isCodingEdit ? 'low' : 'off',
-			...(isCodingEdit
-				? { tools: ['read', 'edit', 'write', 'ls'] }
-				: { noTools: 'all' as const }),
+			...(isCodingEdit ? { tools: ['read', 'edit', 'write', 'ls'] } : { noTools: 'all' as const }),
 			resourceLoader,
 			sessionManager: SessionManager.inMemory(cwd),
-			settingsManager
+			settingsManager,
 		});
 		session = result.session;
 
 		const handle: PiSessionHandle = {
 			id: cuid(),
 			session,
-			createdAt: new Date().toISOString()
+			createdAt: new Date().toISOString(),
 		};
 		registry.set(handle.id, handle);
 		return handle;
@@ -606,10 +608,7 @@ function summarizeForStream(value: unknown, max = 160): string | undefined {
 			text = value;
 		} else if (typeof value === 'object' && value !== null && 'path' in value) {
 			const path = (value as { path?: unknown }).path;
-			text =
-				typeof path === 'string'
-					? path
-					: JSON.stringify(value);
+			text = typeof path === 'string' ? path : JSON.stringify(value);
 		} else {
 			text = JSON.stringify(value);
 		}
@@ -635,7 +634,7 @@ export function mapAgentSessionEventToPiEdit(event: AgentSessionEvent): PiEditSt
 					: undefined;
 			return {
 				type: 'step',
-				message: turnIndex != null ? `Turn ${turnIndex + 1}` : 'Working…'
+				message: turnIndex != null ? `Turn ${turnIndex + 1}` : 'Working…',
 			};
 		}
 		case 'message_update': {
@@ -670,7 +669,7 @@ export function mapAgentSessionEventToPiEdit(event: AgentSessionEvent): PiEditSt
 			return {
 				type: 'tool_start',
 				toolName,
-				detail: summarizeForStream(e.args)
+				detail: summarizeForStream(e.args),
 			};
 		}
 		case 'tool_execution_end': {
@@ -684,7 +683,7 @@ export function mapAgentSessionEventToPiEdit(event: AgentSessionEvent): PiEditSt
 				type: 'tool_end',
 				toolName,
 				isError: Boolean(e.isError),
-				detail: summarizeForStream(e.result)
+				detail: summarizeForStream(e.result),
 			};
 		}
 		default:
@@ -697,7 +696,7 @@ export function mapAgentSessionEventToPiEdit(event: AgentSessionEvent): PiEditSt
  * Expects a tool-free session.
  */
 export async function pingPiSession(
-	sessionOrHandle: AgentSession | PiSessionHandle
+	sessionOrHandle: AgentSession | PiSessionHandle,
 ): Promise<string> {
 	return promptPiSession(sessionOrHandle, 'Reply with exactly: pong');
 }
@@ -708,12 +707,12 @@ export async function pingPiSession(
  */
 export async function promptPiSession(
 	sessionOrHandle: AgentSession | PiSessionHandle,
-	prompt: string
+	prompt: string,
 ): Promise<string> {
 	const session = 'session' in sessionOrHandle ? sessionOrHandle.session : sessionOrHandle;
 	const sink = { text: '' };
 	const unsubscribe = session.subscribe((event: AgentSessionEvent) =>
-		collectTextDelta(event, sink)
+		collectTextDelta(event, sink),
 	);
 
 	try {
@@ -822,8 +821,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 		const workId = cuid();
 		workDir = join(resolvePiWorkRoot(), workId);
 		filename =
-			input.filename ??
-			(input.context?.kind === 'component' ? 'component.html' : 'email.html');
+			input.filename ?? (input.context?.kind === 'component' ? 'component.html' : 'email.html');
 		filePath = join(workDir, filename);
 		const assetBaseUrl = (input.assetBaseUrl ?? env.HOST_URL).replace(/\/$/, '');
 
@@ -836,7 +834,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 			components: bundle.components.map((c) => ({
 				name: c.name,
 				description: c.description,
-				html: c.html
+				html: c.html,
 			})),
 			assets: bundle.assets.map((a) => ({
 				id: a.id,
@@ -844,10 +842,10 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 				name: a.name,
 				filename: a.filename,
 				mime: a.mime,
-				size: a.size
+				size: a.size,
 			})),
 			assetBaseUrl,
-			excludeComponentName: input.context?.name ?? null
+			excludeComponentName: input.context?.name ?? null,
 		};
 
 		const designFiles = buildPiDesignWorkspaceFiles(design);
@@ -862,13 +860,13 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 			input.context?.kind ? `- kind: ${input.context.kind}` : null,
 			input.context?.name ? `- name: ${input.context.name}` : null,
 			input.context?.description ? `- description: ${input.context.description}` : null,
-			input.context?.subject ? `- subject: ${input.context.subject}` : null
+			input.context?.subject ? `- subject: ${input.context.subject}` : null,
 		].filter((line): line is string => Boolean(line));
 
 		await writeFile(
 			join(workDir, 'AGENTS.md'),
 			buildPiAgentsMd({ filename, metaLines, designFiles }),
-			'utf8'
+			'utf8',
 		);
 
 		emit({ type: 'step', message: 'Starting Pi…' });
@@ -907,7 +905,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 					instruction,
 					'',
 					'The file may have been updated since your last turn — re-read it if needed, then apply this change with your tools.',
-					'When done, the updated HTML must be saved in that file.'
+					'When done, the updated HTML must be saved in that file.',
 				].join('\n')
 			: [
 					`Open and edit \`${filename}\` in the current working directory.`,
@@ -918,7 +916,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 					'',
 					'Use your read/edit/write/ls tools to apply the change to that file.',
 					'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
-					'When done, the updated HTML must be saved in that file.'
+					'When done, the updated HTML must be saved in that file.',
 				].join('\n');
 
 		await handle.session.prompt(prompt);
@@ -933,7 +931,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 		const edited = await readFile(filePath, 'utf8');
 		if (!looksLikeHtml(edited)) {
 			throw new Error(
-				`Pi finished but \`${filename}\` does not look like markup. The file was not applied.`
+				`Pi finished but \`${filename}\` does not look like markup. The file was not applied.`,
 			);
 		}
 		return { html: edited, sessionId: handle.id };
@@ -950,7 +948,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
  * Same as {@link editHtmlWithPi} but requires an `onEvent` callback for SSE streaming.
  */
 export async function editHtmlWithPiStream(
-	input: EditHtmlWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
+	input: EditHtmlWithPiInput & { onEvent: (event: PiEditStreamEvent) => void },
 ): Promise<EditHtmlWithPiResult> {
 	return editHtmlWithPi(input);
 }
@@ -980,7 +978,7 @@ export type EditTemplateTreeWithPiInput = {
  * 4. Read email/ back and return the component list for DB sync
  */
 export async function editTemplateTreeWithPi(
-	input: EditTemplateTreeWithPiInput
+	input: EditTemplateTreeWithPiInput,
 ): Promise<PiTemplateTreeComponent[]> {
 	const instruction = input.instruction.trim();
 	if (!instruction) {
@@ -1014,7 +1012,7 @@ export async function editTemplateTreeWithPi(
 	const usedNames = new Set<string>();
 	const stagedFiles: string[] = [];
 	const sorted = [...input.components].sort(
-		(a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name)
+		(a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name),
 	);
 
 	for (const component of sorted) {
@@ -1032,7 +1030,7 @@ export async function editTemplateTreeWithPi(
 		await writeFile(
 			join(emailDir, filename),
 			component.source.trim() ? component.source : '<!-- empty -->\n',
-			'utf8'
+			'utf8',
 		);
 	}
 
@@ -1042,7 +1040,7 @@ export async function editTemplateTreeWithPi(
 		components: bundle.components.map((c) => ({
 			name: c.name,
 			description: c.description,
-			html: c.html
+			html: c.html,
 		})),
 		assets: bundle.assets.map((a) => ({
 			id: a.id,
@@ -1050,9 +1048,9 @@ export async function editTemplateTreeWithPi(
 			name: a.name,
 			filename: a.filename,
 			mime: a.mime,
-			size: a.size
+			size: a.size,
 		})),
-		assetBaseUrl
+		assetBaseUrl,
 	};
 
 	const designFiles = buildPiDesignWorkspaceFiles(design);
@@ -1066,13 +1064,13 @@ export async function editTemplateTreeWithPi(
 	const metaLines = [
 		'- kind: email-tree',
 		`- components: ${stagedFiles.length}`,
-		input.subject ? `- subject: ${input.subject}` : null
+		input.subject ? `- subject: ${input.subject}` : null,
 	].filter((line): line is string => Boolean(line));
 
 	await writeFile(
 		join(workDir, 'AGENTS.md'),
 		buildPiEmailTreeAgentsMd({ fileNames: stagedFiles, metaLines, designFiles }),
-		'utf8'
+		'utf8',
 	);
 
 	emit({ type: 'step', message: 'Starting Pi…' });
@@ -1105,8 +1103,8 @@ export async function editTemplateTreeWithPi(
 				'',
 				'Use your read/edit/write/ls tools. You may change multiple files, add new section `.svelte` files, and update Root imports.',
 				'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
-				'When done, the updated tree must live under `email/` with exactly one Root.svelte.'
-			].join('\n')
+				'When done, the updated tree must live under `email/` with exactly one Root.svelte.',
+			].join('\n'),
 		);
 		await handle.session.agent.waitForIdle();
 
@@ -1120,11 +1118,13 @@ export async function editTemplateTreeWithPi(
 		const roots = tree.filter((c) => c.kind === 'root');
 		if (roots.length !== 1) {
 			throw new Error(
-				`Pi finished but email/ must contain exactly one Root (found ${roots.length}). The tree was not applied.`
+				`Pi finished but email/ must contain exactly one Root (found ${roots.length}). The tree was not applied.`,
 			);
 		}
 		if (tree.length === 0) {
-			throw new Error('Pi finished but email/ has no valid .svelte components. The tree was not applied.');
+			throw new Error(
+				'Pi finished but email/ has no valid .svelte components. The tree was not applied.',
+			);
 		}
 		return tree;
 	} finally {
@@ -1139,7 +1139,7 @@ export async function editTemplateTreeWithPi(
  * Same as {@link editTemplateTreeWithPi} but requires an `onEvent` callback for SSE streaming.
  */
 export async function editTemplateTreeWithPiStream(
-	input: EditTemplateTreeWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
+	input: EditTemplateTreeWithPiInput & { onEvent: (event: PiEditStreamEvent) => void },
 ): Promise<PiTemplateTreeComponent[]> {
 	return editTemplateTreeWithPi(input);
 }
@@ -1185,7 +1185,7 @@ const COMPONENT_TREE_SYSTEM = [
 	'prop is a path under block.data, e.g. "props.text", "props.url", "style.backgroundColor".',
 	'Every slot.blockId must exist in document. Prefer marking copy/image fields as slots.',
 	'Preserve existing block ids when editing unless the instruction asks to rebuild.',
-	'Follow email-safe layout: ~600px canvas, clear hierarchy, one primary CTA when relevant.'
+	'Follow email-safe layout: ~600px canvas, clear hierarchy, one primary CTA when relevant.',
 ].join('\n');
 
 /**
@@ -1193,7 +1193,7 @@ const COMPONENT_TREE_SYSTEM = [
  * (no file workdir — returns validated document + slots).
  */
 export async function editComponentTreeWithPi(
-	input: EditComponentTreeWithPiInput
+	input: EditComponentTreeWithPiInput,
 ): Promise<EditComponentTreeWithPiResult> {
 	const emit = (event: PiEditStreamEvent) => input.onEvent?.(event);
 	emit({ type: 'step', message: `Calling ${openRouterModel()} (JSON mode)…` });
@@ -1205,14 +1205,12 @@ export async function editComponentTreeWithPi(
 		'## Instruction',
 		input.instruction,
 		'',
-		input.designMd?.trim()
-			? `## design.md\n${input.designMd.trim()}\n`
-			: null,
+		input.designMd?.trim() ? `## design.md\n${input.designMd.trim()}\n` : null,
 		'## Current document',
 		JSON.stringify(input.document, null, 2),
 		'',
 		'## Current slots',
-		JSON.stringify(input.slots, null, 2)
+		JSON.stringify(input.slots, null, 2),
 	]
 		.filter((line): line is string => line != null)
 		.join('\n');
@@ -1220,14 +1218,14 @@ export async function editComponentTreeWithPi(
 	const raw = await openRouterChat(
 		[
 			{ role: 'system', content: COMPONENT_TREE_SYSTEM },
-			{ role: 'user', content: userPrompt }
+			{ role: 'user', content: userPrompt },
 		],
 		{
 			signal: input.signal,
 			stream: true,
 			jsonObject: true,
-			onDelta: (delta) => emit({ type: 'text', delta })
-		}
+			onDelta: (delta) => emit({ type: 'text', delta }),
+		},
 	);
 
 	let parsed: unknown;
@@ -1247,7 +1245,7 @@ export async function editComponentTreeWithPi(
 }
 
 export async function editComponentTreeWithPiStream(
-	input: EditComponentTreeWithPiInput & { onEvent: (event: PiEditStreamEvent) => void }
+	input: EditComponentTreeWithPiInput & { onEvent: (event: PiEditStreamEvent) => void },
 ): Promise<EditComponentTreeWithPiResult> {
 	return editComponentTreeWithPi(input);
 }

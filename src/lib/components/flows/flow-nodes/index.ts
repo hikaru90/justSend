@@ -7,5 +7,5 @@ export const flowNodeTypes = {
 	trigger: TriggerNode,
 	sendEmail: SendEmailNode,
 	wait: WaitNode,
-	end: EndNode
+	end: EndNode,
 };

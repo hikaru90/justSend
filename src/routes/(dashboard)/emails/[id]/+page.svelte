@@ -11,9 +11,18 @@
 <div class="grid gap-4 lg:grid-cols-2">
 	<Card title="Details">
 		<dl class="space-y-2 text-sm">
-			<div><dt class="text-[hsl(var(--muted-foreground))]">From</dt><dd>{email.from}</dd></div>
-			<div><dt class="text-[hsl(var(--muted-foreground))]">To</dt><dd>{email.to.join(', ')}</dd></div>
-			<div><dt class="text-[hsl(var(--muted-foreground))]">Status</dt><dd><Badge>{email.latestStatus}</Badge></dd></div>
+			<div>
+				<dt class="text-[hsl(var(--muted-foreground))]">From</dt>
+				<dd>{email.from}</dd>
+			</div>
+			<div>
+				<dt class="text-[hsl(var(--muted-foreground))]">To</dt>
+				<dd>{email.to.join(', ')}</dd>
+			</div>
+			<div>
+				<dt class="text-[hsl(var(--muted-foreground))]">Status</dt>
+				<dd><Badge>{email.latestStatus}</Badge></dd>
+			</div>
 		</dl>
 	</Card>
 	<Card title="Events">
@@ -21,7 +30,9 @@
 			{#each email.emailEvents as event}
 				<li class="flex justify-between gap-2 border-b pb-2">
 					<Badge variant="outline">{event.status}</Badge>
-					<span class="text-[hsl(var(--muted-foreground))]">{new Date(event.createdAt).toLocaleString()}</span>
+					<span class="text-[hsl(var(--muted-foreground))]"
+						>{new Date(event.createdAt).toLocaleString()}</span
+					>
 				</li>
 			{:else}
 				<li class="text-[hsl(var(--muted-foreground))]">No events</li>

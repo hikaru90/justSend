@@ -1,13 +1,7 @@
 import { designAssetUrl } from '$lib/design-asset-urls';
 
 export type TemplateElementType =
-	| 'logo'
-	| 'text'
-	| 'button'
-	| 'cta'
-	| 'link'
-	| 'image'
-	| 'component';
+	'logo' | 'text' | 'button' | 'cta' | 'link' | 'image' | 'component';
 
 export type TemplateElementConfig = {
 	/** Display / button / link text */
@@ -63,7 +57,7 @@ export function elementSlug(label: string, type: TemplateElementType): string {
  */
 export function elementValueVariables(
 	el: { type: TemplateElementType; label: string; config: string },
-	opts: { assetBaseUrl?: string; assetUrlById?: Record<string, string> } = {}
+	opts: { assetBaseUrl?: string; assetUrlById?: Record<string, string> } = {},
 ): Record<string, string> {
 	if (el.type === 'component') return {};
 
@@ -125,11 +119,8 @@ export function formatElementConfigForPrompt(
 		assetBaseUrl?: string;
 		assetUrlById?: Record<string, string>;
 		/** Optional lookup for library component elements */
-		designComponentById?: Record<
-			string,
-			{ name: string; starterKey?: string | null }
-		>;
-	} = {}
+		designComponentById?: Record<string, { name: string; starterKey?: string | null }>;
+	} = {},
 ): string {
 	const config = parseElementConfig(el.config);
 	const parts: string[] = [];

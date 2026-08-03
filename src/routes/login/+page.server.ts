@@ -9,6 +9,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		error: url.searchParams.get('error'),
 		githubEnabled: Boolean(env.GITHUB_ID && env.GITHUB_SECRET),
-		googleEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
+		googleEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
 	};
 };

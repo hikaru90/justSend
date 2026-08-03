@@ -119,7 +119,7 @@ function replaceVariables(input: string, variables?: Record<string, string>): st
 export function renderEmailHtml(
 	content: string | null,
 	html: string | null,
-	variables?: Record<string, string>
+	variables?: Record<string, string>,
 ): string {
 	let output = '';
 

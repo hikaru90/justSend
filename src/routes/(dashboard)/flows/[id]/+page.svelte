@@ -7,7 +7,7 @@
 		MiniMap,
 		type Node,
 		type Edge,
-		type Connection
+		type Connection,
 	} from '@xyflow/svelte';
 	import '@xyflow/svelte/dist/style.css';
 	import { flowNodeTypes } from '$lib/components/flows/flow-nodes';
@@ -27,8 +27,8 @@
 		structuredClone(data.flow.graph.nodes).map((n) => ({
 			...n,
 			type: n.type ?? 'default',
-			data: { ...n.data }
-		})) as Node[]
+			data: { ...n.data },
+		})) as Node[],
 	);
 	let edges = $state.raw<Edge[]>(
 		structuredClone(data.flow.graph.edges).map((e) => ({
@@ -36,8 +36,8 @@
 			source: e.source,
 			target: e.target,
 			sourceHandle: e.sourceHandle ?? undefined,
-			targetHandle: e.targetHandle ?? undefined
-		}))
+			targetHandle: e.targetHandle ?? undefined,
+		})),
 	);
 
 	const selectedNode = $derived(nodes.find((n) => n.id === selectedNodeId) ?? null);
@@ -58,8 +58,8 @@
 				id,
 				type,
 				position: { x: 80, y },
-				data: dataForType
-			}
+				data: dataForType,
+			},
 		];
 		selectedNodeId = id;
 	}
@@ -74,15 +74,15 @@
 				source: connection.source,
 				target: connection.target,
 				sourceHandle: connection.sourceHandle ?? undefined,
-				targetHandle: connection.targetHandle ?? undefined
-			}
+				targetHandle: connection.targetHandle ?? undefined,
+			},
 		];
 	}
 
 	function updateSelectedData(key: string, value: string | number) {
 		if (!selectedNodeId) return;
 		nodes = nodes.map((n) =>
-			n.id === selectedNodeId ? { ...n, data: { ...n.data, [key]: value } } : n
+			n.id === selectedNodeId ? { ...n, data: { ...n.data, [key]: value } } : n,
 		);
 	}
 
@@ -101,16 +101,16 @@
 				id: n.id,
 				type: n.type,
 				position: n.position,
-				data: n.data as Record<string, unknown>
+				data: n.data as Record<string, unknown>,
 			})),
 			edges: edges.map((e) => ({
 				id: e.id,
 				source: e.source,
 				target: e.target,
 				sourceHandle: e.sourceHandle ?? null,
-				targetHandle: e.targetHandle ?? null
-			}))
-		})
+				targetHandle: e.targetHandle ?? null,
+			})),
+		}),
 	);
 
 	const selectClass =
@@ -200,7 +200,7 @@
 				bind:edges
 				nodeTypes={flowNodeTypes}
 				fitView
-				onconnect={onconnect}
+				{onconnect}
 				onnodeclick={({ node }) => {
 					selectedNodeId = node.id;
 				}}
@@ -218,7 +218,9 @@
 		<aside
 			class="overflow-auto rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3"
 		>
-			<p class="mb-3 text-xs font-medium tracking-wide text-[hsl(var(--muted-foreground))] uppercase">
+			<p
+				class="mb-3 text-xs font-medium tracking-wide text-[hsl(var(--muted-foreground))] uppercase"
+			>
 				Node
 			</p>
 			{#if selectedNode}

@@ -42,7 +42,7 @@ export function buildApiEvent(opts: BuildApiEventOptions = {}) {
 			getAll: () => [],
 			set: () => {},
 			delete: () => {},
-			serialize: () => ''
+			serialize: () => '',
 		},
 		fetch: globalThis.fetch,
 		getClientAddress: () => '127.0.0.1',
@@ -50,7 +50,7 @@ export function buildApiEvent(opts: BuildApiEventOptions = {}) {
 		route: { id: null },
 		setHeaders: () => {},
 		isDataRequest: false,
-		isSubRequest: false
+		isSubRequest: false,
 	};
 }
 
@@ -63,7 +63,7 @@ export function bearer(apiKey: string) {
 export async function invokeHandler(
 	// Accept any RequestHandler-shaped function; our mock event is intentionally partial.
 	handler: (event: any) => Promise<Response> | Response,
-	event: ReturnType<typeof buildApiEvent>
+	event: ReturnType<typeof buildApiEvent>,
 ): Promise<{ status: number; json: unknown; response?: Response }> {
 	try {
 		const response = await handler(event);

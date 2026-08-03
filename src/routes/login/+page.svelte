@@ -20,7 +20,7 @@
 			const res = await fetch('/api/auth/magic-link', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ email })
+				body: JSON.stringify({ email }),
 			});
 			if (!res.ok) throw new Error('Failed to send link');
 			sent = true;
@@ -38,7 +38,11 @@
 		<img src={logoDark} alt="" class="hidden h-12 w-12 dark:block" />
 		<span class="text-lg font-semibold tracking-tight">Owlery</span>
 	</a>
-	<Card title="Sign in to Owlery" description="Use a magic link or OAuth provider." class="w-full max-w-md">
+	<Card
+		title="Sign in to Owlery"
+		description="Use a magic link or OAuth provider."
+		class="w-full max-w-md"
+	>
 		{#if data.error === 'github_not_configured'}
 			<p class="mb-4 text-sm text-[hsl(var(--destructive))]">GitHub login is not configured.</p>
 		{/if}
@@ -51,7 +55,13 @@
 			<form class="space-y-4" onsubmit={sendMagicLink}>
 				<div>
 					<label class="mb-1 block text-sm font-medium" for="email">Email</label>
-					<Input id="email" type="email" bind:value={email} required placeholder="you@example.com" />
+					<Input
+						id="email"
+						type="email"
+						bind:value={email}
+						required
+						placeholder="you@example.com"
+					/>
 				</div>
 				{#if error}
 					<p class="text-sm text-[hsl(var(--destructive))]">{error}</p>
@@ -69,10 +79,14 @@
 
 			<div class="flex flex-col gap-2">
 				{#if data.githubEnabled}
-					<Button variant="outline" href="/api/auth/login/github" class="w-full">Continue with GitHub</Button>
+					<Button variant="outline" href="/api/auth/login/github" class="w-full"
+						>Continue with GitHub</Button
+					>
 				{/if}
 				{#if data.googleEnabled}
-					<Button variant="outline" href="/api/auth/login/google" class="w-full">Continue with Google</Button>
+					<Button variant="outline" href="/api/auth/login/google" class="w-full"
+						>Continue with Google</Button
+					>
 				{/if}
 			</div>
 		{/if}

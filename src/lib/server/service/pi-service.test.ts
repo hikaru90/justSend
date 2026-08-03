@@ -22,27 +22,21 @@ import {
 	resolvePiConfigured,
 	safePiEmailComponentFilename,
 	slugifyPiComponentFilename,
-	spawnPiSession
+	spawnPiSession,
 } from './pi-service';
 
 describe('resolvePiConfigured', () => {
 	it('returns false when explicitly disabled', () => {
-		expect(
-			resolvePiConfigured({ piEnabled: false, openRouterApiKey: 'sk-test' })
-		).toBe(false);
+		expect(resolvePiConfigured({ piEnabled: false, openRouterApiKey: 'sk-test' })).toBe(false);
 	});
 
 	it('returns true when key present and enabled/unset', () => {
-		expect(
-			resolvePiConfigured({ piEnabled: undefined, openRouterApiKey: 'sk-test' })
-		).toBe(true);
+		expect(resolvePiConfigured({ piEnabled: undefined, openRouterApiKey: 'sk-test' })).toBe(true);
 		expect(resolvePiConfigured({ piEnabled: true, openRouterApiKey: 'sk-test' })).toBe(true);
 	});
 
 	it('returns false when key missing', () => {
-		expect(resolvePiConfigured({ piEnabled: undefined, openRouterApiKey: undefined })).toBe(
-			false
-		);
+		expect(resolvePiConfigured({ piEnabled: undefined, openRouterApiKey: undefined })).toBe(false);
 		expect(resolvePiConfigured({ piEnabled: true, openRouterApiKey: '  ' })).toBe(false);
 	});
 });
@@ -70,9 +64,7 @@ describe('pi session registry', () => {
 	it('isPiConfigured matches OPENROUTER_API_KEY presence (unless PI_ENABLED=false)', () => {
 		const configured = isPiConfigured();
 		const hasKey = Boolean(process.env.OPENROUTER_API_KEY?.trim());
-		const disabled =
-			process.env.PI_ENABLED === 'false' ||
-			process.env.PI_ENABLED === '0';
+		const disabled = process.env.PI_ENABLED === 'false' || process.env.PI_ENABLED === '0';
 		expect(configured).toBe(hasKey && !disabled);
 	});
 });
@@ -84,9 +76,7 @@ describe('looksLikeHtml', () => {
 	});
 
 	it('rejects plain text', () => {
-		expect(looksLikeHtml('ts find: email templates OR header component in project')).toBe(
-			false
-		);
+		expect(looksLikeHtml('ts find: email templates OR header component in project')).toBe(false);
 		expect(looksLikeHtml('just some notes')).toBe(false);
 	});
 });
@@ -96,49 +86,47 @@ describe('mapAgentSessionEventToPiEdit', () => {
 		expect(
 			mapAgentSessionEventToPiEdit({
 				type: 'message_update',
-				assistantMessageEvent: { type: 'thinking_delta', delta: 'hmm' }
-			} as AgentSessionEvent)
+				assistantMessageEvent: { type: 'thinking_delta', delta: 'hmm' },
+			} as AgentSessionEvent),
 		).toEqual({ type: 'thinking', delta: 'hmm' });
 
 		expect(
 			mapAgentSessionEventToPiEdit({
 				type: 'message_update',
-				assistantMessageEvent: { type: 'text_delta', delta: 'hi' }
-			} as AgentSessionEvent)
+				assistantMessageEvent: { type: 'text_delta', delta: 'hi' },
+			} as AgentSessionEvent),
 		).toEqual({ type: 'text', delta: 'hi' });
 	});
 
 	it('maps tool start/end and steps', () => {
 		expect(mapAgentSessionEventToPiEdit({ type: 'agent_start' } as AgentSessionEvent)).toEqual({
 			type: 'step',
-			message: 'Pi started'
+			message: 'Pi started',
 		});
 		expect(
 			mapAgentSessionEventToPiEdit({
 				type: 'tool_execution_start',
 				toolName: 'read',
-				args: { path: 'email.html' }
-			} as AgentSessionEvent)
+				args: { path: 'email.html' },
+			} as AgentSessionEvent),
 		).toEqual({ type: 'tool_start', toolName: 'read', detail: 'email.html' });
 		expect(
 			mapAgentSessionEventToPiEdit({
 				type: 'tool_execution_end',
 				toolName: 'edit',
 				result: { ok: true },
-				isError: false
-			} as AgentSessionEvent)
+				isError: false,
+			} as AgentSessionEvent),
 		).toEqual({
 			type: 'tool_end',
 			toolName: 'edit',
 			isError: false,
-			detail: '{"ok":true}'
+			detail: '{"ok":true}',
 		});
 	});
 
 	it('skips irrelevant events', () => {
-		expect(
-			mapAgentSessionEventToPiEdit({ type: 'agent_settled' } as AgentSessionEvent)
-		).toBeNull();
+		expect(mapAgentSessionEventToPiEdit({ type: 'agent_settled' } as AgentSessionEvent)).toBeNull();
 	});
 });
 
@@ -158,11 +146,11 @@ describe('buildPiDesignWorkspaceFiles', () => {
 
 	it('writes components when design.md is missing', () => {
 		const files = buildPiDesignWorkspaceFiles({
-			components: [{ name: 'Button', description: 'Primary', html: '<a class="btn">Go</a>' }]
+			components: [{ name: 'Button', description: 'Primary', html: '<a class="btn">Go</a>' }],
 		});
 		expect(files.map((f) => f.relativePath)).toEqual([
 			'components/button.html',
-			'components/README.md'
+			'components/README.md',
 		]);
 		expect(files[0].content).toContain('<a class="btn">Go</a>');
 	});
@@ -172,14 +160,14 @@ describe('buildPiDesignWorkspaceFiles', () => {
 			designMd: '# Brand',
 			components: [
 				{ name: 'Header', html: '<table><tr><td>H</td></tr></table>' },
-				{ name: 'Header', html: '<table><tr><td>H2</td></tr></table>' }
-			]
+				{ name: 'Header', html: '<table><tr><td>H2</td></tr></table>' },
+			],
 		});
 		expect(files.map((f) => f.relativePath)).toEqual([
 			'design.md',
 			'components/header.html',
 			'components/header-2.html',
-			'components/README.md'
+			'components/README.md',
 		]);
 	});
 
@@ -187,13 +175,13 @@ describe('buildPiDesignWorkspaceFiles', () => {
 		const files = buildPiDesignWorkspaceFiles({
 			components: [
 				{ name: 'Button', html: '<a>A</a>' },
-				{ name: 'Header', html: '<table></table>' }
+				{ name: 'Header', html: '<table></table>' },
 			],
-			excludeComponentName: 'Button'
+			excludeComponentName: 'Button',
 		});
 		expect(files.map((f) => f.relativePath)).toEqual([
 			'components/header.html',
-			'components/README.md'
+			'components/README.md',
 		]);
 		expect(files[0].content).not.toContain('<a>A</a>');
 	});
@@ -208,9 +196,9 @@ describe('buildPiDesignWorkspaceFiles', () => {
 					name: 'Light logo',
 					filename: 'logo.png',
 					mime: 'image/png',
-					size: 1200
-				}
-			]
+					size: 1200,
+				},
+			],
 		});
 		expect(files.map((f) => f.relativePath)).toEqual(['assets/README.md']);
 		expect(files[0].content).toContain('assets/logo/asset1-logo.png');
@@ -229,27 +217,25 @@ describe('buildPiDesignWorkspaceFiles', () => {
 					name: 'Hero',
 					filename: 'hero.jpg',
 					mime: 'image/jpeg',
-					size: 9
-				}
+					size: 9,
+				},
 			],
-			assetBaseUrl: 'https://owlery.test'
+			assetBaseUrl: 'https://owlery.test',
 		});
 		expect(files.map((f) => f.relativePath)).toEqual([
 			'design.md',
 			'components/cta.html',
 			'components/README.md',
-			'assets/README.md'
+			'assets/README.md',
 		]);
 		expect(files.find((f) => f.relativePath === 'assets/README.md')?.content).toContain(
-			'https://owlery.test/api/design-asset/img1'
+			'https://owlery.test/api/design-asset/img1',
 		);
 	});
 
 	it('returns empty when no design context', () => {
 		expect(buildPiDesignWorkspaceFiles()).toEqual([]);
-		expect(buildPiDesignWorkspaceFiles({ designMd: '  ', components: [], assets: [] })).toEqual(
-			[]
-		);
+		expect(buildPiDesignWorkspaceFiles({ designMd: '  ', components: [], assets: [] })).toEqual([]);
 	});
 });
 
@@ -259,8 +245,8 @@ describe('piAssetRelativePath', () => {
 			piAssetRelativePath({
 				id: 'abc',
 				kind: 'font',
-				filename: 'Brand Font.woff2'
-			})
+				filename: 'Brand Font.woff2',
+			}),
 		).toBe('assets/font/abc-Brand_Font.woff2');
 	});
 });
@@ -273,8 +259,8 @@ describe('buildPiAgentsMd', () => {
 			designFiles: [
 				{ relativePath: 'design.md' },
 				{ relativePath: 'components/button.html' },
-				{ relativePath: 'assets/README.md' }
-			]
+				{ relativePath: 'assets/README.md' },
+			],
 		});
 		expect(md).toContain('design.md');
 		expect(md).toContain('components/');
@@ -289,7 +275,7 @@ describe('buildPiAgentsMd', () => {
 		const md = buildPiAgentsMd({
 			filename: 'component.html',
 			metaLines: [],
-			designFiles: [{ relativePath: 'components/header.html' }]
+			designFiles: [{ relativePath: 'components/header.html' }],
 		});
 		expect(md).toContain('Design library');
 		expect(md).toContain('components/');
@@ -302,7 +288,7 @@ describe('buildPiEmailTreeAgentsMd', () => {
 		const md = buildPiEmailTreeAgentsMd({
 			fileNames: ['Root.svelte', 'Header.svelte'],
 			metaLines: ['- kind: email-tree'],
-			designFiles: [{ relativePath: 'design.md' }]
+			designFiles: [{ relativePath: 'design.md' }],
 		});
 		expect(md).toContain('email/Root.svelte');
 		expect(md).toContain('email/Header.svelte');
@@ -331,22 +317,18 @@ describe('readPiEmailTree', () => {
 
 	it('reads Root first and skips empty files', async () => {
 		dir = await mkdtemp(join(tmpdir(), 'owlery-email-tree-'));
-		await writeFile(
-			join(dir, 'Header.svelte'),
-			'<table><tr><td>H</td></tr></table>',
-			'utf8'
-		);
+		await writeFile(join(dir, 'Header.svelte'), '<table><tr><td>H</td></tr></table>', 'utf8');
 		await writeFile(
 			join(dir, 'Root.svelte'),
 			'<script>import Header from "./Header.svelte";</script>\n<table><Header /></table>',
-			'utf8'
+			'utf8',
 		);
 		await writeFile(join(dir, 'empty.svelte'), '   \n', 'utf8');
 
 		const tree = await readPiEmailTree(dir);
 		expect(tree.map((c) => ({ name: c.name, kind: c.kind }))).toEqual([
 			{ name: 'Root', kind: 'root' },
-			{ name: 'Header', kind: 'component' }
+			{ name: 'Header', kind: 'component' },
 		]);
 		expect(tree[0].order).toBe(0);
 		expect(tree[1].order).toBe(1);
@@ -354,7 +336,7 @@ describe('readPiEmailTree', () => {
 
 	it('throws when email dir is missing', async () => {
 		await expect(readPiEmailTree(join(tmpdir(), 'missing-email-dir-xyz'))).rejects.toThrow(
-			/email\/ directory is missing/
+			/email\/ directory is missing/,
 		);
 	});
 });
@@ -378,6 +360,6 @@ describe('pingPiSession live', () => {
 			expect(disposePiSession(handle.id)).toBe(true);
 			expect(getPiSession(handle.id)).toBeUndefined();
 		},
-		60_000
+		60_000,
 	);
 });

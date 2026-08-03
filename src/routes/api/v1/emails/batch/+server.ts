@@ -21,7 +21,7 @@ const singleSchema = z.object({
 	variables: z.record(z.string(), z.string()).optional(),
 	attachments: z.array(z.object({ filename: z.string(), content: z.string() })).optional(),
 	headers: z.record(z.string(), z.string()).optional(),
-	inReplyToId: z.string().optional()
+	inReplyToId: z.string().optional(),
 });
 
 const batchSchema = z.object({ emails: z.array(singleSchema) });

@@ -4,7 +4,7 @@ import { db } from '../db';
 import {
 	templateComponents,
 	type TemplateComponentKind,
-	type TemplateComponentSourceType
+	type TemplateComponentSourceType,
 } from '../db/schema';
 import { getTemplate } from './template-service';
 
@@ -13,7 +13,7 @@ export type TemplateComponent = typeof templateComponents.$inferSelect;
 export function listComponents(
 	templateId: string,
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): TemplateComponent[] {
 	getTemplate(templateId, teamId, domainId);
 	return db
@@ -37,9 +37,7 @@ export function getRootComponent(templateId: string): TemplateComponent | undefi
 	return db
 		.select()
 		.from(templateComponents)
-		.where(
-			and(eq(templateComponents.templateId, templateId), eq(templateComponents.kind, 'root'))
-		)
+		.where(and(eq(templateComponents.templateId, templateId), eq(templateComponents.kind, 'root')))
 		.get();
 }
 
@@ -68,7 +66,7 @@ export function replaceTemplateComponents(
 	templateId: string,
 	teamId: number,
 	domainId: number | undefined,
-	components: UpsertComponentInput[]
+	components: UpsertComponentInput[],
 ): TemplateComponent[] {
 	getTemplate(templateId, teamId, domainId);
 
@@ -85,7 +83,7 @@ export function replaceTemplateComponents(
 		designComponentId: c.designComponentId ?? null,
 		locked: c.locked ?? false,
 		source: c.source,
-		order: c.order ?? index
+		order: c.order ?? index,
 	}));
 
 	return db.insert(templateComponents).values(rows).returning().all();
@@ -96,19 +94,21 @@ export function updateComponentSource(
 	templateId: string,
 	teamId: number,
 	domainId: number | undefined,
-	source: string
+	source: string,
 ): TemplateComponent {
 	getTemplate(templateId, teamId, domainId);
 	const existing = db
 		.select()
 		.from(templateComponents)
 		.where(
-			and(eq(templateComponents.id, componentId), eq(templateComponents.templateId, templateId))
+			and(eq(templateComponents.id, componentId), eq(templateComponents.templateId, templateId)),
 		)
 		.get();
 	if (!existing) throw new Error('Component not found');
 	if (existing.locked) {
-		throw new Error('This section is library-backed and locked. Edit it in the design system or convert it to custom first.');
+		throw new Error(
+			'This section is library-backed and locked. Edit it in the design system or convert it to custom first.',
+		);
 	}
 
 	return db
@@ -123,14 +123,14 @@ export function getComponent(
 	componentId: string,
 	templateId: string,
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): TemplateComponent {
 	getTemplate(templateId, teamId, domainId);
 	const component = db
 		.select()
 		.from(templateComponents)
 		.where(
-			and(eq(templateComponents.id, componentId), eq(templateComponents.templateId, templateId))
+			and(eq(templateComponents.id, componentId), eq(templateComponents.templateId, templateId)),
 		)
 		.get();
 	if (!component) throw new Error('Component not found');

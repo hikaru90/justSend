@@ -40,5 +40,9 @@
 </table>
 
 {#if data.contacts.nextCursor}
-	<Button variant="outline" class="mt-4" href="/contacts/{data.book.id}?cursor={data.contacts.nextCursor}">More</Button>
+	<Button
+		variant="outline"
+		class="mt-4"
+		href="/contacts/{data.book.id}?cursor={data.contacts.nextCursor}">More</Button
+	>
 {/if}

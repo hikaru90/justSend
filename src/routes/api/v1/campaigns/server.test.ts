@@ -3,7 +3,7 @@ import { resetDb } from '../../../../tests/helpers/db';
 import {
 	createTeamWithApiKey,
 	createContactBook,
-	createCampaign
+	createCampaign,
 } from '../../../../tests/helpers/factories';
 import { buildApiEvent, bearer, invokeHandler } from '../../../../tests/helpers/api';
 import { GET, POST } from './+server';
@@ -21,7 +21,7 @@ describe('GET /api/v1/campaigns', () => {
 		const event = buildApiEvent({
 			method: 'GET',
 			path: '/api/v1/campaigns',
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -45,9 +45,9 @@ describe('POST /api/v1/campaigns', () => {
 				from: 'noreply@mail.example.com',
 				subject: 'Hello',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			},
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

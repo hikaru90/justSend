@@ -21,7 +21,7 @@
 		secondary: 'bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))]',
 		outline: 'border border-[hsl(var(--border))] text-[hsl(var(--foreground))]',
 		destructive: 'bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))]',
-		success: 'bg-black text-emerald-400'
+		success: 'bg-black text-emerald-400',
 	};
 </script>
 
@@ -29,7 +29,7 @@
 	class={cn(
 		'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
 		variants[variant],
-		className
+		className,
 	)}
 	{...rest}
 >

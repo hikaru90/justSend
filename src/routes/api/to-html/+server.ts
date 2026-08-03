@@ -7,7 +7,7 @@ import { parseBody } from '$lib/server/api/validate';
 const schema = z.object({
 	content: z.string(),
 	html: z.string().optional(),
-	variables: z.record(z.string(), z.string()).optional()
+	variables: z.record(z.string(), z.string()).optional(),
 });
 
 export const POST: RequestHandler = async ({ request }) => {

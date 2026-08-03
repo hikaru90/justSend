@@ -17,7 +17,7 @@ async function readOpenRouterStream(
 	opts: {
 		signal?: AbortSignal;
 		onDelta?: (delta: string, chars: number) => void;
-	}
+	},
 ): Promise<string> {
 	if (!response.body) {
 		throw new Error('OpenRouter returned an empty stream body');
@@ -70,7 +70,7 @@ async function readOpenRouterStream(
 /** Chat completion via OpenRouter, optionally streaming deltas. */
 export async function openRouterChat(
 	messages: OpenRouterMessage[],
-	opts: OpenRouterChatOpts = {}
+	opts: OpenRouterChatOpts = {},
 ): Promise<string> {
 	if (!env.OPENROUTER_API_KEY) {
 		throw new Error('OPENROUTER_API_KEY is not configured');
@@ -80,7 +80,7 @@ export async function openRouterChat(
 	const body: Record<string, unknown> = {
 		model: env.OPENROUTER_MODEL,
 		messages,
-		stream
+		stream,
 	};
 	if (opts.jsonObject) {
 		body.response_format = { type: 'json_object' };
@@ -92,10 +92,10 @@ export async function openRouterChat(
 			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
 			'Content-Type': 'application/json',
 			'HTTP-Referer': env.HOST_URL,
-			'X-Title': 'Owlery'
+			'X-Title': 'Owlery',
 		},
 		body: JSON.stringify(body),
-		signal: opts.signal
+		signal: opts.signal,
 	});
 
 	if (!response.ok) {
@@ -114,7 +114,7 @@ export async function openRouterChat(
 
 	return readOpenRouterStream(response, {
 		signal: opts.signal,
-		onDelta: opts.onDelta
+		onDelta: opts.onDelta,
 	});
 }
 

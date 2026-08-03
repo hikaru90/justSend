@@ -9,8 +9,8 @@ vi.mock('$lib/server/aws/ses', () => ({
 	getDomainIdentity: vi.fn(async () => ({
 		VerificationStatus: 'SUCCESS',
 		DkimAttributes: { Status: 'SUCCESS', Tokens: [] },
-		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' }
-	}))
+		MailFromAttributes: { MailFromDomainStatus: 'SUCCESS' },
+	})),
 }));
 
 beforeEach(() => {
@@ -44,7 +44,7 @@ describe('domain-verification-job', () => {
 			const domain = createDomain(team.id, {
 				name: 'pending.example.com',
 				status: 'PENDING',
-				isVerifying: true
+				isVerifying: true,
 			});
 
 			await processDomainVerification({ domainId: domain.id });
@@ -56,8 +56,16 @@ describe('domain-verification-job', () => {
 		it('processes all pending domains when no domainId is given', async () => {
 			const { processDomainVerification } = await import('./domain-verification-job');
 			const team = createTeam();
-			const d1 = createDomain(team.id, { name: 'a.example.com', status: 'PENDING', isVerifying: true });
-			const d2 = createDomain(team.id, { name: 'b.example.com', status: 'PENDING', isVerifying: true });
+			const d1 = createDomain(team.id, {
+				name: 'a.example.com',
+				status: 'PENDING',
+				isVerifying: true,
+			});
+			const d2 = createDomain(team.id, {
+				name: 'b.example.com',
+				status: 'PENDING',
+				isVerifying: true,
+			});
 
 			await processDomainVerification({});
 

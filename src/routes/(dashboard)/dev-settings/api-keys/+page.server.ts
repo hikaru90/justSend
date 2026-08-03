@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		needsDomain: false as const,
 		keys: await listApiKeys(teamId, locals.domainId),
-		domains: await getDomains(teamId)
+		domains: await getDomains(teamId),
 	};
 };
 
@@ -41,5 +41,5 @@ export const actions: Actions = {
 		if (keys.some((k) => k.id === id)) {
 			await deleteApiKey(id);
 		}
-	}
+	},
 };

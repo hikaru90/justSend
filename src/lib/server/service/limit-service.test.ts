@@ -7,7 +7,7 @@ import {
 	createWebhook,
 	createUser,
 	addUserToTeam,
-	createDailyUsage
+	createDailyUsage,
 } from '../../../tests/helpers/factories';
 import {
 	checkDomainLimit,
@@ -15,7 +15,7 @@ import {
 	checkTeamMemberLimit,
 	checkWebhookLimit,
 	checkEmailLimit,
-	LimitReason
+	LimitReason,
 } from './limit-service';
 
 describe('limit-service', () => {

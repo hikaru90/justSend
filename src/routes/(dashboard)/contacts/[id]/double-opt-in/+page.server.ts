@@ -23,10 +23,10 @@ export const actions: Actions = {
 				doubleOptInEnabled: form.get('doubleOptInEnabled') === 'on',
 				doubleOptInFrom: String(form.get('doubleOptInFrom') ?? '') || null,
 				doubleOptInSubject: String(form.get('doubleOptInSubject') ?? ''),
-				doubleOptInContent: String(form.get('doubleOptInContent') ?? '')
+				doubleOptInContent: String(form.get('doubleOptInContent') ?? ''),
 			});
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
 		}
-	}
+	},
 };

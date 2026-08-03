@@ -42,7 +42,7 @@ export async function addSuppression(params: AddSuppressionParams): Promise<Supp
 			teamId,
 			domainId: domainId ?? null,
 			reason,
-			source: source ?? null
+			source: source ?? null,
 		})
 		.onConflictDoUpdate({
 			target: [suppressionList.teamId, suppressionList.email],
@@ -50,8 +50,8 @@ export async function addSuppression(params: AddSuppressionParams): Promise<Supp
 				reason,
 				...(domainId !== undefined ? { domainId: domainId ?? null } : {}),
 				source: source ?? null,
-				updatedAt: nowIso()
-			}
+				updatedAt: nowIso(),
+			},
 		})
 		.returning()
 		.get();
@@ -60,12 +60,12 @@ export async function addSuppression(params: AddSuppressionParams): Promise<Supp
 export async function isEmailSuppressed(
 	email: string,
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): Promise<boolean> {
 	const normalizedEmail = email.toLowerCase().trim();
 	const conditions = [
 		eq(suppressionList.teamId, teamId),
-		eq(suppressionList.email, normalizedEmail)
+		eq(suppressionList.email, normalizedEmail),
 	];
 	if (domainId !== undefined) {
 		conditions.push(eq(suppressionList.domainId, domainId));
@@ -93,7 +93,7 @@ export async function removeSuppression(email: string, teamId: number): Promise<
 		const uniqueRegions = [...new Set(teamDomains.map((d) => d.region))];
 		if (uniqueRegions.length > 0) {
 			await Promise.allSettled(
-				uniqueRegions.map((region) => deleteFromSesSuppressionList(normalizedEmail, region))
+				uniqueRegions.map((region) => deleteFromSesSuppressionList(normalizedEmail, region)),
 			);
 		}
 	} catch (error) {
@@ -107,7 +107,7 @@ export async function removeSuppression(email: string, teamId: number): Promise<
 
 export async function checkMultipleEmails(
 	emails: string[],
-	teamId: number
+	teamId: number,
 ): Promise<Record<string, boolean>> {
 	const normalizedEmails = emails.map((email) => email.toLowerCase().trim());
 
@@ -117,7 +117,10 @@ export async function checkMultipleEmails(
 					.select({ email: suppressionList.email })
 					.from(suppressionList)
 					.where(
-						and(eq(suppressionList.teamId, teamId), inArray(suppressionList.email, normalizedEmails))
+						and(
+							eq(suppressionList.teamId, teamId),
+							inArray(suppressionList.email, normalizedEmails),
+						),
 					)
 					.all()
 			: [];
@@ -132,7 +135,7 @@ export async function checkMultipleEmails(
 }
 
 export async function getSuppressionList(
-	params: GetSuppressionListParams
+	params: GetSuppressionListParams,
 ): Promise<SuppressionListResult> {
 	const {
 		teamId,
@@ -142,7 +145,7 @@ export async function getSuppressionList(
 		search,
 		reason,
 		sortBy = 'createdAt',
-		sortOrder = 'desc'
+		sortOrder = 'desc',
 	} = params;
 
 	const offset = (page - 1) * limit;
@@ -180,7 +183,7 @@ export async function getSuppressionList(
 
 	return {
 		suppressions,
-		total: totalRow?.value ?? 0
+		total: totalRow?.value ?? 0,
 	};
 }
 
@@ -188,7 +191,7 @@ export async function addMultipleSuppressions(
 	teamId: number,
 	emails: string[],
 	reason: SuppressionReason,
-	domainId?: number
+	domainId?: number,
 ): Promise<void> {
 	const normalizedEmails = emails.map((email) => email.toLowerCase().trim());
 	const uniqueEmails = Array.from(new Set(normalizedEmails));
@@ -205,11 +208,11 @@ export async function addMultipleSuppressions(
 					teamId,
 					domainId: domainId ?? null,
 					email,
-					reason
-				}))
+					reason,
+				})),
 			)
 			.onConflictDoNothing({
-				target: [suppressionList.teamId, suppressionList.email]
+				target: [suppressionList.teamId, suppressionList.email],
 			})
 			.run();
 	}
@@ -217,7 +220,7 @@ export async function addMultipleSuppressions(
 
 export async function getSuppressionStats(
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): Promise<Record<SuppressionReason, number>> {
 	const conditions = [eq(suppressionList.teamId, teamId)];
 	if (domainId !== undefined) {
@@ -234,7 +237,7 @@ export async function getSuppressionStats(
 	const result: Record<SuppressionReason, number> = {
 		HARD_BOUNCE: 0,
 		COMPLAINT: 0,
-		MANUAL: 0
+		MANUAL: 0,
 	};
 
 	for (const row of rows) {

@@ -4,7 +4,7 @@ import {
 	composeEmailHtml,
 	parseScaffoldContent,
 	serializeScaffoldContent,
-	collectExpectedSlots
+	collectExpectedSlots,
 } from './template-compose-service';
 import { buildScaffoldMessages, parseScaffoldJson } from './ai-template-service';
 import type { Template } from './template-service';
@@ -25,7 +25,7 @@ function fakeTemplate(overrides: Partial<Template> = {}): Template {
 		tags: '[]',
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
-		...overrides
+		...overrides,
 	};
 }
 
@@ -40,7 +40,7 @@ function fakeElement(overrides: Partial<TemplateElement> = {}): TemplateElement 
 		order: 0,
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: '2026-01-01T00:00:00.000Z',
-		...overrides
+		...overrides,
 	};
 }
 
@@ -63,7 +63,7 @@ function fakeHtmlComponent(overrides: {
 		document: '',
 		slots: '[]',
 		createdAt: '2026-01-01T00:00:00.000Z',
-		updatedAt: '2026-01-01T00:00:00.000Z'
+		updatedAt: '2026-01-01T00:00:00.000Z',
 	};
 }
 
@@ -95,7 +95,7 @@ describe('parseScaffoldContent / serializeScaffoldContent', () => {
 		const raw = serializeScaffoldContent({
 			subject: 'Hi',
 			preheader: 'Preview',
-			slots: { headline: 'Welcome' }
+			slots: { headline: 'Welcome' },
 		});
 		const parsed = parseScaffoldContent(raw);
 		expect(parsed.subject).toBe('Hi');
@@ -105,7 +105,7 @@ describe('parseScaffoldContent / serializeScaffoldContent', () => {
 
 	it('ignores legacy Tiptap docs', () => {
 		expect(parseScaffoldContent(JSON.stringify({ type: 'doc', content: [] }))).toEqual({
-			slots: {}
+			slots: {},
 		});
 	});
 });
@@ -117,14 +117,14 @@ describe('composeEmailHtml', () => {
 				id: 'dc_hero',
 				name: 'Hero',
 				html: HERO_HTML,
-				props: ['headline', 'body']
+				props: ['headline', 'body'],
 			}),
 			fakeHtmlComponent({
 				id: 'dc_cta',
 				name: 'CTA',
 				html: CTA_HTML,
-				props: ['primary_cta_label', 'primary_cta_url']
-			})
+				props: ['primary_cta_label', 'primary_cta_url'],
+			}),
 		];
 
 		const elements = [
@@ -132,14 +132,14 @@ describe('composeEmailHtml', () => {
 				id: 'el_hero',
 				label: 'Hero',
 				order: 0,
-				config: JSON.stringify({ designComponentId: 'dc_hero' })
+				config: JSON.stringify({ designComponentId: 'dc_hero' }),
 			}),
 			fakeElement({
 				id: 'el_cta',
 				label: 'CTA',
 				order: 1,
-				config: JSON.stringify({ designComponentId: 'dc_cta' })
-			})
+				config: JSON.stringify({ designComponentId: 'dc_cta' }),
+			}),
 		];
 
 		const content = serializeScaffoldContent({
@@ -148,8 +148,8 @@ describe('composeEmailHtml', () => {
 				headline: 'Hello there',
 				body: 'Thanks for joining.',
 				primary_cta_label: 'Get started',
-				primary_cta_url: 'https://example.com'
-			}
+				primary_cta_url: 'https://example.com',
+			},
 		});
 
 		const input = {
@@ -157,7 +157,7 @@ describe('composeEmailHtml', () => {
 			elements,
 			components,
 			assets: [] as DesignAsset[],
-			assetBaseUrl: 'http://localhost:5173'
+			assetBaseUrl: 'http://localhost:5173',
 		};
 
 		const a = composeEmailHtml(input);
@@ -169,34 +169,32 @@ describe('composeEmailHtml', () => {
 		expect(a).toContain('Get started');
 		expect(a).toContain('data-owl-section="hero"');
 		expect(a).toContain('data-owl-section="cta"');
-		expect(a.indexOf('data-owl-section="hero"')).toBeLessThan(
-			a.indexOf('data-owl-section="cta"')
-		);
+		expect(a.indexOf('data-owl-section="hero"')).toBeLessThan(a.indexOf('data-owl-section="cta"'));
 	});
 
 	it('emits fixed sections for custom text/cta elements', () => {
 		const html = composeEmailHtml({
 			template: fakeTemplate({
-				content: serializeScaffoldContent({ slots: {} })
+				content: serializeScaffoldContent({ slots: {} }),
 			}),
 			elements: [
 				fakeElement({
 					id: 'el_text',
 					type: 'text',
 					label: 'Body',
-					config: JSON.stringify({ text: 'Plain body copy' })
+					config: JSON.stringify({ text: 'Plain body copy' }),
 				}),
 				fakeElement({
 					id: 'el_cta',
 					type: 'cta',
 					label: 'Primary CTA',
 					order: 1,
-					config: JSON.stringify({ text: 'Shop', url: 'https://shop.example' })
-				})
+					config: JSON.stringify({ text: 'Shop', url: 'https://shop.example' }),
+				}),
 			],
 			components: [],
 			assets: [],
-			assetBaseUrl: 'http://localhost:5173'
+			assetBaseUrl: 'http://localhost:5173',
 		});
 
 		expect(html).toContain('Plain body copy');
@@ -209,19 +207,19 @@ describe('composeEmailHtml', () => {
 			template: fakeTemplate({ content: null }),
 			elements: [
 				fakeElement({
-					config: JSON.stringify({ designComponentId: 'dc_hero' })
-				})
+					config: JSON.stringify({ designComponentId: 'dc_hero' }),
+				}),
 			],
 			components: [
 				fakeHtmlComponent({
 					id: 'dc_hero',
 					name: 'Hero',
 					html: HERO_HTML,
-					props: ['headline', 'body']
-				})
+					props: ['headline', 'body'],
+				}),
 			],
 			assets: [],
-			assetBaseUrl: 'http://localhost:5173'
+			assetBaseUrl: 'http://localhost:5173',
 		});
 		expect(html).toContain('data-owl-section="hero"');
 		expect(html).not.toContain('{{headline}}');
@@ -232,19 +230,19 @@ describe('composeEmailHtml', () => {
 			template: fakeTemplate({ content: null }),
 			elements: [
 				fakeElement({
-					config: JSON.stringify({ designComponentId: 'dc_footer' })
-				})
+					config: JSON.stringify({ designComponentId: 'dc_footer' }),
+				}),
 			],
 			components: [
 				fakeHtmlComponent({
 					id: 'dc_footer',
 					name: 'Footer',
 					html: `<a href="{{unsubscribe_url}}">{{unsubscribe_label}}</a>`,
-					props: ['unsubscribe_url', 'unsubscribe_label']
-				})
+					props: ['unsubscribe_url', 'unsubscribe_label'],
+				}),
 			],
 			assets: [],
-			assetBaseUrl: 'http://localhost:5173'
+			assetBaseUrl: 'http://localhost:5173',
 		});
 		expect(html).toContain('href="{{owlery_unsubscribe_url}}"');
 		expect(html).toContain('Unsubscribe');
@@ -257,17 +255,17 @@ describe('collectExpectedSlots', () => {
 		const slots = collectExpectedSlots(
 			[
 				fakeElement({
-					config: JSON.stringify({ designComponentId: 'dc_hero' })
-				})
+					config: JSON.stringify({ designComponentId: 'dc_hero' }),
+				}),
 			],
 			[
 				fakeHtmlComponent({
 					id: 'dc_hero',
 					name: 'Hero',
 					html: HERO_HTML,
-					props: ['headline', 'body', 'primary_cta_label']
-				})
-			]
+					props: ['headline', 'body', 'primary_cta_label'],
+				}),
+			],
 		);
 		expect(slots).toContain('headline');
 		expect(slots).toContain('primary_cta_label');
@@ -282,8 +280,8 @@ describe('parseScaffoldJson', () => {
 			slots: {
 				headline: 'Welcome',
 				bogus_key: 'nope',
-				body: 'Copy'
-			}
+				body: 'Copy',
+			},
 		});
 		const parsed = parseScaffoldJson(raw, ['headline', 'body']);
 		expect(parsed.subject).toBe('Hi');
@@ -314,18 +312,18 @@ describe('buildScaffoldMessages', () => {
 					props: JSON.stringify(['headline', 'body']),
 					starterKey: null,
 					document: '',
-					slots: '[]'
-				}
+					slots: '[]',
+				},
 			],
 			assets: [],
 			elements: [
 				fakeElement({
-					config: JSON.stringify({ designComponentId: 'dc_hero' })
-				})
+					config: JSON.stringify({ designComponentId: 'dc_hero' }),
+				}),
 			],
 			prompt: 'Warm welcome',
 			assetBaseUrl: 'http://localhost:5173',
-			expectedSlots: ['headline', 'body']
+			expectedSlots: ['headline', 'body'],
 		});
 
 		expect(messages[0].content).toContain('ONLY valid JSON');

@@ -8,7 +8,7 @@ export async function addApiKey({
 	name,
 	permission,
 	teamId,
-	domainId
+	domainId,
 }: {
 	name: string;
 	permission: ApiPermission;
@@ -41,7 +41,7 @@ export async function addApiKey({
 			domainId: domainId ?? null,
 			tokenHash: hashedToken,
 			partialToken: `${apiKey.slice(0, 6)}...${apiKey.slice(-3)}`,
-			clientId
+			clientId,
 		})
 		.run();
 
@@ -85,7 +85,7 @@ export async function updateApiKey({
 	id,
 	teamId,
 	name,
-	domainId
+	domainId,
 }: {
 	id: number;
 	teamId: number;
@@ -108,7 +108,7 @@ export async function updateApiKey({
 		.update(apiKeys)
 		.set({
 			...(name !== undefined ? { name } : {}),
-			...(domainId !== undefined ? { domainId } : {})
+			...(domainId !== undefined ? { domainId } : {}),
 		})
 		.where(and(eq(apiKeys.id, id), eq(apiKeys.teamId, teamId)))
 		.returning()

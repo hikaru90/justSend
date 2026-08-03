@@ -5,7 +5,7 @@ import {
 	disposePiSession,
 	editComponentTreeWithPiStream,
 	isPiConfigured,
-	type PiEditStreamEvent
+	type PiEditStreamEvent,
 } from '$lib/server/service/pi-service';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
@@ -66,14 +66,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					description,
 					designMd,
 					signal: request.signal,
-					onEvent: send
+					onEvent: send,
 				});
 
 				send({
 					type: 'done',
 					document: edited.document,
 					slots: edited.slots,
-					message: 'Edit complete.'
+					message: 'Edit complete.',
 				});
 			} catch (e) {
 				if (e instanceof Error && e.name === 'AbortError') {
@@ -81,7 +81,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				} else {
 					send({
 						type: 'error',
-						message: e instanceof Error ? e.message : 'Pi edit failed'
+						message: e instanceof Error ? e.message : 'Pi edit failed',
 					});
 				}
 			} finally {
@@ -90,15 +90,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		},
 		cancel() {
 			// Client disconnected / aborted — request.signal already aborted.
-		}
+		},
 	});
 
 	return new Response(stream, {
 		headers: {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache, no-transform',
-			Connection: 'keep-alive'
-		}
+			Connection: 'keep-alive',
+		},
 	});
 };
 

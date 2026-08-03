@@ -6,7 +6,7 @@ import {
 	deleteTemplate,
 	listTemplates,
 	normalizeTemplateTags,
-	updateTemplate
+	updateTemplate,
 } from '$lib/server/service/template-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -14,12 +14,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const teamId = requireTeamId(locals.teamId);
 	const bundle = getDesignSystemBundle(teamId);
 	const designReady = Boolean(
-		bundle.system?.designMd?.trim() || bundle.components.length > 0 || bundle.assets.length > 0
+		bundle.system?.designMd?.trim() || bundle.components.length > 0 || bundle.assets.length > 0,
 	);
 	const designSummary = {
 		hasMd: Boolean(bundle.system?.designMd?.trim()),
 		assetCount: bundle.assets.length,
-		componentCount: bundle.components.length
+		componentCount: bundle.components.length,
 	};
 
 	if (!locals.domainId) {
@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			templates: [],
 			allTags: [] as string[],
 			designReady,
-			designSummary
+			designSummary,
 		};
 	}
 
@@ -43,7 +43,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		templates,
 		allTags: [...tagSet].sort((a, b) => a.localeCompare(b)),
 		designReady,
-		designSummary
+		designSummary,
 	};
 };
 
@@ -61,7 +61,7 @@ export const actions: Actions = {
 			String(form.get('tags') ?? '')
 				.split(',')
 				.map((t) => t.trim())
-				.filter(Boolean)
+				.filter(Boolean),
 		);
 
 		if (!name || !subject) return fail(400, { error: 'Name and subject required' });
@@ -73,7 +73,7 @@ export const actions: Actions = {
 				domainId,
 				name,
 				subject,
-				html: null
+				html: null,
 			});
 			const patch: { prompt?: string; tags?: string[] } = {};
 			if (prompt) patch.prompt = prompt;
@@ -121,5 +121,5 @@ export const actions: Actions = {
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update tags failed' });
 		}
-	}
+	},
 };

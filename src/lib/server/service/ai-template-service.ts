@@ -5,7 +5,7 @@ import { pickEmailLogos } from '$lib/design/extractTokens';
 import {
 	elementSlug,
 	formatElementConfigForPrompt,
-	parseElementConfig
+	parseElementConfig,
 } from '$lib/template-element-config';
 import { EMAIL_FORMATTING_RULES } from '../email-formatting-rules';
 import { env } from '../env';
@@ -19,12 +19,9 @@ import {
 	collectExpectedSlots,
 	parseScaffoldContent,
 	serializeScaffoldContent,
-	type ScaffoldContent
+	type ScaffoldContent,
 } from './template-compose-service';
-import {
-	parseEmailBuilderContent,
-	serializeEmailBuilderContent
-} from '$lib/email-builder/render';
+import { parseEmailBuilderContent, serializeEmailBuilderContent } from '$lib/email-builder/render';
 
 export type BuildPromptInput = {
 	template: Template;
@@ -48,12 +45,13 @@ export type BuildPromptInput = {
 	expectedSlots: string[];
 };
 
-function elementLines(items: TemplateElement[], assetBaseUrl: string, input: BuildPromptInput): string {
+function elementLines(
+	items: TemplateElement[],
+	assetBaseUrl: string,
+	input: BuildPromptInput,
+): string {
 	const designComponentById = Object.fromEntries(
-		input.components.map((c) => [
-			c.id,
-			{ name: c.name, starterKey: c.starterKey }
-		])
+		input.components.map((c) => [c.id, { name: c.name, starterKey: c.starterKey }]),
 	);
 
 	return items
@@ -91,7 +89,7 @@ function designContextBlocks(input: BuildPromptInput): string {
 	const logoBlock = logoPair
 		? [
 				`- [logo/light] ${logoPair.light.name} → ${input.assetBaseUrl}/api/design-asset/${logoPair.light.id}`,
-				`- [logo/dark] ${logoPair.dark.name} → ${input.assetBaseUrl}/api/design-asset/${logoPair.dark.id}`
+				`- [logo/dark] ${logoPair.dark.name} → ${input.assetBaseUrl}/api/design-asset/${logoPair.dark.id}`,
 			].join('\n')
 		: '(no logos)';
 
@@ -99,10 +97,7 @@ function designContextBlocks(input: BuildPromptInput): string {
 		nonLogoAssets.length === 0
 			? '(none)'
 			: nonLogoAssets
-					.map(
-						(a) =>
-							`- [${a.kind}] ${a.name} → ${input.assetBaseUrl}/api/design-asset/${a.id}`
-					)
+					.map((a) => `- [${a.kind}] ${a.name} → ${input.assetBaseUrl}/api/design-asset/${a.id}`)
 					.join('\n');
 
 	const required = input.elements.filter((e) => e.required);
@@ -138,7 +133,7 @@ function designContextBlocks(input: BuildPromptInput): string {
 		input.expectedSlots.length ? input.expectedSlots.join(', ') : '(none)',
 		``,
 		`# User prompt`,
-		input.prompt.trim() || '(no additional instructions)'
+		input.prompt.trim() || '(no additional instructions)',
 	].join('\n');
 }
 
@@ -158,12 +153,12 @@ export function buildScaffoldMessages(input: BuildPromptInput): Array<{
 		'- preheader: one short preview sentence (≤90 chars).',
 		'- subject: optional override of the template subject.',
 		'- Do NOT invent HTML, CSS, or Svelte. Text values only.',
-		'- Keep paragraphs short (1–3 sentences). One clear primary CTA label.'
+		'- Keep paragraphs short (1–3 sentences). One clear primary CTA label.',
 	].join(' ');
 
 	return [
 		{ role: 'system', content: system },
-		{ role: 'user', content: designContextBlocks(input) }
+		{ role: 'user', content: designContextBlocks(input) },
 	];
 }
 
@@ -214,7 +209,7 @@ export function parseScaffoldJson(raw: string, expectedSlots: string[]): Scaffol
 	return {
 		subject: typeof obj.subject === 'string' ? obj.subject.trim() || undefined : undefined,
 		preheader: typeof obj.preheader === 'string' ? obj.preheader.trim() || undefined : undefined,
-		slots
+		slots,
 	};
 }
 
@@ -272,14 +267,14 @@ export async function generateScaffold(opts: GenerateScaffoldOptions): Promise<{
 		elements,
 		prompt: opts.prompt,
 		assetBaseUrl,
-		expectedSlots
+		expectedSlots,
 	};
 
 	const model = openRouterModel();
 	emit({
 		stage: 'calling_model',
 		message: `Streaming scaffold JSON from ${model}…`,
-		model
+		model,
 	});
 
 	const raw = await openRouterChat(buildScaffoldMessages(promptInput), {
@@ -288,7 +283,7 @@ export async function generateScaffold(opts: GenerateScaffoldOptions): Promise<{
 		jsonObject: true,
 		onDelta: (delta, chars) => {
 			emit({ stage: 'delta', delta, chars });
-		}
+		},
 	});
 
 	if (!raw?.trim()) {
@@ -322,7 +317,7 @@ export async function generateScaffold(opts: GenerateScaffoldOptions): Promise<{
 	const merged: ScaffoldContent = {
 		subject: scaffold.subject ?? existing.subject,
 		preheader: scaffold.preheader ?? existing.preheader,
-		slots: { ...existing.slots, ...scaffold.slots }
+		slots: { ...existing.slots, ...scaffold.slots },
 	};
 
 	const designSnapshot = JSON.stringify({
@@ -333,10 +328,10 @@ export async function generateScaffold(opts: GenerateScaffoldOptions): Promise<{
 			kind: c.kind,
 			role: c.role,
 			starterKey: c.starterKey,
-			props: c.props
+			props: c.props,
 		})),
 		elements,
-		scaffold: merged
+		scaffold: merged,
 	});
 
 	const content = existingParsed.document
@@ -350,7 +345,7 @@ export async function generateScaffold(opts: GenerateScaffoldOptions): Promise<{
 			...(merged.subject ? { subject: merged.subject } : {}),
 			prompt: opts.prompt,
 			designSnapshot,
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(templates.id, template.id))
 		.returning()

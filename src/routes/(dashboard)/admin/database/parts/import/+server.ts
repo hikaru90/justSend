@@ -1,9 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import {
-	importDbParts,
-	parsePartsList,
-	partsNeedTeam
-} from '$lib/server/service/db-parts-service';
+import { importDbParts, parsePartsList, partsNeedTeam } from '$lib/server/service/db-parts-service';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ locals, request }) => {

@@ -40,7 +40,7 @@ export function updateTeam(teamId: number, data: { name?: string }) {
 	return db
 		.update(teams)
 		.set({
-			...(data.name !== undefined ? { name: data.name } : {})
+			...(data.name !== undefined ? { name: data.name } : {}),
 		})
 		.where(eq(teams.id, teamId))
 		.returning()
@@ -55,7 +55,7 @@ export function getInvitesForEmail(email: string) {
 			email: teamInvites.email,
 			role: teamInvites.role,
 			createdAt: teamInvites.createdAt,
-			teamName: teams.name
+			teamName: teams.name,
 		})
 		.from(teamInvites)
 		.innerJoin(teams, eq(teamInvites.teamId, teams.id))
@@ -71,7 +71,7 @@ export function getUserTeams(userId: number) {
 			role: teamUsers.role,
 			isActive: teams.isActive,
 			dailyEmailLimit: teams.dailyEmailLimit,
-			isBlocked: teams.isBlocked
+			isBlocked: teams.isBlocked,
 		})
 		.from(teams)
 		.innerJoin(teamUsers, eq(teamUsers.teamId, teams.id))
@@ -85,7 +85,7 @@ export async function getTeamUsers(teamId: number) {
 			teamId: teamUsers.teamId,
 			userId: teamUsers.userId,
 			role: teamUsers.role,
-			user: users
+			user: users,
 		})
 		.from(teamUsers)
 		.innerJoin(users, eq(teamUsers.userId, users.id))
@@ -100,7 +100,7 @@ export async function getTeamInvites(teamId: number): Promise<TeamInvite[]> {
 export async function createTeamInvite(
 	teamId: number,
 	email: string,
-	role: Role
+	role: Role,
 ): Promise<TeamInvite> {
 	if (!email) {
 		throw new Error('Email is required');
@@ -113,7 +113,11 @@ export async function createTeamInvite(
 		throw new Error('Team invite limit reached');
 	}
 
-	const existingUser = db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).get();
+	const existingUser = db
+		.select({ id: users.id })
+		.from(users)
+		.where(eq(users.email, normalizedEmail))
+		.get();
 	if (existingUser) {
 		const membership = db
 			.select({ userId: teamUsers.userId })
@@ -131,7 +135,7 @@ export async function createTeamInvite(
 			id: cuid(),
 			teamId,
 			email: normalizedEmail,
-			role
+			role,
 		})
 		.returning()
 		.get();
@@ -186,7 +190,7 @@ export async function deleteTeamUser(
 	teamId: number,
 	userId: number,
 	requestorRole: Role,
-	requestorId: number
+	requestorId: number,
 ) {
 	const teamUser = db
 		.select()

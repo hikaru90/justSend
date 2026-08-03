@@ -9,7 +9,7 @@ export type TemplateElement = typeof templateElements.$inferSelect;
 export function listElements(
 	templateId: string,
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): TemplateElement[] {
 	getTemplate(templateId, teamId, domainId);
 	return db
@@ -24,7 +24,7 @@ export function getElement(
 	elementId: string,
 	templateId: string,
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): TemplateElement {
 	getTemplate(templateId, teamId, domainId);
 	const element = db
@@ -71,7 +71,7 @@ export function createElement(input: CreateElementInput): TemplateElement {
 			label: input.label,
 			required: input.required ?? true,
 			config: input.config ?? '{}',
-			order: nextElementOrder(input.templateId)
+			order: nextElementOrder(input.templateId),
 		})
 		.returning()
 		.get();
@@ -81,7 +81,7 @@ export function deleteElement(
 	elementId: string,
 	templateId: string,
 	teamId: number,
-	domainId?: number
+	domainId?: number,
 ): TemplateElement {
 	const element = getElement(elementId, templateId, teamId, domainId);
 	db.delete(templateElements).where(eq(templateElements.id, element.id)).run();
@@ -93,7 +93,7 @@ export function updateElement(
 	templateId: string,
 	teamId: number,
 	domainId: number | undefined,
-	data: { label?: string; required?: boolean; config?: string }
+	data: { label?: string; required?: boolean; config?: string },
 ): TemplateElement {
 	const element = getElement(elementId, templateId, teamId, domainId);
 	return db
@@ -102,7 +102,7 @@ export function updateElement(
 			...(data.label !== undefined ? { label: data.label } : {}),
 			...(data.required !== undefined ? { required: data.required } : {}),
 			...(data.config !== undefined ? { config: data.config } : {}),
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(templateElements.id, element.id))
 		.returning()
@@ -113,7 +113,7 @@ export function reorderElements(
 	templateId: string,
 	teamId: number,
 	domainId: number | undefined,
-	orderedIds: string[]
+	orderedIds: string[],
 ): TemplateElement[] {
 	getTemplate(templateId, teamId, domainId);
 	const existing = listElements(templateId, teamId, domainId);

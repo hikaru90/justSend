@@ -5,7 +5,7 @@ import {
 	createTeamInvite,
 	deleteTeamInvite,
 	deleteTeamUser,
-	updateTeamUserRole
+	updateTeamUserRole,
 } from '$lib/server/service/team-service';
 import { requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
@@ -15,7 +15,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		members: await getTeamUsers(teamId),
 		invites: await getTeamInvites(teamId),
-		role: locals.team?.role
+		role: locals.team?.role,
 	};
 };
 
@@ -57,5 +57,5 @@ export const actions: Actions = {
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
 		}
-	}
+	},
 };

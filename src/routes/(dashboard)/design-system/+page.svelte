@@ -9,7 +9,7 @@
 	import {
 		EMPTY_DOCUMENT,
 		type ComponentSlot,
-		type TEditorConfiguration
+		type TEditorConfiguration,
 	} from '$lib/email-builder/types';
 	import { copyablePre } from '$lib/actions/copyablePre';
 	import { Check, Copy } from '@lucide/svelte';
@@ -27,7 +27,7 @@
 		removeHexColor,
 		replaceHexColor,
 		renderSvelteComponentPreview,
-		substitutePreviewPlaceholders
+		substitutePreviewPlaceholders,
 	} from '$lib/design/extractTokens';
 
 	let { data, form } = $props();
@@ -80,11 +80,13 @@
 			html: c.html,
 			document: c.document ?? '',
 			props: (c.parsedSlots ?? []).map((s) => s.name),
-			parsedSlots: c.parsedSlots ?? []
-		}))
+			parsedSlots: c.parsedSlots ?? [],
+		})),
 	);
 	const renderedMd = $derived(
-		DOMPurify.sanitize(marked.parse(designMdDraft || '_No design.md yet._', { async: false }) as string)
+		DOMPurify.sanitize(
+			marked.parse(designMdDraft || '_No design.md yet._', { async: false }) as string,
+		),
 	);
 
 	const fontAssets = $derived(data.assets.filter((a) => a.kind === 'font'));
@@ -149,8 +151,8 @@
 			'height',
 			'cellpadding',
 			'cellspacing',
-			'border'
-		]
+			'border',
+		],
 	};
 
 	const primaryColor = $derived(tokens.colors[0] ?? 'hsl(var(--primary))');
@@ -248,8 +250,8 @@
 			body,
 			headers: {
 				accept: 'application/json',
-				'x-sveltekit-action': 'true'
-			}
+				'x-sveltekit-action': 'true',
+			},
 		});
 		if (!res.ok) {
 			const err = await res.json().catch(() => null);
@@ -263,7 +265,7 @@
 	}
 
 	async function uploadBuilderAsset(
-		file: File
+		file: File,
 	): Promise<{ id: string; name: string; kind: string } | null> {
 		const body = new FormData();
 		body.append('file', file);
@@ -274,8 +276,8 @@
 			body,
 			headers: {
 				accept: 'application/json',
-				'x-sveltekit-action': 'true'
-			}
+				'x-sveltekit-action': 'true',
+			},
 		});
 		if (!res.ok) return null;
 		const result = deserialize(await res.text());
@@ -289,8 +291,8 @@
 		[...logoAssets, ...imageAssets].map((a) => ({
 			id: a.id,
 			name: a.name,
-			kind: a.kind
-		}))
+			kind: a.kind,
+		})),
 	);
 
 	async function saveNewComponent(payload: { document: TEditorConfiguration; html: string }) {
@@ -305,7 +307,7 @@
 				name: newName,
 				description: newDescription,
 				document: payload.document,
-				slots: newSlots
+				slots: newSlots,
 			});
 			newName = '';
 			newDescription = '';
@@ -331,7 +333,7 @@
 				name: editName,
 				description: editDescription,
 				document: payload.document,
-				slots: editSlots
+				slots: editSlots,
 			});
 			cancelEdit();
 		} catch (e) {
@@ -386,7 +388,7 @@
 
 	async function readOpenRouterSse(
 		res: Response,
-		onEvent: (event: StreamEvent) => void
+		onEvent: (event: StreamEvent) => void,
 	): Promise<void> {
 		if (!res.ok || !res.body) {
 			const text = await res.text().catch(() => '');
@@ -433,7 +435,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
 				body: JSON.stringify({ url }),
-				signal: controller.signal
+				signal: controller.signal,
 			});
 			await readOpenRouterSse(res, (event) => {
 				if (event.stage === 'delta' && event.delta) {
@@ -481,7 +483,7 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
 				body: JSON.stringify({ id: componentId }),
-				signal: controller.signal
+				signal: controller.signal,
 			});
 			await readOpenRouterSse(res, (event) => {
 				if (event.stage === 'delta' && event.delta) {
@@ -541,9 +543,9 @@
 				document: args.document,
 				slots: args.slots,
 				name: args.name,
-				description: args.description
+				description: args.description,
 			}),
-			signal: args.signal
+			signal: args.signal,
 		});
 
 		if (!res.ok || !res.body) {
@@ -592,14 +594,14 @@
 					if (event.document?.root?.type === 'EmailLayout') {
 						result = {
 							document: cloneDocument(event.document),
-							slots: Array.isArray(event.slots) ? event.slots : args.slots
+							slots: Array.isArray(event.slots) ? event.slots : args.slots,
 						};
 					}
 					args.onEvent({
 						type: 'done',
 						message: event.message,
 						document: result?.document,
-						slots: result?.slots
+						slots: result?.slots,
 					});
 					continue;
 				}
@@ -612,7 +614,7 @@
 					toolCallId: event.toolCallId,
 					isError: event.isError,
 					document: event.document,
-					slots: event.slots
+					slots: event.slots,
 				});
 			}
 		}
@@ -642,7 +644,12 @@
 	function contrastText(hex: string): string {
 		const h = hex.replace('#', '');
 		const full =
-			h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+			h.length === 3
+				? h
+						.split('')
+						.map((c) => c + c)
+						.join('')
+				: h;
 		if (full.length !== 6) return '#fff';
 		const r = parseInt(full.slice(0, 2), 16);
 		const g = parseInt(full.slice(2, 4), 16);
@@ -738,13 +745,15 @@
 	{/if}
 
 	<p class="mt-3 text-xs text-[hsl(var(--muted-foreground))]">
-		Requires OPENROUTER_API_KEY. Streams the model response live. Overwrites design.md only —
-		never creates or changes components. Attempts to download the logo and web fonts from the site.
+		Requires OPENROUTER_API_KEY. Streams the model response live. Overwrites design.md only — never
+		creates or changes components. Attempts to download the logo and web fonts from the site.
 	</p>
 </Card>
 
 {#if logoAssets.length > 0 || fontAssets.length > 0}
-	<div class="design-preview mb-6 flex flex-wrap items-center gap-4 rounded-md border border-[hsl(var(--border))] p-4">
+	<div
+		class="design-preview mb-6 flex flex-wrap items-center gap-4 rounded-md border border-[hsl(var(--border))] p-4"
+	>
 		{#each logoAssets as logo (logo.id)}
 			<img
 				src={resolve(`/api/design-asset/${logo.id}`)}
@@ -760,7 +769,11 @@
 	</div>
 {/if}
 
-<Card title="design.md" description="Edit colors below or the markdown directly — brand tokens, typography, spacing, and guidelines" class="mb-6">
+<Card
+	title="design.md"
+	description="Edit colors below or the markdown directly — brand tokens, typography, spacing, and guidelines"
+	class="mb-6"
+>
 	<div class="design-preview grid gap-4 lg:grid-cols-2">
 		<form method="POST" action="?/saveMd" use:enhance class="space-y-3">
 			<div class="relative">
@@ -768,12 +781,11 @@
 					name="designMd"
 					rows="16"
 					bind:value={designMdDraft}
-					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 pr-10 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
-					placeholder="# Brand — colors, typography, spacing, tone"
-				></textarea>
+					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 pr-10 font-mono text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none"
+					placeholder="# Brand — colors, typography, spacing, tone"></textarea>
 				<button
 					type="button"
-					class="absolute right-1.5 top-1.5 z-10 rounded p-1 text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]"
+					class="absolute top-1.5 right-1.5 z-10 rounded p-1 text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]"
 					aria-label={mdCopied ? 'Copied' : 'Copy design.md'}
 					onclick={copyDesignMd}
 				>
@@ -789,7 +801,9 @@
 
 		<div class="space-y-4">
 			<div>
-				<p class="mb-2 text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+				<p
+					class="mb-2 text-xs font-medium tracking-wide text-[hsl(var(--muted-foreground))] uppercase"
+				>
 					Colors
 				</p>
 				<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
@@ -805,7 +819,7 @@
 								style:background={color}
 								style:color={contrastText(color)}
 							>
-								<span class="pointer-events-none text-[10px] font-mono opacity-90">{color}</span>
+								<span class="pointer-events-none font-mono text-[10px] opacity-90">{color}</span>
 								<input
 									type="color"
 									class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
@@ -814,13 +828,15 @@
 									onchange={(e) => updateColor(color, e.currentTarget.value)}
 								/>
 							</label>
-							<div class="flex items-center gap-1 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))] p-1">
+							<div
+								class="flex items-center gap-1 border-t border-[hsl(var(--border))] bg-[hsl(var(--background))] p-1"
+							>
 								<input
 									type="text"
 									value={color}
 									spellcheck="false"
 									aria-label={`Hex for ${color}`}
-									class="min-w-0 flex-1 rounded border-0 bg-transparent px-1 py-0.5 font-mono text-[11px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
+									class="min-w-0 flex-1 rounded border-0 bg-transparent px-1 py-0.5 font-mono text-[11px] focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none"
 									onchange={(e) => updateColor(color, e.currentTarget.value)}
 									onblur={(e) => updateColor(color, e.currentTarget.value)}
 								/>
@@ -848,7 +864,7 @@
 						bind:value={newColorHex}
 						spellcheck="false"
 						aria-label="New color hex"
-						class="h-9 w-28 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))]"
+						class="h-9 w-28 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 font-mono text-sm shadow-sm focus-visible:ring-1 focus-visible:ring-[hsl(var(--ring))] focus-visible:outline-none"
 					/>
 					<Button type="button" size="sm" variant="outline" onclick={addColor}>Add color</Button>
 				</div>
@@ -856,7 +872,9 @@
 
 			{#if tokens.fontFamilies.length > 0}
 				<div>
-					<p class="mb-2 text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+					<p
+						class="mb-2 text-xs font-medium tracking-wide text-[hsl(var(--muted-foreground))] uppercase"
+					>
 						Typography
 					</p>
 					<div class="space-y-2">
@@ -870,10 +888,15 @@
 			{/if}
 
 			<div>
-				<p class="mb-2 text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+				<p
+					class="mb-2 text-xs font-medium tracking-wide text-[hsl(var(--muted-foreground))] uppercase"
+				>
 					Samples
 				</p>
-				<div class="flex flex-wrap items-center gap-4" style:font-family="'{primaryFont}', system-ui, sans-serif">
+				<div
+					class="flex flex-wrap items-center gap-4"
+					style:font-family="'{primaryFont}', system-ui, sans-serif"
+				>
 					<button
 						type="button"
 						class="inline-flex h-9 items-center rounded-md px-4 text-sm font-medium"
@@ -907,7 +930,11 @@
 	</div>
 </Card>
 
-<Card title="Fonts & assets" description="Upload logos, images, and font files — edit name or replace the file anytime" class="mb-6">
+<Card
+	title="Fonts & assets"
+	description="Upload logos, images, and font files — edit name or replace the file anytime"
+	class="mb-6"
+>
 	<form
 		method="POST"
 		action="?/uploadAsset"
@@ -995,8 +1022,7 @@
 									<div class="space-y-1">
 										<label
 											class="text-xs text-[hsl(var(--muted-foreground))]"
-											for="edit-asset-file-{asset.id}"
-											>Replace file</label
+											for="edit-asset-file-{asset.id}">Replace file</label
 										>
 										<input
 											id="edit-asset-file-{asset.id}"
@@ -1050,7 +1076,9 @@
 								</div>
 							</div>
 							<div class="flex shrink-0 gap-2">
-								<Button size="sm" variant="outline" onclick={() => startEditAsset(asset)}>Edit</Button>
+								<Button size="sm" variant="outline" onclick={() => startEditAsset(asset)}
+									>Edit</Button
+								>
 								<form method="POST" action="?/deleteAsset" use:enhance>
 									<input type="hidden" name="id" value={asset.id} />
 									<Button type="submit" size="sm" variant="destructive">Delete</Button>
@@ -1075,7 +1103,7 @@
 		<Input bind:value={newName} placeholder="Component name (e.g. Promo Footer)" required />
 		<Input bind:value={newDescription} placeholder="Optional description" />
 		<div class="space-y-2 rounded-md border border-[hsl(var(--border))] p-3">
-			<p class="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+			<p class="text-xs font-medium tracking-wide text-[hsl(var(--muted-foreground))] uppercase">
 				Slots
 			</p>
 			<p class="text-xs text-[hsl(var(--muted-foreground))]">
@@ -1085,7 +1113,11 @@
 				<div class="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto] sm:items-center">
 					<Input bind:value={slot.name} placeholder="Slot name" aria-label="Slot name" />
 					<Input bind:value={slot.blockId} placeholder="Block ID" aria-label="Block ID" />
-					<Input bind:value={slot.prop} placeholder="Prop (e.g. props.text)" aria-label="Prop path" />
+					<Input
+						bind:value={slot.prop}
+						placeholder="Prop (e.g. props.text)"
+						aria-label="Prop path"
+					/>
 					<select
 						bind:value={slot.type}
 						class="h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 text-sm"
@@ -1110,8 +1142,8 @@
 		{/if}
 		{#if data.piConfigured}
 			<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-				Open the <span class="font-medium text-[hsl(var(--foreground))]">AI assistant</span> tab in
-				the builder to generate a component from a prompt, then save.
+				Open the <span class="font-medium text-[hsl(var(--foreground))]">AI assistant</span> tab in the
+				builder to generate a component from a prompt, then save.
 			</p>
 		{/if}
 		{#key newBuilderKey}
@@ -1132,7 +1164,7 @@
 					runComponentAiEdit({
 						...args,
 						name: newName,
-						description: newDescription
+						description: newDescription,
 					})}
 				onAiResult={(result) => {
 					newSlots = result.slots;
@@ -1160,7 +1192,10 @@
 							{:else if formatComponentProps(component.props)}
 								<div class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
 									<p>props</p>
-									<pre class="mt-1 overflow-x-auto rounded bg-[hsl(var(--muted))] px-2 py-1 font-mono text-[11px] text-[hsl(var(--foreground))]">{formatComponentProps(component.props)}</pre>
+									<pre
+										class="mt-1 overflow-x-auto rounded bg-[hsl(var(--muted))] px-2 py-1 font-mono text-[11px] text-[hsl(var(--foreground))]">{formatComponentProps(
+											component.props,
+										)}</pre>
 								</div>
 							{/if}
 						</div>
@@ -1187,7 +1222,8 @@
 							</div>
 							<Button size="sm" variant="outline" onclick={() => startEdit(component)}>Edit</Button>
 							{#if reapplyingId === component.id}
-								<Button type="button" size="sm" variant="outline" onclick={stopReapply}>Stop</Button>
+								<Button type="button" size="sm" variant="outline" onclick={stopReapply}>Stop</Button
+								>
 								<span class="text-xs text-[hsl(var(--muted-foreground))]">{reapplyStatus}</span>
 							{:else}
 								<Button
@@ -1253,14 +1289,18 @@
 			<Input placeholder="Component name" bind:value={editName} required />
 			<Input placeholder="Optional description" bind:value={editDescription} />
 			<div class="space-y-2 rounded-md border border-[hsl(var(--border))] p-3">
-				<p class="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+				<p class="text-xs font-medium tracking-wide text-[hsl(var(--muted-foreground))] uppercase">
 					Slots
 				</p>
 				{#each editSlots as slot, i (i)}
 					<div class="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto] sm:items-center">
 						<Input bind:value={slot.name} placeholder="Slot name" aria-label="Slot name" />
 						<Input bind:value={slot.blockId} placeholder="Block ID" aria-label="Block ID" />
-						<Input bind:value={slot.prop} placeholder="Prop (e.g. props.text)" aria-label="Prop path" />
+						<Input
+							bind:value={slot.prop}
+							placeholder="Prop (e.g. props.text)"
+							aria-label="Prop path"
+						/>
 						<select
 							bind:value={slot.type}
 							class="h-9 rounded-md border border-[hsl(var(--input))] bg-transparent px-2 text-sm"
@@ -1301,7 +1341,7 @@
 						runComponentAiEdit({
 							...args,
 							name: editName,
-							description: editDescription
+							description: editDescription,
 						})}
 					onAiResult={(result) => {
 						editDocument = cloneDocument(result.document);

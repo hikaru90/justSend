@@ -10,7 +10,7 @@ import {
 	addOrUpdateContact,
 	deleteContactInContactBook,
 	getContactInContactBook,
-	updateContactInContactBook
+	updateContactInContactBook,
 } from '$lib/server/service/contact-service';
 
 const contactSchema = z.object({
@@ -18,7 +18,7 @@ const contactSchema = z.object({
 	firstName: z.string().optional(),
 	lastName: z.string().optional(),
 	properties: z.record(z.string(), z.unknown()).optional(),
-	subscribed: z.boolean().optional()
+	subscribed: z.boolean().optional(),
 });
 
 const patchSchema = contactSchema.partial().extend({ email: z.string().optional() });
@@ -36,7 +36,7 @@ function serializeContact(contact: {
 }) {
 	return {
 		...contact,
-		properties: parseJsonObject(contact.properties)
+		properties: parseJsonObject(contact.properties),
 	};
 }
 
@@ -66,12 +66,7 @@ export const PATCH: RequestHandler = async ({ request, params }) => {
 
 	const input = await parseBody(request, patchSchema);
 	try {
-		const updated = await updateContactInContactBook(
-			params.contactId,
-			params.id,
-			input,
-			team.id
-		);
+		const updated = await updateContactInContactBook(params.contactId, params.id, input, team.id);
 		if (!updated) {
 			return jsonError(404, 'Contact not found');
 		}

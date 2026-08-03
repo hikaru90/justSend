@@ -13,7 +13,13 @@
 {#if data.role === 'ADMIN'}
 	<Card title="Invite member" class="mb-6">
 		<form method="POST" action="?/invite" use:enhance class="flex flex-wrap gap-2">
-			<Input name="email" type="email" placeholder="email@example.com" required class="min-w-[200px] flex-1" />
+			<Input
+				name="email"
+				type="email"
+				placeholder="email@example.com"
+				required
+				class="min-w-[200px] flex-1"
+			/>
 			<select name="role" class="h-9 rounded-md border px-3 text-sm">
 				<option value="MEMBER">Member</option>
 				<option value="ADMIN">Admin</option>

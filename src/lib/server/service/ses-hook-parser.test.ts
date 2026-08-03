@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import { resetDb, db } from '../../../tests/helpers/db';
-import { createTeam, createDomain, createEmail, createContactBook, createContact, createCampaign } from '../../../tests/helpers/factories';
+import {
+	createTeam,
+	createDomain,
+	createEmail,
+	createContactBook,
+	createContact,
+	createCampaign,
+} from '../../../tests/helpers/factories';
 import { emails, emailEvents, suppressionList } from '$lib/server/db/schema';
 import { env } from '../env';
 import { parseSesHook, type SesEvent } from './ses-hook-parser';
@@ -14,8 +21,8 @@ function baseEvent(messageId: string, eventType: string): SesEvent {
 		eventType,
 		mail: {
 			messageId,
-			timestamp: new Date().toISOString()
-		}
+			timestamp: new Date().toISOString(),
+		},
 	};
 }
 
@@ -27,7 +34,7 @@ describe('ses-hook-parser', () => {
 			domainId: domain.id,
 			sesEmailId,
 			latestStatus: 'QUEUED',
-			to: ['recipient@example.com']
+			to: ['recipient@example.com'],
 		});
 		return { team, domain, email };
 	}
@@ -52,7 +59,7 @@ describe('ses-hook-parser', () => {
 
 		const result = await parseSesHook({
 			...baseEvent('msg-delivery-1', 'Delivery'),
-			delivery: { timestamp: new Date().toISOString() }
+			delivery: { timestamp: new Date().toISOString() },
 		});
 		expect(result).toBe(true);
 
@@ -67,8 +74,8 @@ describe('ses-hook-parser', () => {
 			bounce: {
 				bounceType: 'Permanent',
 				bounceSubType: 'General',
-				bouncedRecipients: [{ emailAddress: 'recipient@example.com', diagnosticCode: '550' }]
-			}
+				bouncedRecipients: [{ emailAddress: 'recipient@example.com', diagnosticCode: '550' }],
+			},
 		});
 
 		expect(result).toBe(true);
@@ -88,8 +95,8 @@ describe('ses-hook-parser', () => {
 		const result = await parseSesHook({
 			...baseEvent('msg-complaint-1', 'Complaint'),
 			complaint: {
-				complainedRecipients: [{ emailAddress: 'recipient@example.com' }]
-			}
+				complainedRecipients: [{ emailAddress: 'recipient@example.com' }],
+			},
 		});
 
 		expect(result).toBe(true);
@@ -103,7 +110,7 @@ describe('ses-hook-parser', () => {
 
 		const result = await parseSesHook({
 			...baseEvent('msg-open-1', 'Open'),
-			open: { timestamp: new Date().toISOString(), userAgent: 'TestAgent' }
+			open: { timestamp: new Date().toISOString(), userAgent: 'TestAgent' },
 		});
 
 		expect(result).toBe(true);
@@ -120,8 +127,8 @@ describe('ses-hook-parser', () => {
 			click: {
 				timestamp: new Date().toISOString(),
 				link: 'https://example.com/page',
-				userAgent: 'TestAgent'
-			}
+				userAgent: 'TestAgent',
+			},
 		});
 
 		expect(result).toBe(true);
@@ -144,7 +151,7 @@ describe('ses-hook-parser', () => {
 		const email = createEmail(team.id, {
 			domainId: domain.id,
 			sesEmailId: null,
-			latestStatus: 'QUEUED'
+			latestStatus: 'QUEUED',
 		});
 
 		const result = await parseSesHook({
@@ -152,9 +159,9 @@ describe('ses-hook-parser', () => {
 			mail: {
 				messageId: 'new-ses-id',
 				timestamp: new Date().toISOString(),
-				headers: [{ name: 'X-Justsend-Email-ID', value: email.id }]
+				headers: [{ name: 'X-Justsend-Email-ID', value: email.id }],
 			},
-			send: {}
+			send: {},
 		});
 
 		expect(result).toBe(true);
@@ -175,15 +182,15 @@ describe('ses-hook-parser', () => {
 			sesEmailId: 'msg-campaign-bounce',
 			contactId: contact.id,
 			campaignId: campaign.id,
-			to: ['camp@example.com']
+			to: ['camp@example.com'],
 		});
 
 		await parseSesHook({
 			...baseEvent('msg-campaign-bounce', 'Bounce'),
 			bounce: {
 				bounceType: 'Permanent',
-				bouncedRecipients: [{ emailAddress: 'camp@example.com' }]
-			}
+				bouncedRecipients: [{ emailAddress: 'camp@example.com' }],
+			},
 		});
 
 		const updatedContact = db.select().from(suppressionList).all();

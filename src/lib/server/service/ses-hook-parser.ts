@@ -10,7 +10,7 @@ import {
 	emails,
 	emailEvents,
 	emailStatuses,
-	type EmailStatus
+	type EmailStatus,
 } from '../db/schema';
 import { enqueue } from '../queue';
 import { QUEUES } from '../queue/constants';
@@ -20,7 +20,7 @@ import { unsubscribeContact, updateCampaignAnalytics } from './campaign-service'
 import type {
 	EmailBasePayload,
 	EmailEventPayloadMap,
-	EmailWebhookEventType
+	EmailWebhookEventType,
 } from '../webhook-events';
 
 type SesHeader = { name: string; value: string };
@@ -63,7 +63,7 @@ const DAILY_USAGE_COLUMNS = {
 	opened: dailyEmailUsages.opened,
 	clicked: dailyEmailUsages.clicked,
 	bounced: dailyEmailUsages.bounced,
-	complained: dailyEmailUsages.complained
+	complained: dailyEmailUsages.complained,
 } as const;
 
 type DailyUsageField = keyof typeof DAILY_USAGE_COLUMNS;
@@ -71,7 +71,7 @@ type DailyUsageField = keyof typeof DAILY_USAGE_COLUMNS;
 const CUMULATED_COLUMNS = {
 	delivered: cumulatedMetrics.delivered,
 	hardBounced: cumulatedMetrics.hardBounced,
-	complained: cumulatedMetrics.complained
+	complained: cumulatedMetrics.complained,
 } as const;
 
 type CumulatedField = keyof typeof CUMULATED_COLUMNS;
@@ -165,7 +165,7 @@ function emailStatusToEvent(status: EmailStatus): EmailWebhookEventType {
 }
 
 function normalizeBounceSubType(
-	subType: string | undefined
+	subType: string | undefined,
 ): EmailEventPayloadMap['email.bounced']['bounce']['subType'] {
 	const normalized = subType?.replace(/\s+/g, '');
 	const valid: EmailEventPayloadMap['email.bounced']['bounce']['subType'][] = [
@@ -176,7 +176,7 @@ function normalizeBounceSubType(
 		'MailboxFull',
 		'MessageTooLarge',
 		'ContentRejected',
-		'AttachmentRejected'
+		'AttachmentRejected',
 	];
 	if (normalized && (valid as string[]).includes(normalized)) {
 		return normalized as EmailEventPayloadMap['email.bounced']['bounce']['subType'];
@@ -201,7 +201,7 @@ function buildEmailWebhookPayload(params: {
 		campaignId: email.campaignId ?? undefined,
 		contactId: email.contactId ?? undefined,
 		domainId: email.domainId ?? null,
-		subject: email.subject
+		subject: email.subject,
 	};
 
 	switch (status) {
@@ -211,8 +211,8 @@ function buildEmailWebhookPayload(params: {
 				bounce: {
 					type: event.bounce?.bounceType ?? 'Undetermined',
 					subType: normalizeBounceSubType(event.bounce?.bounceSubType),
-					message: event.bounce?.bouncedRecipients?.[0]?.diagnosticCode
-				}
+					message: event.bounce?.bouncedRecipients?.[0]?.diagnosticCode,
+				},
 			};
 		case 'OPENED':
 			return {
@@ -220,8 +220,8 @@ function buildEmailWebhookPayload(params: {
 				open: {
 					timestamp: event.open?.timestamp ?? occurredAt,
 					userAgent: event.open?.userAgent,
-					ip: event.open?.ipAddress
-				}
+					ip: event.open?.ipAddress,
+				},
 			};
 		case 'CLICKED':
 			return {
@@ -230,8 +230,8 @@ function buildEmailWebhookPayload(params: {
 					timestamp: event.click?.timestamp ?? occurredAt,
 					url: event.click?.link ?? '',
 					userAgent: event.click?.userAgent,
-					ip: event.click?.ipAddress
-				}
+					ip: event.click?.ipAddress,
+				},
 			};
 		default:
 			return basePayload;
@@ -260,7 +260,7 @@ function incrementDailyUsage(params: {
 
 	const set: Record<string, unknown> = {
 		[field]: sql`${column} + 1`,
-		updatedAt: sql`(datetime('now'))`
+		updatedAt: sql`(datetime('now'))`,
 	};
 	if (hardBounced) {
 		set.hardBounced = sql`${dailyEmailUsages.hardBounced} + 1`;
@@ -278,16 +278,16 @@ function incrementDailyUsage(params: {
 			clicked: field === 'clicked' ? 1 : 0,
 			bounced: field === 'bounced' ? 1 : 0,
 			complained: field === 'complained' ? 1 : 0,
-			hardBounced: hardBounced ? 1 : 0
+			hardBounced: hardBounced ? 1 : 0,
 		})
 		.onConflictDoUpdate({
 			target: [
 				dailyEmailUsages.teamId,
 				dailyEmailUsages.domainId,
 				dailyEmailUsages.date,
-				dailyEmailUsages.type
+				dailyEmailUsages.type,
 			],
-			set
+			set,
 		})
 		.run();
 }
@@ -306,11 +306,11 @@ function incrementCumulatedMetric(params: {
 			domainId,
 			delivered: field === 'delivered' ? 1 : 0,
 			hardBounced: field === 'hardBounced' ? 1 : 0,
-			complained: field === 'complained' ? 1 : 0
+			complained: field === 'complained' ? 1 : 0,
 		})
 		.onConflictDoUpdate({
 			target: [cumulatedMetrics.teamId, cumulatedMetrics.domainId],
-			set: { [field]: sql`${column} + 1` }
+			set: { [field]: sql`${column} + 1` },
 		})
 		.run();
 }
@@ -324,8 +324,7 @@ async function checkUnsubscribe(params: {
 }): Promise<void> {
 	const { contactId, campaignId, teamId, status, event } = params;
 
-	const isPermanentBounce =
-		status === 'BOUNCED' && event.bounce?.bounceType === 'Permanent';
+	const isPermanentBounce = status === 'BOUNCED' && event.bounce?.bounceType === 'Permanent';
 	if (!isPermanentBounce && status !== 'COMPLAINED') {
 		return;
 	}
@@ -349,7 +348,7 @@ async function checkUnsubscribe(params: {
 		await unsubscribeContact({
 			contactId: row.id,
 			campaignId: row.id === contactId ? campaignId : undefined,
-			reason
+			reason,
 		});
 	}
 }
@@ -376,7 +375,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 	// Race condition fallback: match by the custom email id header.
 	if (!email) {
 		const header = event.mail?.headers?.find(
-			(h) => h.name === 'X-Justsend-Email-ID' || h.name === 'X-Unsend-Email-ID'
+			(h) => h.name === 'X-Justsend-Email-ID' || h.name === 'X-Unsend-Email-ID',
 		);
 		if (header?.value) {
 			email = db.select().from(emails).where(eq(emails.id, header.value)).get() ?? null;
@@ -419,8 +418,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 	}
 
 	const today = new Date().toISOString().slice(0, 10);
-	const isHardBounced =
-		mailStatus === 'BOUNCED' && event.bounce?.bounceType === 'Permanent';
+	const isHardBounced = mailStatus === 'BOUNCED' && event.bounce?.bounceType === 'Permanent';
 
 	// Suppress the affected recipients on hard bounce/complaint.
 	if (isHardBounced || mailStatus === 'COMPLAINED') {
@@ -435,7 +433,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 					teamId: email.teamId,
 					domainId: email.domainId,
 					reason: isHardBounced ? 'HARD_BOUNCE' : 'COMPLAINT',
-					source: email.id
+					source: email.id,
 				});
 			} catch (error) {
 				console.error('[ses-hook] Failed to add suppression', { recipientEmail, error });
@@ -456,7 +454,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 			date: today,
 			type: email.campaignId ? 'MARKETING' : 'TRANSACTIONAL',
 			field,
-			hardBounced: isHardBounced
+			hardBounced: isHardBounced,
 		});
 
 		if (isHardBounced || field === 'complained' || field === 'delivered') {
@@ -466,7 +464,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 			incrementCumulatedMetric({
 				teamId: email.teamId,
 				domainId: email.domainId ?? 0,
-				field: cumulatedField
+				field: cumulatedField,
 			});
 		}
 	}
@@ -483,7 +481,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 					campaignId: email.campaignId,
 					teamId: email.teamId,
 					status: mailStatus,
-					event
+					event,
 				});
 			}
 
@@ -499,7 +497,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 			emailId: email.id,
 			status: mailStatus,
 			data: mailData ? JSON.stringify(mailData) : null,
-			teamId: email.teamId
+			teamId: email.teamId,
 		})
 		.run();
 
@@ -512,7 +510,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 			email.teamId,
 			emailStatusToEvent(mailStatus),
 			buildEmailWebhookPayload({ email, status: mailStatus, occurredAt, event }),
-			{ domainId: email.domainId ?? null }
+			{ domainId: email.domainId ?? null },
 		);
 	} catch (error) {
 		console.error('[ses-hook] Failed to emit webhook', { emailId: email.id, error });

@@ -8,7 +8,7 @@ import {
 	pauseFlow,
 	updateFlow,
 	type FlowGraph,
-	type TriggerConfig
+	type TriggerConfig,
 } from '$lib/server/service/flow-service';
 import { listTemplates } from '$lib/server/service/template-service';
 import type { AutomationFlowStatus } from '$lib/server/db/schema';
@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		return {
 			flow,
 			templates: listTemplates(teamId, domainId).map((t) => ({ id: t.id, name: t.name })),
-			books: getContactBooks(teamId, { domainId }).map((b) => ({ id: b.id, name: b.name }))
+			books: getContactBooks(teamId, { domainId }).map((b) => ({ id: b.id, name: b.name })),
 		};
 	} catch {
 		error(404, 'Flow not found');
@@ -63,11 +63,11 @@ export const actions: Actions = {
 							data: {
 								...n.data,
 								contactBookId: contactBookId || undefined,
-								label: 'Contact created'
-							}
+								label: 'Contact created',
+							},
 						}
-					: n
-			)
+					: n,
+			),
 		};
 
 		try {
@@ -78,9 +78,9 @@ export const actions: Actions = {
 					name: name || undefined,
 					status,
 					triggerConfig,
-					graph
+					graph,
 				},
-				domainId
+				domainId,
 			);
 			return { saved: true };
 		} catch (e) {
@@ -112,5 +112,5 @@ export const actions: Actions = {
 		requireDomainId(locals.domainId);
 		deleteFlow(params.id, teamId, locals.domainId ?? undefined);
 		redirect(302, '/flows');
-	}
+	},
 };

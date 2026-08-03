@@ -9,7 +9,7 @@ import { createDomain, getDomains } from '$lib/server/service/domain-service';
 
 const createSchema = z.object({
 	name: z.string(),
-	region: z.string().optional()
+	region: z.string().optional(),
 });
 
 export const GET: RequestHandler = async ({ request }) => {

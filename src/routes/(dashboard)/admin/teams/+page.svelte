@@ -23,7 +23,11 @@
 				<tr class="border-b">
 					<td class="p-2">{team.id}</td>
 					<td class="p-2 font-medium">{team.name}</td>
-					<td class="p-2"><Badge variant={team.isActive ? 'success' : 'secondary'}>{team.isActive ? 'Yes' : 'No'}</Badge></td>
+					<td class="p-2"
+						><Badge variant={team.isActive ? 'success' : 'secondary'}
+							>{team.isActive ? 'Yes' : 'No'}</Badge
+						></td
+					>
 					<td class="p-2">{team.dailyEmailLimit}</td>
 					<td class="p-2">{team.isBlocked ? 'Yes' : 'No'}</td>
 				</tr>

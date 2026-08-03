@@ -3,7 +3,7 @@ import { resetDb } from '../../../../tests/helpers/db';
 import {
 	createTeamWithApiKey,
 	createEmail,
-	createSesSetting
+	createSesSetting,
 } from '../../../../tests/helpers/factories';
 import { buildApiEvent, bearer, invokeHandler } from '../../../../tests/helpers/api';
 import { GET, POST } from './+server';
@@ -19,7 +19,7 @@ describe('GET /api/v1/emails', () => {
 			method: 'GET',
 			path: '/api/v1/emails',
 			urlSearchParams: { limit: '10' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -42,9 +42,9 @@ describe('POST /api/v1/emails', () => {
 				to: 'a@b.com',
 				from: 'noreply@mail.example.com',
 				subject: 'Hi',
-				text: 'Hello'
+				text: 'Hello',
 			},
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 
@@ -60,7 +60,7 @@ describe('POST /api/v1/emails', () => {
 			method: 'POST',
 			path: '/api/v1/emails',
 			body: { to: 'a@b.com' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 
@@ -72,7 +72,7 @@ describe('POST /api/v1/emails', () => {
 		const event = buildApiEvent({
 			method: 'POST',
 			path: '/api/v1/emails',
-			body: { to: 'a@b.com', from: 'a@b.com', subject: 'Hi', text: 'Hi' }
+			body: { to: 'a@b.com', from: 'a@b.com', subject: 'Hi', text: 'Hi' },
 		});
 		const { status } = await invokeHandler(POST, event);
 		expect(status).toBe(401);
@@ -86,17 +86,17 @@ describe('POST /api/v1/emails', () => {
 			to: 'a@b.com',
 			from: 'noreply@mail.example.com',
 			subject: 'Hi',
-			text: 'Hello'
+			text: 'Hello',
 		};
 		const headers = { ...bearer(apiKey), 'Idempotency-Key': 'idem-1' };
 
 		const first = await invokeHandler(
 			POST,
-			buildApiEvent({ method: 'POST', path: '/api/v1/emails', body, headers })
+			buildApiEvent({ method: 'POST', path: '/api/v1/emails', body, headers }),
 		);
 		const second = await invokeHandler(
 			POST,
-			buildApiEvent({ method: 'POST', path: '/api/v1/emails', body, headers })
+			buildApiEvent({ method: 'POST', path: '/api/v1/emails', body, headers }),
 		);
 
 		expect(first.status).toBe(200);

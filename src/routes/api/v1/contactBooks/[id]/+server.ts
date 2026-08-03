@@ -7,7 +7,7 @@ import { jsonErrorFromException } from '$lib/server/api/errors';
 import {
 	deleteContactBook,
 	getContactBook,
-	updateContactBook
+	updateContactBook,
 } from '$lib/server/service/contact-book-service';
 
 const patchSchema = z.object({
@@ -18,7 +18,7 @@ const patchSchema = z.object({
 	doubleOptInEnabled: z.boolean().optional(),
 	doubleOptInFrom: z.string().nullable().optional(),
 	doubleOptInSubject: z.string().optional(),
-	doubleOptInContent: z.string().optional()
+	doubleOptInContent: z.string().optional(),
 });
 
 export const GET: RequestHandler = async ({ request, params }) => {

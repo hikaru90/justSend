@@ -28,7 +28,10 @@
 
 <div class="space-y-2">
 	{#each data.items as campaign}
-		<a href="/campaigns/{campaign.id}" class="block rounded-lg border p-4 hover:bg-[hsl(var(--accent))]/50">
+		<a
+			href="/campaigns/{campaign.id}"
+			class="block rounded-lg border p-4 hover:bg-[hsl(var(--accent))]/50"
+		>
 			<div class="flex justify-between">
 				<span class="font-medium">{campaign.name}</span>
 				<Badge>{campaign.status}</Badge>

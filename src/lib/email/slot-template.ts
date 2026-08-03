@@ -7,8 +7,7 @@
 export function applySlotTemplate(html: string, slots: Record<string, string>): string {
 	let out = html;
 
-	const innermostIf =
-		/<!--owl-if:([a-zA-Z0-9_]+)-->((?:(?!<!--owl-if:)[\s\S])*?)<!--\/owl-if-->/g;
+	const innermostIf = /<!--owl-if:([a-zA-Z0-9_]+)-->((?:(?!<!--owl-if:)[\s\S])*?)<!--\/owl-if-->/g;
 	let previous = '';
 	while (out !== previous) {
 		previous = out;

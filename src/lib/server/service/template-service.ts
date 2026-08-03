@@ -80,7 +80,7 @@ export function createTemplate(input: CreateTemplateInput): Template {
 			subject: input.subject,
 			html: input.html ?? null,
 			content: input.content ?? null,
-			tags: '[]'
+			tags: '[]',
 		})
 		.returning()
 		.get();
@@ -100,7 +100,7 @@ export function updateTemplate(
 	templateId: string,
 	teamId: number,
 	data: UpdateTemplateInput,
-	domainId?: number
+	domainId?: number,
 ): Template {
 	const template = getTemplate(templateId, teamId, domainId);
 
@@ -114,7 +114,7 @@ export function updateTemplate(
 			...(data.prompt !== undefined ? { prompt: data.prompt } : {}),
 			...(data.designSnapshot !== undefined ? { designSnapshot: data.designSnapshot } : {}),
 			...(data.tags !== undefined ? { tags: jsonArray(normalizeTemplateTags(data.tags)) } : {}),
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(templates.id, template.id))
 		.returning()

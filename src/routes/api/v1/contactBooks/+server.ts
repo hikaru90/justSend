@@ -7,13 +7,13 @@ import { jsonErrorFromException } from '$lib/server/api/errors';
 import {
 	createContactBook,
 	getContactBooks,
-	updateContactBook
+	updateContactBook,
 } from '$lib/server/service/contact-book-service';
 
 const createSchema = z.object({
 	name: z.string(),
 	emoji: z.string().optional(),
-	variables: z.array(z.string()).optional()
+	variables: z.array(z.string()).optional(),
 });
 
 export const GET: RequestHandler = async ({ request, url }) => {

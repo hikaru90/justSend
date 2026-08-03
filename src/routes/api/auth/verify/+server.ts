@@ -4,7 +4,7 @@ import {
 	consumeMagicLinkToken,
 	createSession,
 	signCookieValue,
-	SESSION_COOKIE
+	SESSION_COOKIE,
 } from '$lib/server/auth';
 
 export const GET: RequestHandler = async ({ url, cookies }) => {
@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		httpOnly: true,
 		secure: process.env.NODE_ENV === 'production',
 		sameSite: 'lax',
-		maxAge: 60 * 60 * 24 * 30
+		maxAge: 60 * 60 * 24 * 30,
 	});
 
 	throw redirect(302, '/dashboard');

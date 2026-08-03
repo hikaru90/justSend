@@ -5,17 +5,11 @@ import {
 	createTeam,
 	createDomain,
 	createContactBook,
-	createContact
+	createContact,
 } from '../../../tests/helpers/factories';
 import { automationEnrollments, automationExecutionLog, queueJobs } from '$lib/server/db/schema';
 import { QUEUES } from '../queue/constants';
-import {
-	activateFlow,
-	createFlow,
-	defaultFlowGraph,
-	getFlow,
-	updateFlow
-} from './flow-service';
+import { activateFlow, createFlow, defaultFlowGraph, getFlow, updateFlow } from './flow-service';
 import { enrollContact, handleContactCreated, nextNodeId, processFlowStep } from './flow-engine';
 
 beforeEach(() => resetDb());
@@ -41,13 +35,13 @@ describe('flow-engine', () => {
 			teamId: team.id,
 			domainId: domain.id,
 			name: 'End only',
-			triggerConfig: { contactBookId: book.id }
+			triggerConfig: { contactBookId: book.id },
 		});
 		activateFlow(flow.id, team.id, domain.id);
 
 		const enrollment = enrollContact({
 			flow: getFlow(flow.id, team.id, domain.id),
-			contactId: contact.id
+			contactId: contact.id,
 		});
 		expect(enrollment).not.toBeNull();
 		expect(enrollment!.currentNodeId).toBe('end-1');
@@ -75,7 +69,7 @@ describe('flow-engine', () => {
 			teamId: team.id,
 			domainId: domain.id,
 			name: 'Wait flow',
-			triggerConfig: { contactBookId: book.id }
+			triggerConfig: { contactBookId: book.id },
 		});
 
 		const graph = {
@@ -84,27 +78,27 @@ describe('flow-engine', () => {
 					id: 'trigger-1',
 					type: 'trigger',
 					position: { x: 0, y: 0 },
-					data: { label: 'Contact created' }
+					data: { label: 'Contact created' },
 				},
 				{
 					id: 'wait-1',
 					type: 'wait',
 					position: { x: 0, y: 100 },
-					data: { label: 'Wait', amount: 1, unit: 'minutes' }
+					data: { label: 'Wait', amount: 1, unit: 'minutes' },
 				},
-				{ id: 'end-1', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } }
+				{ id: 'end-1', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } },
 			],
 			edges: [
 				{ id: 'e1', source: 'trigger-1', target: 'wait-1' },
-				{ id: 'e2', source: 'wait-1', target: 'end-1' }
-			]
+				{ id: 'e2', source: 'wait-1', target: 'end-1' },
+			],
 		};
 		updateFlow(flow.id, team.id, { graph }, domain.id);
 		activateFlow(flow.id, team.id, domain.id);
 
 		const enrollment = enrollContact({
 			flow: getFlow(flow.id, team.id, domain.id),
-			contactId: contact.id
+			contactId: contact.id,
 		});
 		expect(enrollment!.currentNodeId).toBe('wait-1');
 
@@ -118,11 +112,7 @@ describe('flow-engine', () => {
 		expect(waiting?.status).toBe('active');
 		expect(waiting?.waitUntil).toBeTruthy();
 
-		const waitJobs = db
-			.select()
-			.from(queueJobs)
-			.where(eq(queueJobs.queue, QUEUES.FLOW_WAIT))
-			.all();
+		const waitJobs = db.select().from(queueJobs).where(eq(queueJobs.queue, QUEUES.FLOW_WAIT)).all();
 		expect(waitJobs.length).toBeGreaterThan(0);
 
 		await processFlowStep({ enrollmentId: enrollment!.id, resumeWait: true });
@@ -141,7 +131,7 @@ describe('flow-engine', () => {
 			teamId: team.id,
 			domainId: domain.id,
 			name: 'Send flow',
-			triggerConfig: { contactBookId: book.id }
+			triggerConfig: { contactBookId: book.id },
 		});
 
 		const graph = {
@@ -150,7 +140,7 @@ describe('flow-engine', () => {
 					id: 'trigger-1',
 					type: 'trigger',
 					position: { x: 0, y: 0 },
-					data: { label: 'Contact created' }
+					data: { label: 'Contact created' },
 				},
 				{
 					id: 'sendEmail-1',
@@ -160,22 +150,22 @@ describe('flow-engine', () => {
 						label: 'Send',
 						from: `hi@${domain.name}`,
 						subject: 'Hello',
-						templateId: ''
-					}
+						templateId: '',
+					},
 				},
-				{ id: 'end-1', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } }
+				{ id: 'end-1', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } },
 			],
 			edges: [
 				{ id: 'e1', source: 'trigger-1', target: 'sendEmail-1' },
-				{ id: 'e2', source: 'sendEmail-1', target: 'end-1' }
-			]
+				{ id: 'e2', source: 'sendEmail-1', target: 'end-1' },
+			],
 		};
 		updateFlow(flow.id, team.id, { graph }, domain.id);
 		activateFlow(flow.id, team.id, domain.id);
 
 		const enrollment = enrollContact({
 			flow: getFlow(flow.id, team.id, domain.id),
-			contactId: contact.id
+			contactId: contact.id,
 		});
 
 		await processFlowStep({ enrollmentId: enrollment!.id });
@@ -209,7 +199,7 @@ describe('flow-engine', () => {
 			teamId: team.id,
 			domainId: domain.id,
 			name: 'On create',
-			triggerConfig: { contactBookId: book.id }
+			triggerConfig: { contactBookId: book.id },
 		});
 		activateFlow(flow.id, team.id, domain.id);
 
@@ -217,7 +207,7 @@ describe('flow-engine', () => {
 			id: contact.id,
 			email: contact.email,
 			contactBookId: book.id,
-			teamId: team.id
+			teamId: team.id,
 		});
 		expect(count).toBe(1);
 
@@ -235,7 +225,7 @@ describe('flow-engine', () => {
 			teamId: team.id,
 			domainId: domain.id,
 			name: 'Once',
-			triggerConfig: { contactBookId: book.id }
+			triggerConfig: { contactBookId: book.id },
 		});
 		activateFlow(flow.id, team.id, domain.id);
 		const active = getFlow(flow.id, team.id, domain.id);

@@ -14,7 +14,7 @@ describe('GET /api/v1/contactBooks', () => {
 		const event = buildApiEvent({
 			method: 'GET',
 			path: '/api/v1/contactBooks',
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(GET, event);
 
@@ -33,7 +33,7 @@ describe('POST /api/v1/contactBooks', () => {
 			method: 'POST',
 			path: '/api/v1/contactBooks',
 			body: { name: 'Customers', emoji: '📬' },
-			headers: bearer(apiKey)
+			headers: bearer(apiKey),
 		});
 		const { status, json } = await invokeHandler(POST, event);
 

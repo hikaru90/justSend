@@ -1,0 +1,8 @@
+node_modules
+useSend-legacy/
+/build
+/.svelte-kit
+/data
+pnpm-lock.yaml
+*.md
+drizzle/meta

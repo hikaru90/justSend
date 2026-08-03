@@ -28,14 +28,14 @@ function buildContactPayload(contact: Contact): ContactPayload {
 		firstName: contact.firstName,
 		lastName: contact.lastName,
 		createdAt: contact.createdAt,
-		updatedAt: contact.updatedAt
+		updatedAt: contact.updatedAt,
 	};
 }
 
 async function emitContactEvent(
 	contact: Contact,
 	type: ContactWebhookEventType,
-	teamId?: number
+	teamId?: number,
 ): Promise<void> {
 	try {
 		const resolvedTeamId =
@@ -55,15 +55,12 @@ async function emitContactEvent(
 		console.error('[contact] Failed to emit contact webhook event', {
 			contactId: contact.id,
 			type,
-			error
+			error,
 		});
 	}
 }
 
-export function getContactInContactBook(
-	contactId: string,
-	contactBookId: string
-): Contact | null {
+export function getContactInContactBook(contactId: string, contactBookId: string): Contact | null {
 	return (
 		db
 			.select()
@@ -122,7 +119,7 @@ export function listContacts(params: ListContactsParams): {
 export async function addOrUpdateContact(
 	contactBookId: string,
 	contact: ContactInput,
-	teamId?: number
+	teamId?: number,
 ): Promise<Contact> {
 	const contactBook = db
 		.select({ teamId: contactBooks.teamId, doubleOptInEnabled: contactBooks.doubleOptInEnabled })
@@ -169,7 +166,7 @@ export async function addOrUpdateContact(
 					? null
 					: contact.subscribed === false
 						? 'UNSUBSCRIBED'
-						: null
+						: null,
 			})
 			.returning()
 			.get();
@@ -190,16 +187,14 @@ export async function addOrUpdateContact(
 			.set({
 				firstName: contact.firstName ?? existing.firstName,
 				lastName: contact.lastName ?? existing.lastName,
-				...(mergedProperties !== undefined
-					? { properties: JSON.stringify(mergedProperties) }
-					: {}),
+				...(mergedProperties !== undefined ? { properties: JSON.stringify(mergedProperties) } : {}),
 				...(subscribedValue !== undefined
 					? {
 							subscribed: subscribedValue,
-							unsubscribeReason: subscribedValue ? null : ('UNSUBSCRIBED' as UnsubscribeReason)
+							unsubscribeReason: subscribedValue ? null : ('UNSUBSCRIBED' as UnsubscribeReason),
 						}
 					: {}),
-				updatedAt: nowIso()
+				updatedAt: nowIso(),
 			})
 			.where(eq(contacts.id, existing.id))
 			.returning()
@@ -211,12 +206,12 @@ export async function addOrUpdateContact(
 			await sendDoubleOptInConfirmationEmail({
 				contactId: saved.id,
 				contactBookId,
-				teamId: teamId ?? contactBook.teamId
+				teamId: teamId ?? contactBook.teamId,
 			});
 		} catch (error) {
 			console.error('[contact] Failed to send double opt-in confirmation email', {
 				contactId: saved.id,
-				error
+				error,
 			});
 		}
 	}
@@ -230,12 +225,12 @@ export async function addOrUpdateContact(
 				id: saved.id,
 				email: saved.email,
 				contactBookId,
-				teamId: teamId ?? contactBook.teamId
+				teamId: teamId ?? contactBook.teamId,
 			});
 		} catch (error) {
 			console.error('[contact] Failed to enroll contact in automation flows', {
 				contactId: saved.id,
-				error
+				error,
 			});
 		}
 	}
@@ -247,7 +242,7 @@ export async function updateContactInContactBook(
 	contactId: string,
 	contactBookId: string,
 	contact: Partial<ContactInput>,
-	teamId?: number
+	teamId?: number,
 ): Promise<Contact | null> {
 	const existing = getContactInContactBook(contactId, contactBookId);
 	if (!existing) {
@@ -269,10 +264,10 @@ export async function updateContactInContactBook(
 			...(contact.subscribed !== undefined
 				? {
 						subscribed: contact.subscribed,
-						unsubscribeReason: contact.subscribed ? null : ('UNSUBSCRIBED' as UnsubscribeReason)
+						unsubscribeReason: contact.subscribed ? null : ('UNSUBSCRIBED' as UnsubscribeReason),
 					}
 				: {}),
-			updatedAt: nowIso()
+			updatedAt: nowIso(),
 		})
 		.where(eq(contacts.id, contactId))
 		.returning()
@@ -286,7 +281,7 @@ export async function updateContactInContactBook(
 export async function deleteContactInContactBook(
 	contactId: string,
 	contactBookId: string,
-	teamId?: number
+	teamId?: number,
 ): Promise<Contact | null> {
 	const existing = getContactInContactBook(contactId, contactBookId);
 	if (!existing) {
@@ -303,7 +298,7 @@ export async function deleteContactInContactBook(
 export async function bulkDeleteContactsInContactBook(
 	contactIds: string[],
 	contactBookId: string,
-	teamId?: number
+	teamId?: number,
 ): Promise<Contact[]> {
 	if (contactIds.length === 0) return [];
 
@@ -320,10 +315,10 @@ export async function bulkDeleteContactsInContactBook(
 			and(
 				inArray(
 					contacts.id,
-					rows.map((c) => c.id)
+					rows.map((c) => c.id),
 				),
-				eq(contacts.contactBookId, contactBookId)
-			)
+				eq(contacts.contactBookId, contactBookId),
+			),
 		)
 		.run();
 
@@ -346,7 +341,7 @@ export type BulkContactJobPayload = {
 export function bulkAddContacts(
 	contactBookId: string,
 	contactList: ContactInput[],
-	teamId?: number
+	teamId?: number,
 ): { message: string; count: number } {
 	if (contactList.length > 0) {
 		const payload: BulkContactJobPayload = { contactBookId, contacts: contactList, teamId };
@@ -355,7 +350,7 @@ export function bulkAddContacts(
 
 	return {
 		message: `Queued ${contactList.length} contacts for processing`,
-		count: contactList.length
+		count: contactList.length,
 	};
 }
 
@@ -363,8 +358,7 @@ export function bulkAddContacts(
  * Queue handler for {@link QUEUES.CONTACT_BULK_ADD}.
  */
 export async function processContactBulkAdd(payload: unknown): Promise<void> {
-	const { contactBookId, contacts: contactList, teamId } = (payload ??
-		{}) as BulkContactJobPayload;
+	const { contactBookId, contacts: contactList, teamId } = (payload ?? {}) as BulkContactJobPayload;
 	if (!contactBookId || !Array.isArray(contactList)) return;
 
 	for (const contact of contactList) {
@@ -380,7 +374,7 @@ export async function updateContactSubscription({
 	contactId,
 	subscribed,
 	unsubscribeReason,
-	teamId
+	teamId,
 }: {
 	contactId: string;
 	subscribed: boolean;

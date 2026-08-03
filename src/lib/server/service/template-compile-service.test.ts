@@ -8,7 +8,7 @@ import {
 	linkCompiledComponents,
 	loadLinkedComponent,
 	TemplateCompileError,
-	validateComponentSource
+	validateComponentSource,
 } from './template-compile-service';
 import { render } from 'svelte/server';
 
@@ -18,7 +18,7 @@ describe('healMissingPropBindings', () => {
 			`<script>
 	let { headline } = $props();
 </script>
-<img src={logo_url} alt={headline} />`
+<img src={logo_url} alt={headline} />`,
 		);
 		expect(healed).toContain("logo_url = ''");
 		expect(healed).toContain('headline');
@@ -29,7 +29,7 @@ describe('healMissingPropBindings', () => {
 			`<script>
 	import Header from './Header.svelte';
 </script>
-<Header {logo_url} />`
+<Header {logo_url} />`,
 		);
 		expect(healed).toMatch(/let \{[^}]*logo_url = ''/);
 	});
@@ -79,19 +79,19 @@ describe('healTableRowPlacement', () => {
 
 	it('wraps consecutive tr runs and leaves thead alone', () => {
 		const healed = healTableRowPlacement(
-			'<table><thead><tr><td>H</td></tr></thead><tr><td>A</td></tr><tr><td>B</td></tr></table>'
+			'<table><thead><tr><td>H</td></tr></thead><tr><td>A</td></tr><tr><td>B</td></tr></table>',
 		);
 		expect(healed).toBe(
-			'<table><thead><tr><td>H</td></tr></thead><tbody><tr><td>A</td></tr><tr><td>B</td></tr></tbody></table>'
+			'<table><thead><tr><td>H</td></tr></thead><tbody><tr><td>A</td></tr><tr><td>B</td></tr></tbody></table>',
 		);
 	});
 
 	it('heals nested tables', () => {
 		const healed = healTableRowPlacement(
-			'<table><tr><td><table><tr><td>in</td></tr></table></td></tr></table>'
+			'<table><tr><td><table><tr><td>in</td></tr></table></td></tr></table>',
 		);
 		expect(healed).toBe(
-			'<table><tbody><tr><td><table><tbody><tr><td>in</td></tr></tbody></table></td></tr></tbody></table>'
+			'<table><tbody><tr><td><table><tbody><tr><td>in</td></tr></tbody></table></td></tr></tbody></table>',
 		);
 	});
 
@@ -104,7 +104,7 @@ describe('healTableRowPlacement', () => {
 describe('assertSafeEmailComponentSource', () => {
 	it('allows markup-only components', () => {
 		expect(() =>
-			assertSafeEmailComponentSource('<table><tr><td>Hi</td></tr></table>', 'Plain')
+			assertSafeEmailComponentSource('<table><tr><td>Hi</td></tr></table>', 'Plain'),
 		).not.toThrow();
 	});
 
@@ -120,10 +120,7 @@ describe('assertSafeEmailComponentSource', () => {
 
 	it('rejects script module', () => {
 		expect(() =>
-			assertSafeEmailComponentSource(
-				'<script module>export const x = 1;</script><p>x</p>',
-				'Bad'
-			)
+			assertSafeEmailComponentSource('<script module>export const x = 1;</script><p>x</p>', 'Bad'),
 		).toThrow(TemplateCompileError);
 	});
 
@@ -131,17 +128,14 @@ describe('assertSafeEmailComponentSource', () => {
 		expect(() =>
 			assertSafeEmailComponentSource(
 				'<script>let x = fetch("https://evil");</script><p></p>',
-				'Bad'
-			)
+				'Bad',
+			),
 		).toThrow(/only/);
 	});
 
 	it('rejects non-relative imports', () => {
 		expect(() =>
-			assertSafeEmailComponentSource(
-				`<script>import fs from 'fs';</script><p></p>`,
-				'Bad'
-			)
+			assertSafeEmailComponentSource(`<script>import fs from 'fs';</script><p></p>`, 'Bad'),
 		).toThrow(/relative/);
 	});
 });
@@ -170,9 +164,9 @@ describe('compile + link + render', () => {
 		const compiled = compileComponentSources(
 			[
 				{ name: 'Root', source: root, kind: 'root' },
-				{ name: 'Header', source: header, kind: 'component' }
+				{ name: 'Header', source: header, kind: 'component' },
 			],
-			'server'
+			'server',
 		);
 
 		expect(compiled.rootName).toBe('Root');
@@ -185,8 +179,8 @@ describe('compile + link + render', () => {
 			props: {
 				headline: 'Hello',
 				cta_label: 'Shop',
-				cta_url: 'https://example.com'
-			}
+				cta_url: 'https://example.com',
+			},
 		});
 
 		expect(out.body).toContain('Hello');
@@ -206,7 +200,7 @@ describe('compile + link + render', () => {
 
 	it('compiles bare table/tr markup after tbody heal', () => {
 		expect(() =>
-			validateComponentSource('Plain', '<table><tr><td>Hi</td></tr></table>')
+			validateComponentSource('Plain', '<table><tr><td>Hi</td></tr></table>'),
 		).not.toThrow();
 	});
 });

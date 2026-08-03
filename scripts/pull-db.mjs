@@ -61,18 +61,18 @@ const tmp = `${dest}.pulling`;
 
 mkdirSync(dirname(dest), { recursive: true });
 
-const cookieHeader = args.cookie.includes('=')
-	? args.cookie
-	: `owlery_session=${args.cookie}`;
+const cookieHeader = args.cookie.includes('=') ? args.cookie : `owlery_session=${args.cookie}`;
 
 console.log(`Fetching ${downloadUrl}`);
 const res = await fetch(downloadUrl, {
 	headers: { Cookie: cookieHeader, Accept: 'application/vnd.sqlite3, application/octet-stream' },
-	redirect: 'manual'
+	redirect: 'manual',
 });
 
 if (res.status === 302 || res.status === 303) {
-	console.error('Got a redirect — session cookie is missing or expired. Log in as admin and copy owlery_session.');
+	console.error(
+		'Got a redirect — session cookie is missing or expired. Log in as admin and copy owlery_session.',
+	);
 	process.exit(1);
 }
 if (res.status === 401 || res.status === 403) {

@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		headers: {
 			'Content-Type': 'application/vnd.sqlite3',
 			'Content-Disposition': `attachment; filename="${filename}"`,
-			'Cache-Control': 'no-store'
-		}
+			'Cache-Control': 'no-store',
+		},
 	});
 };

@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import {
 	inferDesignSystemFromUrl,
-	type InferProgressEvent
+	type InferProgressEvent,
 } from '$lib/server/service/design-infer-service';
 import type { RequestHandler } from './$types';
 
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					signal: request.signal,
 					onProgress: (event: InferProgressEvent) => {
 						send(event);
-					}
+					},
 				});
 			} catch (e) {
 				if (e instanceof Error && e.name === 'AbortError') {
@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				} else {
 					send({
 						stage: 'error',
-						message: e instanceof Error ? e.message : 'Inference failed'
+						message: e instanceof Error ? e.message : 'Inference failed',
 					});
 				}
 			} finally {
@@ -55,14 +55,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		},
 		cancel() {
 			// Client disconnected — request.signal already aborted.
-		}
+		},
 	});
 
 	return new Response(stream, {
 		headers: {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache, no-transform',
-			Connection: 'keep-alive'
-		}
+			Connection: 'keep-alive',
+		},
 	});
 };

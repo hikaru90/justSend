@@ -4,20 +4,20 @@ import {
 	elementValueVariables,
 	formatElementConfigForPrompt,
 	parseElementConfig,
-	serializeElementConfig
+	serializeElementConfig,
 } from './template-element-config';
 
 describe('parseElementConfig', () => {
 	it('parses valid config', () => {
 		expect(
 			parseElementConfig(
-				'{"text":"Go","url":"https://x.com","assetId":"a1","designComponentId":"dc1"}'
-			)
+				'{"text":"Go","url":"https://x.com","assetId":"a1","designComponentId":"dc1"}',
+			),
 		).toEqual({
 			text: 'Go',
 			url: 'https://x.com',
 			assetId: 'a1',
-			designComponentId: 'dc1'
+			designComponentId: 'dc1',
 		});
 	});
 
@@ -30,13 +30,13 @@ describe('parseElementConfig', () => {
 describe('serializeElementConfig', () => {
 	it('omits empty fields', () => {
 		expect(serializeElementConfig({ text: ' Hi ', url: '', assetId: undefined })).toBe(
-			'{"text":"Hi"}'
+			'{"text":"Hi"}',
 		);
 	});
 
 	it('keeps designComponentId', () => {
 		expect(serializeElementConfig({ designComponentId: ' dc_1 ' })).toBe(
-			'{"designComponentId":"dc_1"}'
+			'{"designComponentId":"dc_1"}',
 		);
 	});
 });
@@ -47,9 +47,9 @@ describe('formatElementConfigForPrompt', () => {
 			{
 				type: 'image',
 				label: 'Hero',
-				config: serializeElementConfig({ assetId: 'img_1' })
+				config: serializeElementConfig({ assetId: 'img_1' }),
 			},
-			{ assetBaseUrl: 'https://app.example' }
+			{ assetBaseUrl: 'https://app.example' },
 		);
 		expect(line).toContain('src="https://app.example/api/design-asset/img_1"');
 	});
@@ -59,13 +59,13 @@ describe('formatElementConfigForPrompt', () => {
 			{
 				type: 'component',
 				label: 'Hero',
-				config: serializeElementConfig({ designComponentId: 'dc_hero' })
+				config: serializeElementConfig({ designComponentId: 'dc_hero' }),
 			},
 			{
 				designComponentById: {
-					dc_hero: { name: 'Hero', starterKey: 'hero' }
-				}
-			}
+					dc_hero: { name: 'Hero', starterKey: 'hero' },
+				},
+			},
 		);
 		expect(line).toContain('library component "Hero"');
 		expect(line).toContain('libraryRef=hero');
@@ -79,9 +79,9 @@ describe('elementValueVariables', () => {
 			{
 				type: 'logo',
 				label: 'Brand Logo',
-				config: serializeElementConfig({ assetId: 'asset_1' })
+				config: serializeElementConfig({ assetId: 'asset_1' }),
 			},
-			{ assetBaseUrl: 'http://localhost:5173' }
+			{ assetBaseUrl: 'http://localhost:5173' },
 		);
 		expect(vars.brand_logo).toBe('http://localhost:5173/api/design-asset/asset_1');
 		expect(vars.logo).toBe('http://localhost:5173/api/design-asset/asset_1');
@@ -91,7 +91,7 @@ describe('elementValueVariables', () => {
 		const vars = elementValueVariables({
 			type: 'cta',
 			label: 'Primary CTA',
-			config: serializeElementConfig({ text: 'Shop now', url: 'https://shop.example' })
+			config: serializeElementConfig({ text: 'Shop now', url: 'https://shop.example' }),
 		});
 		expect(vars.primary_cta).toBe('Shop now');
 		expect(vars.primary_cta_url).toBe('https://shop.example');
@@ -103,7 +103,7 @@ describe('elementValueVariables', () => {
 		const vars = elementValueVariables({
 			type: 'text',
 			label: 'Headline',
-			config: serializeElementConfig({ text: 'Welcome back' })
+			config: serializeElementConfig({ text: 'Welcome back' }),
 		});
 		expect(vars.headline).toBe('Welcome back');
 		expect(elementSlug('Headline', 'text')).toBe('headline');
@@ -114,8 +114,8 @@ describe('elementValueVariables', () => {
 			elementValueVariables({
 				type: 'component',
 				label: 'Hero',
-				config: serializeElementConfig({ designComponentId: 'dc_1' })
-			})
+				config: serializeElementConfig({ designComponentId: 'dc_1' }),
+			}),
 		).toEqual({});
 	});
 });

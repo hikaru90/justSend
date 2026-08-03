@@ -109,7 +109,7 @@ export function extractLogoUrl(html: string, baseUrl: URL): string | null {
 	}
 
 	const ogMatch = html.match(
-		/<meta\b[^>]*property\s*=\s*["']og:image["'][^>]*>|<meta\b[^>]*content\s*=\s*["'][^"']+["'][^>]*property\s*=\s*["']og:image["'][^>]*>/i
+		/<meta\b[^>]*property\s*=\s*["']og:image["'][^>]*>|<meta\b[^>]*content\s*=\s*["'][^"']+["'][^>]*property\s*=\s*["']og:image["'][^>]*>/i,
 	);
 	if (ogMatch) {
 		const content = getAttr(ogMatch[0], 'content');
@@ -150,7 +150,12 @@ export function extractFontCssUrls(html: string, baseUrl: URL): string[] {
 		urls.push(key);
 	}
 
-	const fontHostHints = ['fonts.googleapis.com', 'fonts.gstatic.com', 'use.typekit.net', 'fonts.bunny.net'];
+	const fontHostHints = [
+		'fonts.googleapis.com',
+		'fonts.gstatic.com',
+		'use.typekit.net',
+		'fonts.bunny.net',
+	];
 
 	const linkTags = findLinkTags(html, ['stylesheet', 'preload']);
 	const prioritized: string[] = [];
@@ -281,7 +286,7 @@ function mimeFromFormat(format: string, contentType: string | null): string {
 
 export async function downloadAssetBytes(
 	rawUrl: string,
-	opts?: { fallbackFilename?: string; formatHint?: string }
+	opts?: { fallbackFilename?: string; formatHint?: string },
 ): Promise<DownloadedAsset> {
 	const url = assertSafeUrl(rawUrl);
 	const controller = new AbortController();
@@ -292,8 +297,8 @@ export async function downloadAssetBytes(
 			redirect: 'follow',
 			headers: {
 				'User-Agent': BROWSER_UA,
-				Accept: 'image/*,font/*,*/*;q=0.8'
-			}
+				Accept: 'image/*,font/*,*/*;q=0.8',
+			},
 		});
 		if (!response.ok) {
 			throw new Error(`Failed to download asset (${response.status})`);
@@ -337,8 +342,8 @@ export async function fetchCssText(rawUrl: string): Promise<string> {
 			redirect: 'follow',
 			headers: {
 				'User-Agent': BROWSER_UA,
-				Accept: 'text/css,*/*;q=0.1'
-			}
+				Accept: 'text/css,*/*;q=0.1',
+			},
 		});
 		if (!response.ok) {
 			throw new Error(`Failed to fetch CSS (${response.status})`);

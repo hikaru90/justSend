@@ -4,9 +4,7 @@ import { rawDb } from '$lib/server/db';
 export function resetDb() {
 	rawDb.pragma('foreign_keys = OFF');
 	const tables = rawDb
-		.prepare(
-			`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`
-		)
+		.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`)
 		.all() as { name: string }[];
 
 	for (const { name } of tables) {

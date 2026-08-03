@@ -5,7 +5,7 @@ import {
 	createTeam,
 	createDomain,
 	createContactBook,
-	createContact
+	createContact,
 } from '../../../tests/helpers/factories';
 import { campaigns, queueJobs } from '$lib/server/db/schema';
 import { QUEUES } from '../queue/constants';
@@ -19,7 +19,7 @@ import {
 	scheduleCampaign,
 	sendCampaign,
 	processCampaignBatch,
-	updateCampaign
+	updateCampaign,
 } from './campaign-service';
 import { emails } from '$lib/server/db/schema';
 
@@ -47,7 +47,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hello',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			expect(campaign.status).toBe('DRAFT');
@@ -64,8 +64,8 @@ describe('campaign-service', () => {
 					name: 'Bad',
 					from: 'noreply@pending.example.com',
 					subject: 'Hi',
-					html: UNSUB_HTML
-				})
+					html: UNSUB_HTML,
+				}),
 			).rejects.toThrow('is not verified');
 		});
 	});
@@ -79,7 +79,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			const found = getCampaign(created.id, team.id);
@@ -101,7 +101,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'A',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 			await createCampaign({
 				teamId: team.id,
@@ -109,7 +109,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'B',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			const { items } = listCampaigns(team.id);
@@ -126,12 +126,12 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Old subject',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			const updated = await updateCampaign(campaign.id, team.id, {
 				name: 'New',
-				subject: 'New subject'
+				subject: 'New subject',
 			});
 			expect(updated.name).toBe('New');
 			expect(updated.subject).toBe('New subject');
@@ -147,7 +147,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Bye',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			deleteCampaign(campaign.id, team.id);
@@ -164,7 +164,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			await scheduleCampaign({ campaignId: campaign.id, teamId: team.id });
@@ -182,7 +182,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: '<p>Hello</p><a href="{{unsubscribe_url}}">Unsubscribe</a>',
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			await scheduleCampaign({ campaignId: campaign.id, teamId: team.id });
@@ -198,12 +198,12 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: '<p>No link</p>',
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
-			await expect(
-				scheduleCampaign({ campaignId: campaign.id, teamId: team.id })
-			).rejects.toThrow('unsubscribe link');
+			await expect(scheduleCampaign({ campaignId: campaign.id, teamId: team.id })).rejects.toThrow(
+				'unsubscribe link',
+			);
 		});
 	});
 
@@ -216,7 +216,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 			await scheduleCampaign({ campaignId: campaign.id, teamId: team.id });
 
@@ -234,12 +234,12 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 			await scheduleCampaign({
 				campaignId: campaign.id,
 				teamId: team.id,
-				scheduledAt: new Date(Date.now() - 60_000)
+				scheduledAt: new Date(Date.now() - 60_000),
 			});
 			pauseCampaign({ campaignId: campaign.id, teamId: team.id });
 
@@ -248,7 +248,11 @@ describe('campaign-service', () => {
 			const updated = getCampaign(campaign.id, team.id);
 			expect(updated.status).toBe('RUNNING');
 
-			const jobs = db.select().from(queueJobs).where(eq(queueJobs.queue, QUEUES.CAMPAIGN_BATCH)).all();
+			const jobs = db
+				.select()
+				.from(queueJobs)
+				.where(eq(queueJobs.queue, QUEUES.CAMPAIGN_BATCH))
+				.all();
 			expect(jobs.length).toBeGreaterThan(0);
 		});
 
@@ -260,13 +264,13 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 			const future = new Date(Date.now() + 86_400_000);
 			await scheduleCampaign({
 				campaignId: campaign.id,
 				teamId: team.id,
-				scheduledAt: future
+				scheduledAt: future,
 			});
 			pauseCampaign({ campaignId: campaign.id, teamId: team.id });
 
@@ -284,7 +288,7 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 
 			await sendCampaign(campaign.id);
@@ -292,7 +296,11 @@ describe('campaign-service', () => {
 			const updated = db.select().from(campaigns).where(eq(campaigns.id, campaign.id)).get();
 			expect(updated?.status).toBe('SCHEDULED');
 
-			const jobs = db.select().from(queueJobs).where(eq(queueJobs.queue, QUEUES.CAMPAIGN_BATCH)).all();
+			const jobs = db
+				.select()
+				.from(queueJobs)
+				.where(eq(queueJobs.queue, QUEUES.CAMPAIGN_BATCH))
+				.all();
 			expect(jobs.some((j) => j.jobId === `campaign-batch:${campaign.id}:start`)).toBe(true);
 		});
 	});
@@ -306,12 +314,12 @@ describe('campaign-service', () => {
 				from: `noreply@${domain.name}`,
 				subject: 'Hi',
 				html: FOOTER_UNSUB_HTML,
-				contactBookId: book.id
+				contactBookId: book.id,
 			});
 			await scheduleCampaign({
 				campaignId: campaign.id,
 				teamId: team.id,
-				scheduledAt: new Date(Date.now() - 60_000)
+				scheduledAt: new Date(Date.now() - 60_000),
 			});
 
 			await processCampaignBatch({ campaignId: campaign.id, teamId: team.id });

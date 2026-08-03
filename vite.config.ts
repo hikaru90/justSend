@@ -9,20 +9,20 @@ export default defineConfig({
 		sveltekit({
 			compilerOptions: {
 				runes: ({ filename }) =>
-					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
+					filename.split(/[/\\]/).includes('node_modules') ? undefined : true,
 			},
-			adapter: adapter()
-		})
+			adapter: adapter(),
+		}),
 	],
 	build: {
 		// gzip size reporting holds the whole bundle in memory; skip on small CI/Coolify builders
 		reportCompressedSize: false,
-		sourcemap: false
+		sourcemap: false,
 	},
 	ssr: {
-		external: ['better-sqlite3']
+		external: ['better-sqlite3'],
 	},
 	optimizeDeps: {
-		exclude: ['better-sqlite3']
-	}
+		exclude: ['better-sqlite3'],
+	},
 });
