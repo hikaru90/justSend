@@ -355,8 +355,9 @@ function lightenDarkForeground(hex: string): string {
 /**
  * Approximate inbox auto-darkening for inline styles / bgcolor.
  * Does not touch images or already-dark accents.
+ * Exported so the editor canvas can match Preview / real clients for Html blocks.
  */
-function simulateClientAutoDarken(html: string): string {
+export function simulateClientAutoDarken(html: string): string {
 	let out = html.replace(
 		/\bbgcolor\s*=\s*(["']?)(#[0-9a-fA-F]{3,8})\1/gi,
 		(_, q: string, hex: string) => {

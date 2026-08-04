@@ -570,8 +570,11 @@
 					oninput={(e) => setProps({ contents: e.currentTarget.value })}></textarea>
 			</label>
 			<p class="text-xs text-[hsl(var(--muted-foreground))]">
-				Tip: replace this with Heading / Text / Button blocks (+ between sections) for easier copy
-				editing.
+				This block stores one HTML string. Colors like
+				<code class="text-[0.7rem]">#ffffff</code> are light-only unless you add
+				<code class="text-[0.7rem]">@media (prefers-color-scheme: dark)</code> rules in the markup.
+				Dark preview approximates inbox auto-darken; for a deterministic dark CTA, encode both
+				variants in the HTML (or use a Button block with Light/Dark colors).
 			</p>
 		{/if}
 

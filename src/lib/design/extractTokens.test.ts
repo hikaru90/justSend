@@ -200,4 +200,15 @@ body { background: #fff; color: #111; }
 		expect(out).toContain('background-color:#000000');
 		expect(out).toContain('color:#FFFFFF');
 	});
+
+	it('darkens white CTA cell backgrounds like real inbox clients', () => {
+		const cta = `<td style="border: 2px solid #000000; background-color: #ffffff; padding: 14px 32px;">
+<a href="#" style="color: #000000; text-decoration: none;">Click →</a>
+</td>`;
+		const out = applyPreviewColorScheme(cta, 'dark');
+		expect(out).not.toContain('background-color: #ffffff');
+		expect(out).not.toContain('background-color:#ffffff');
+		expect(out.toLowerCase()).toMatch(/background-color:\s*#0c0c0c/);
+		expect(out.toLowerCase()).toMatch(/color:\s*#ffffff/);
+	});
 });

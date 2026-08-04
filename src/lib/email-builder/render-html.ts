@@ -360,13 +360,19 @@ function collectDarkOverrides(document: TEditorConfiguration): string {
 	return rules.join('');
 }
 
+const DEFAULT_DARK_BACKDROP = '#0a0a0a';
+const DEFAULT_DARK_CANVAS = '#1a1a1a';
+const DEFAULT_DARK_TEXT = '#f2f2f2';
+
 function renderEmailLayout(document: TEditorConfiguration, block: TEditorBlock): string {
 	const backdrop = block.data.backdropColor ?? '#F5F5F5';
 	const canvas = block.data.canvasColor ?? '#FFFFFF';
 	const textColor = block.data.textColor ?? '#262626';
-	const darkBackdrop = block.data.darkBackdropColor || backdrop;
-	const darkCanvas = block.data.darkCanvasColor || canvas;
-	const darkText = block.data.darkTextColor || textColor;
+	// Never fall back to light colors here — that would emit light !important rules in
+	// dark mode and block client / preview auto-darken (everything looks white).
+	const darkBackdrop = block.data.darkBackdropColor || DEFAULT_DARK_BACKDROP;
+	const darkCanvas = block.data.darkCanvasColor || DEFAULT_DARK_CANVAS;
+	const darkText = block.data.darkTextColor || DEFAULT_DARK_TEXT;
 	const font = fontFamilyCss(block.data.fontFamily);
 	const kids = fluidifyEmailHtml(renderChildren(document, childrenIds(block)));
 	const blockDarkCss = collectDarkOverrides(document);
@@ -447,6 +453,8 @@ export function renderBlock(document: TEditorConfiguration, blockId: string): st
  * Promote stored dark colors onto the light fields so the editor canvas / leaf
  * renderer can show the dark variant with inline styles (no media query).
  * Does not mutate the source document.
+ * When dark layout fields are unset, uses dark defaults (never light) so the
+ * canvas matches exported dark CSS / client expectations.
  */
 export function promoteDarkColors(document: TEditorConfiguration): TEditorConfiguration {
 	const next: TEditorConfiguration = {};
@@ -457,9 +465,9 @@ export function promoteDarkColors(document: TEditorConfiguration): TEditorConfig
 				...block,
 				data: {
 					...block.data,
-					backdropColor: block.data.darkBackdropColor || block.data.backdropColor,
-					canvasColor: block.data.darkCanvasColor || block.data.canvasColor,
-					textColor: block.data.darkTextColor || block.data.textColor,
+					backdropColor: block.data.darkBackdropColor || DEFAULT_DARK_BACKDROP,
+					canvasColor: block.data.darkCanvasColor || DEFAULT_DARK_CANVAS,
+					textColor: block.data.darkTextColor || DEFAULT_DARK_TEXT,
 				},
 			};
 			continue;

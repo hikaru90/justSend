@@ -146,8 +146,35 @@ describe('render dark overrides', () => {
 		);
 	});
 
-	it('promoteDarkColors maps dark fields onto light for canvas display', () => {
+	it('emits dark layout defaults when dark fields are unset (never light !important)', () => {
 		const doc = structuredClone(EMPTY_DOCUMENT);
+		delete doc.root.data.darkBackdropColor;
+		delete doc.root.data.darkCanvasColor;
+		delete doc.root.data.darkTextColor;
+		doc.root.data.canvasColor = '#FFFFFF';
+		doc.root.data.backdropColor = '#F5F5F5';
+		const html = renderBlock(doc, 'root');
+		expect(html).toContain('background-color:#0a0a0a!important');
+		expect(html).toContain('background-color:#1a1a1a!important');
+		expect(html).not.toMatch(
+			/@media \(prefers-color-scheme:dark\)\{[^}]*background-color:#FFFFFF!important/,
+		);
+	});
+
+	it('promoteDarkColors uses dark defaults when dark fields are unset', () => {
+		const doc = structuredClone(EMPTY_DOCUMENT);
+		delete doc.root.data.darkBackdropColor;
+		delete doc.root.data.darkCanvasColor;
+		delete doc.root.data.darkTextColor;
+		const promoted = promoteDarkColors(doc);
+		expect(promoted.root.data.canvasColor).toBe('#1a1a1a');
+		expect(promoted.root.data.backdropColor).toBe('#0a0a0a');
+		expect(promoted.root.data.textColor).toBe('#f2f2f2');
+	});
+
+	it('promoteDarkColors maps stored dark fields onto light for canvas display', () => {
+		const doc = structuredClone(EMPTY_DOCUMENT);
+		doc.root.data.darkCanvasColor = '#222222';
 		doc.root.data.childrenIds = ['t1'];
 		doc.t1 = {
 			type: 'Text',
@@ -158,7 +185,7 @@ describe('render dark overrides', () => {
 			},
 		};
 		const promoted = promoteDarkColors(doc);
-		expect(promoted.root.data.canvasColor).toBe(doc.root.data.darkCanvasColor);
+		expect(promoted.root.data.canvasColor).toBe('#222222');
 		expect(promoted.t1.data.style).toMatchObject({ color: '#f0f0f0' });
 	});
 });
