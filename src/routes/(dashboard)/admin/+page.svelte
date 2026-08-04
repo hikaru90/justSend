@@ -64,6 +64,7 @@
 			const body = new FormData();
 			body.set('parts', partsQuery);
 			if (effectiveTeamId) body.set('teamId', effectiveTeamId);
+			if (data.currentDomainId != null) body.set('domainId', String(data.currentDomainId));
 			body.set('file', file);
 			const res = await fetch('/admin/database/parts/import', { method: 'POST', body });
 			const text = await res.text();
@@ -126,6 +127,12 @@
 	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
 		Export or import selected slices of the database. Unselected parts on the target are never
 		touched. Use this to move templates and design system without overwriting SES or domains.
+		Imported templates are attached to your currently selected domain
+		{#if data.currentDomainId != null}
+			(#{data.currentDomainId}).
+		{:else}
+			(select a domain in the header first).
+		{/if}
 	</p>
 
 	<fieldset class="mb-4 space-y-2">

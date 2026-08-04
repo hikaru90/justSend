@@ -4,6 +4,7 @@
  *
  * Usage:
  *   npm run db:import-parts -- --parts=templates,design --team=1 --file=pack.zip
+ *   npm run db:import-parts -- --parts=templates --team=1 --domain=2 --file=pack.zip
  *   npm run db:import-parts -- --parts=ses --file=ses.zip
  */
 import 'dotenv/config';
@@ -16,9 +17,16 @@ import {
 } from '../src/lib/server/service/db-parts-service.ts';
 
 function parseArgs(argv: string[]) {
-	const args: { parts: string | null; team: string | null; file: string | null; help: boolean } = {
+	const args: {
+		parts: string | null;
+		team: string | null;
+		domain: string | null;
+		file: string | null;
+		help: boolean;
+	} = {
 		parts: null,
 		team: null,
+		domain: null,
 		file: null,
 		help: false,
 	};
@@ -29,6 +37,8 @@ function parseArgs(argv: string[]) {
 		else if (a === '--parts') args.parts = argv[++i] ?? null;
 		else if (a.startsWith('--team=')) args.team = a.slice('--team='.length);
 		else if (a === '--team') args.team = argv[++i] ?? null;
+		else if (a.startsWith('--domain=')) args.domain = a.slice('--domain='.length);
+		else if (a === '--domain') args.domain = argv[++i] ?? null;
 		else if (a.startsWith('--file=')) args.file = a.slice('--file='.length);
 		else if (a === '--file' || a === '-f') args.file = argv[++i] ?? null;
 	}
@@ -37,9 +47,10 @@ function parseArgs(argv: string[]) {
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help || !args.parts || !args.file) {
-	console.log(`Usage: npm run db:import-parts -- --parts=templates,design --team=1 --file=pack.zip
+	console.log(`Usage: npm run db:import-parts -- --parts=templates,design --team=1 [--domain=2] --file=pack.zip
 
-Only the listed parts present in the pack are written; everything else is left alone.`);
+Only the listed parts present in the pack are written; everything else is left alone.
+When --domain is set, imported templates are attached to that domain.`);
 	process.exit(args.help ? 0 : 1);
 }
 
@@ -55,6 +66,12 @@ if (partsNeedTeam(parts) && (!teamId || !Number.isInteger(teamId))) {
 	process.exit(1);
 }
 
+const domainId = args.domain != null ? Number(args.domain) : undefined;
+if (args.domain != null && (!domainId || !Number.isInteger(domainId))) {
+	console.error('--domain must be an integer');
+	process.exit(1);
+}
+
 const zipBytes = readFileSync(resolve(args.file));
-const summary = await importDbParts({ parts, teamId, zipBytes });
+const summary = await importDbParts({ parts, teamId, domainId, zipBytes });
 console.log(JSON.stringify(summary, null, 2));

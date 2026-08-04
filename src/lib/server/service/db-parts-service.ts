@@ -147,11 +147,20 @@ function remapDomainId(
 	sourceId: unknown,
 	domainMap: Record<string, string>,
 	nameToId: Map<string, number>,
-): number | null {
-	if (sourceId === null || sourceId === undefined) return null;
+	fallbackDomainId: number | null,
+): { domainId: number | null; matchedByName: boolean } {
+	if (sourceId === null || sourceId === undefined) {
+		return { domainId: fallbackDomainId, matchedByName: false };
+	}
 	const name = domainMap[String(sourceId)];
-	if (!name) return null;
-	return nameToId.get(name) ?? null;
+	if (!name) {
+		return { domainId: fallbackDomainId, matchedByName: false };
+	}
+	const matched = nameToId.get(name);
+	if (matched !== undefined) {
+		return { domainId: matched, matchedByName: true };
+	}
+	return { domainId: fallbackDomainId, matchedByName: false };
 }
 
 function findAssetBytes(
@@ -260,6 +269,8 @@ export async function exportDbParts(input: {
 export async function importDbParts(input: {
 	parts: DbPartId[];
 	teamId?: number;
+	/** When set, imported templates are attached to this domain (must belong to teamId). */
+	domainId?: number | null;
 	zipBytes: Buffer | Uint8Array;
 }): Promise<ImportSummary> {
 	const requested = input.parts;
@@ -369,13 +380,29 @@ export async function importDbParts(input: {
 			imported.domains = { domains: rows.length };
 		}
 
-		const nameToId = new Map(
-			db
-				.select({ id: domains.id, name: domains.name })
-				.from(domains)
-				.all()
-				.map((d) => [d.name, d.id] as const),
-		);
+		const allDomains = db
+			.select({ id: domains.id, name: domains.name, teamId: domains.teamId })
+			.from(domains)
+			.all();
+		const teamDomains = teamId ? allDomains.filter((d) => d.teamId === teamId) : allDomains;
+		const nameToId = new Map(teamDomains.map((d) => [d.name, d.id] as const));
+		const requestedDomainId =
+			input.domainId != null && Number.isInteger(input.domainId) ? input.domainId : null;
+		let currentDomainId: number | null = null;
+		if (requestedDomainId != null) {
+			if (teamDomains.some((d) => d.id === requestedDomainId)) {
+				currentDomainId = requestedDomainId;
+			} else {
+				warnings.push(
+					`domainId ${requestedDomainId} is not on team ${teamId} — using team domain fallback`,
+				);
+			}
+		}
+		/**
+		 * Prefer the caller's current domain, then name-remap, then the team's first domain —
+		 * so imported templates always show up in the domain-scoped UI.
+		 */
+		const fallbackDomainId = currentDomainId ?? teamDomains[0]?.id ?? null;
 
 		if (toImport.includes('design')) {
 			assertTeamId(teamId);
@@ -532,13 +559,20 @@ export async function importDbParts(input: {
 					.map((r) => r.id),
 			);
 
+			let remappedByName = 0;
+			let attachedToFallback = 0;
 			for (const row of tpl) {
+				const mapped = currentDomainId
+					? { domainId: currentDomainId, matchedByName: false }
+					: remapDomainId(row.domainId, domainMap, nameToId, fallbackDomainId);
+				if (mapped.matchedByName) remappedByName++;
+				else if (mapped.domainId != null) attachedToFallback++;
 				db.insert(templates)
 					.values({
 						id: String(row.id),
 						name: String(row.name),
 						teamId,
-						domainId: remapDomainId(row.domainId, domainMap, nameToId),
+						domainId: mapped.domainId,
 						subject: String(row.subject),
 						html: (row.html as string | null) ?? null,
 						content: (row.content as string | null) ?? null,
@@ -549,6 +583,15 @@ export async function importDbParts(input: {
 						updatedAt: row.updatedAt ? String(row.updatedAt) : undefined,
 					})
 					.run();
+			}
+			if (currentDomainId != null && tpl.length > 0) {
+				warnings.push(
+					`Attached ${tpl.length} template(s) to domain #${currentDomainId} (current domain)`,
+				);
+			} else if (attachedToFallback > 0 && fallbackDomainId != null) {
+				warnings.push(
+					`Attached ${attachedToFallback} template(s) to domain #${fallbackDomainId} (no matching domain name; ${remappedByName} remapped by name)`,
+				);
 			}
 
 			for (const row of elements) {

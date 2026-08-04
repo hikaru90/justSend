@@ -16,13 +16,20 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		error(400, 'teamId is required for team-scoped parts');
 	}
 
+	const domainRaw = form.get('domainId');
+	const domainId =
+		domainRaw != null && String(domainRaw) !== '' ? Number(domainRaw) : (locals.domainId ?? null);
+	if (domainId != null && !Number.isInteger(domainId)) {
+		error(400, 'domainId must be an integer');
+	}
+
 	const file = form.get('file');
 	if (!(file instanceof File)) error(400, 'file is required');
 	const zipBytes = Buffer.from(await file.arrayBuffer());
 	if (zipBytes.byteLength === 0) error(400, 'Empty file');
 
 	try {
-		const summary = await importDbParts({ parts, teamId, zipBytes });
+		const summary = await importDbParts({ parts, teamId, domainId, zipBytes });
 		return json(summary);
 	} catch (e) {
 		error(400, e instanceof Error ? e.message : 'Import failed');

@@ -2,7 +2,7 @@
 	import Card from '$lib/components/ui/Card.svelte';
 
 	let { data } = $props();
-	const { totalCounts } = data.timeSeries;
+	const totalCounts = $derived(data.timeSeries.totalCounts);
 </script>
 
 <h1 class="mb-6 text-2xl font-semibold">Dashboard</h1>

@@ -6,16 +6,22 @@
 
 	let { data, children } = $props();
 
+	const pathname = $derived(page.url.pathname);
+
 	const domainScoped = $derived(
-		!page.url.pathname.startsWith('/domains') &&
-			!page.url.pathname.startsWith('/settings') &&
-			!page.url.pathname.startsWith('/admin') &&
-			!page.url.pathname.startsWith('/create-team') &&
-			!page.url.pathname.startsWith('/dev-settings/smtp'),
+		!pathname.startsWith('/domains') &&
+			!pathname.startsWith('/settings') &&
+			!pathname.startsWith('/admin') &&
+			!pathname.startsWith('/create-team') &&
+			!pathname.startsWith('/dev-settings/smtp'),
 	);
+
+	// Never unmount the page outlet for routes that must render their own +page
+	const showTeamGate = $derived(!data.team && !pathname.startsWith('/create-team'));
+	const showDomainGate = $derived(!!data.team && domainScoped && !data.domainId);
 </script>
 
-{#if !data.team}
+{#if showTeamGate}
 	<main class="flex min-h-screen items-center justify-center p-6">
 		<Card
 			title="Create your team"
@@ -33,6 +39,10 @@
 			</p>
 		</Card>
 	</main>
+{:else if !data.team}
+	{#key pathname}
+		{@render children()}
+	{/key}
 {:else}
 	<div class="flex min-h-screen">
 		<Sidebar
@@ -43,7 +53,7 @@
 			domainId={data.domainId}
 		/>
 		<main class="flex-1 overflow-y-auto p-6 lg:p-8">
-			{#if domainScoped && !data.domainId}
+			{#if showDomainGate}
 				<div class="flex min-h-[50vh] items-center justify-center">
 					<Card
 						title="Add a domain"
@@ -60,7 +70,9 @@
 					</Card>
 				</div>
 			{:else}
-				{@render children()}
+				{#key pathname}
+					{@render children()}
+				{/key}
 			{/if}
 		</main>
 	</div>

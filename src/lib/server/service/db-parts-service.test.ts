@@ -184,7 +184,7 @@ describe('db-parts-service', () => {
 		expect(teamTemplates[0]?.name).toBe('Pack template');
 	});
 
-	it('sets domainId null when name is missing on target', async () => {
+	it('sets domainId null when name is missing on target and team has no domains', async () => {
 		const source = createTeam();
 		const target = createTeam();
 		const domain = createDomain(source.id, { name: 'only-local.dev' });
@@ -198,6 +198,43 @@ describe('db-parts-service', () => {
 
 		const row = db.select().from(templates).where(eq(templates.teamId, target.id)).get();
 		expect(row?.domainId).toBeNull();
+	});
+
+	it('falls back to target team domain when source domain name is missing', async () => {
+		const source = createTeam();
+		const target = createTeam();
+		const sourceDomain = createDomain(source.id, { name: 'only-local.dev' });
+		const targetDomain = createDomain(target.id, { name: 'prod.example.com' });
+		createTemplate(source.id, { domainId: sourceDomain.id, name: 'T' });
+
+		const zip = await exportDbParts({ parts: ['templates'], teamId: source.id });
+
+		await importDbParts({ parts: ['templates'], teamId: target.id, zipBytes: zip });
+
+		const row = db.select().from(templates).where(eq(templates.teamId, target.id)).get();
+		expect(row?.domainId).toBe(targetDomain.id);
+	});
+
+	it('attaches imported templates to the provided domainId', async () => {
+		const source = createTeam();
+		const target = createTeam();
+		const sourceDomain = createDomain(source.id, { name: 'dev.local' });
+		createDomain(target.id, { name: 'first.example.com' });
+		const current = createDomain(target.id, { name: 'current.example.com' });
+		createTemplate(source.id, { domainId: sourceDomain.id, name: 'Welcome' });
+
+		const zip = await exportDbParts({ parts: ['templates'], teamId: source.id });
+
+		const summary = await importDbParts({
+			parts: ['templates'],
+			teamId: target.id,
+			domainId: current.id,
+			zipBytes: zip,
+		});
+
+		const row = db.select().from(templates).where(eq(templates.teamId, target.id)).get();
+		expect(row?.domainId).toBe(current.id);
+		expect(summary.warnings.some((w) => w.includes(`domain #${current.id}`))).toBe(true);
 	});
 
 	it('skips parts missing from the pack with a warning', async () => {
