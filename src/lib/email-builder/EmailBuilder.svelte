@@ -360,11 +360,11 @@
 						Mobile
 					</button>
 				</div>
-				{#if editor.tab === 'preview'}
+				{#if editor.tab === 'preview' || editor.tab === 'editor'}
 					<div
 						class="flex rounded border border-[hsl(var(--border))] text-xs"
 						role="group"
-						aria-label="Preview color scheme"
+						aria-label="Color scheme"
 					>
 						<button
 							type="button"
@@ -401,7 +401,8 @@
 
 	<div class="flex min-h-[420px] flex-col sm:min-h-[640px] lg:flex-row">
 		<div
-			class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto {editor.tab === 'preview' &&
+			class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto {(editor.tab === 'preview' ||
+				editor.tab === 'editor') &&
 			editor.colorScheme === 'dark'
 				? 'bg-[#0a0a0a]'
 				: 'bg-[#f5f5f5]'}"

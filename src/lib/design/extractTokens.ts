@@ -274,9 +274,12 @@ export function pickEmailLogos<T extends { id: string; name: string; filename: s
  * Force light/dark for in-app preview (OS prefers-color-scheme cannot be toggled on {@html}).
  * Rewrites a copy only — never mutate stored template HTML.
  *
- * Dark mode approximates phone clients that auto-darken light emails:
- * unwrap author `@media (prefers-color-scheme: dark)` rules, swap logos, and
- * rewrite light backgrounds / dark text colors in inline styles.
+ * Dark mode:
+ * 1. Unwrap author / renderer `@media (prefers-color-scheme: dark)` rules so stored
+ *    dark colors (`.owl-email-*` + `.owl-block-*` with `!important`) apply immediately.
+ * 2. Run `simulateClientAutoDarken` as a fallback for legacy Html / unmarked inline
+ *    styles. Stored dark `!important` rules win over these heuristic rewrites.
+ * 3. Swap logo classes and force `color-scheme`.
  */
 export function applyPreviewColorScheme(html: string, scheme: 'light' | 'dark'): string {
 	const darkMediaRe = /@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)\s*\{/gi;

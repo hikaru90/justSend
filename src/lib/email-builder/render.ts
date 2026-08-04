@@ -1,7 +1,9 @@
 import { mergeSectionDocuments } from './component-document';
-import { renderBlock } from './render-html';
+import { promoteDarkColors, renderBlock } from './render-html';
 import type { TEditorConfiguration, EmailBuilderContent } from './types';
 import { EMPTY_DOCUMENT } from './types';
+
+export { promoteDarkColors };
 
 export type ScaffoldSlots = {
 	subject?: string;
@@ -117,6 +119,9 @@ export function documentFromComposedHtml(html: string): TEditorConfiguration {
 				backdropColor: '#F5F5F5',
 				canvasColor: '#FFFFFF',
 				textColor: '#262626',
+				darkBackdropColor: '#0a0a0a',
+				darkCanvasColor: '#1a1a1a',
+				darkTextColor: '#f2f2f2',
 				fontFamily: 'MODERN_SANS',
 				childrenIds: ['composed-html'],
 			},
@@ -155,6 +160,9 @@ export function documentFromComposedSections(
 				backdropColor: '#F5F5F5',
 				canvasColor: '#FFFFFF',
 				textColor: '#262626',
+				darkBackdropColor: '#0a0a0a',
+				darkCanvasColor: '#1a1a1a',
+				darkTextColor: '#f2f2f2',
 				fontFamily: 'MODERN_SANS',
 				childrenIds,
 			},

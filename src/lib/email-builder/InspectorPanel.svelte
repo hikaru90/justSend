@@ -52,11 +52,34 @@
 	function setStyle(patch: BlockStyle) {
 		if (!selectedId || !block) return;
 		const prev = (block.data.style as BlockStyle | undefined) ?? {};
+		const next = { ...prev, ...patch };
+		for (const key of Object.keys(patch) as Array<keyof BlockStyle>) {
+			const v = patch[key];
+			if (v === null || v === '') delete next[key];
+		}
 		editor.updateBlock(selectedId, {
 			...block,
 			data: {
 				...block.data,
-				style: { ...prev, ...patch },
+				style: next,
+			},
+		});
+	}
+
+	function setDarkStyle(patch: BlockStyle) {
+		if (!selectedId || !block) return;
+		const prev = (block.data.darkStyle as BlockStyle | undefined) ?? {};
+		const next = { ...prev, ...patch };
+		// Drop null/empty color keys so unset falls back to light
+		for (const key of Object.keys(patch) as Array<keyof BlockStyle>) {
+			const v = patch[key];
+			if (v === null || v === '') delete next[key];
+		}
+		editor.updateBlock(selectedId, {
+			...block,
+			data: {
+				...block.data,
+				darkStyle: next,
 			},
 		});
 	}
@@ -85,6 +108,18 @@
 		return fallback;
 	}
 
+	const isDarkPreview = $derived(editor.colorScheme === 'dark');
+	const schemeLabel = $derived(isDarkPreview ? 'Dark' : 'Light');
+
+	function setRootField(key: string, value: string) {
+		const root = editor.document.root;
+		if (!root || root.type !== 'EmailLayout') return;
+		editor.updateBlock('root', {
+			...root,
+			data: { ...root.data, [key]: value },
+		});
+	}
+
 	const textValue = $derived(String((block?.data.props as { text?: string })?.text ?? ''));
 	const urlValue = $derived(String((block?.data.props as { url?: string })?.url ?? ''));
 	const htmlValue = $derived(String((block?.data.props as { contents?: string })?.contents ?? ''));
@@ -98,12 +133,12 @@
 		String((block?.data.style as BlockStyle | undefined)?.textAlign ?? 'left'),
 	);
 	const blockStyle = $derived((block?.data.style as BlockStyle | undefined) ?? {});
+	const darkStyle = $derived((block?.data.darkStyle as BlockStyle | undefined) ?? {});
 	const padding = $derived(blockStyle.padding ?? { top: 0, right: 0, bottom: 0, left: 0 });
 	const bgImageUrl = $derived(String(blockStyle.backgroundImage ?? ''));
 	const bgSize = $derived(blockStyle.backgroundSize ?? 'cover');
 	const bgPosition = $derived(blockStyle.backgroundPosition ?? 'center');
 	const bgMinHeight = $derived(blockStyle.minHeight ?? 200);
-	const overlayColor = $derived(blockStyle.overlayColor ?? null);
 	const containerTextAlign = $derived(blockStyle.textAlign ?? 'left');
 	const containerContentAlignment = $derived(
 		blockStyle.contentAlignment ?? (bgImageUrl ? 'middle' : 'top'),
@@ -176,8 +211,8 @@
 		<div class="mt-1 flex flex-wrap gap-1">
 			<button
 				type="button"
-				title="Remove color"
-				aria-label="Remove color"
+				title="Clear"
+				aria-label="Clear color"
 				class="size-5 rounded border {value === null
 					? 'border-[hsl(var(--ring))] ring-2 ring-[hsl(var(--ring))]'
 					: 'border-[hsl(var(--border))]'} flex items-center justify-center bg-white text-[hsl(var(--muted-foreground))]"
@@ -211,73 +246,114 @@
 	{/if}
 {/snippet}
 
+{#snippet variantColor(opts: {
+	label: string;
+	value: string | null | undefined;
+	fallback: string;
+	onInput: (color: string) => void;
+	onClear?: () => void;
+	clearLabel?: string;
+})}
+	<label class="block space-y-1 text-xs">
+		<span class="flex items-center justify-between gap-2 text-[hsl(var(--muted-foreground))]">
+			<span>{opts.label}</span>
+			{#if opts.onClear && opts.value}
+				<button
+					type="button"
+					class="text-[10px] underline"
+					onclick={(e) => {
+						e.preventDefault();
+						opts.onClear?.();
+					}}
+				>
+					{opts.clearLabel ?? 'Clear'}
+				</button>
+			{/if}
+		</span>
+		<input
+			type="color"
+			class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
+			value={hexColor(opts.value ?? null, opts.fallback)}
+			oninput={(e) => opts.onInput(e.currentTarget.value)}
+		/>
+		{@render colorSwatches(opts.value ?? null, (color) => {
+			if (color == null) {
+				if (opts.onClear) opts.onClear();
+				else opts.onInput(opts.fallback);
+			} else {
+				opts.onInput(color);
+			}
+		})}
+	</label>
+{/snippet}
+
+{#snippet schemeBanner()}
+	<p
+		class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/40 px-2 py-1.5 text-[10px] text-[hsl(var(--muted-foreground))]"
+	>
+		Previewing <span class="font-medium text-[hsl(var(--foreground))]">{schemeLabel}</span>. Light and
+		dark colors are stored separately — toggle Light/Dark in the toolbar to see each variant on the
+		canvas.
+	</p>
+{/snippet}
+
 {#if !block || !selectedId}
 	<div class="space-y-2">
 		<p class="text-sm font-medium">Styles</p>
+		{@render schemeBanner()}
 		<p class="text-xs text-[hsl(var(--muted-foreground))]">
 			Click a block in the email to edit its copy and styles here. Use the + buttons between blocks
 			to add Heading, Text, Button, Image, and more.
 		</p>
 		{#if editor.document.root?.type === 'EmailLayout'}
-			<label class="block space-y-1 text-xs">
-				<span class="text-[hsl(var(--muted-foreground))]">Canvas background</span>
-				<input
-					type="color"
-					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-					value={String(editor.document.root.data.canvasColor ?? '#FFFFFF')}
-					oninput={(e) => {
-						const root = editor.document.root;
-						if (!root) return;
-						editor.updateBlock('root', {
-							...root,
-							data: { ...root.data, canvasColor: e.currentTarget.value },
-						});
-					}}
-				/>
-				{@render colorSwatches(
-					String(editor.document.root.data.canvasColor ?? '#FFFFFF'),
-					(color) => {
-						const root = editor.document.root;
-						if (!root) return;
-						editor.updateBlock('root', {
-							...root,
-							data: { ...root.data, canvasColor: color ?? '' },
-						});
-					},
-				)}
-			</label>
-			<label class="block space-y-1 text-xs">
-				<span class="text-[hsl(var(--muted-foreground))]">Backdrop</span>
-				<input
-					type="color"
-					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-					value={String(editor.document.root.data.backdropColor ?? '#F5F5F5')}
-					oninput={(e) => {
-						const root = editor.document.root;
-						if (!root) return;
-						editor.updateBlock('root', {
-							...root,
-							data: { ...root.data, backdropColor: e.currentTarget.value },
-						});
-					}}
-				/>
-				{@render colorSwatches(
-					String(editor.document.root.data.backdropColor ?? '#F5F5F5'),
-					(color) => {
-						const root = editor.document.root;
-						if (!root) return;
-						editor.updateBlock('root', {
-							...root,
-							data: { ...root.data, backdropColor: color ?? '' },
-						});
-					},
-				)}
-			</label>
+			{@render variantColor({
+				label: 'Light canvas',
+				value: editor.document.root.data.canvasColor,
+				fallback: '#FFFFFF',
+				onInput: (color) => setRootField('canvasColor', color),
+			})}
+			{@render variantColor({
+				label: 'Dark canvas',
+				value: editor.document.root.data.darkCanvasColor,
+				fallback: '#1a1a1a',
+				onInput: (color) => setRootField('darkCanvasColor', color),
+				onClear: () => setRootField('darkCanvasColor', ''),
+				clearLabel: 'Match light',
+			})}
+			{@render variantColor({
+				label: 'Light backdrop',
+				value: editor.document.root.data.backdropColor,
+				fallback: '#F5F5F5',
+				onInput: (color) => setRootField('backdropColor', color),
+			})}
+			{@render variantColor({
+				label: 'Dark backdrop',
+				value: editor.document.root.data.darkBackdropColor,
+				fallback: '#0a0a0a',
+				onInput: (color) => setRootField('darkBackdropColor', color),
+				onClear: () => setRootField('darkBackdropColor', ''),
+				clearLabel: 'Match light',
+			})}
+			{@render variantColor({
+				label: 'Light text',
+				value: editor.document.root.data.textColor,
+				fallback: '#262626',
+				onInput: (color) => setRootField('textColor', color),
+			})}
+			{@render variantColor({
+				label: 'Dark text',
+				value: editor.document.root.data.darkTextColor,
+				fallback: '#f2f2f2',
+				onInput: (color) => setRootField('darkTextColor', color),
+				onClear: () => setRootField('darkTextColor', ''),
+				clearLabel: 'Match light',
+			})}
 		{/if}
 	</div>
 {:else}
 	<div class={block.type === 'Text' ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-3'}>
 		<p class="shrink-0 text-sm font-medium">{block.type} block</p>
+		{@render schemeBanner()}
 
 		{#if block.type === 'Heading' || block.type === 'Text' || block.type === 'Button'}
 			<label
@@ -319,55 +395,53 @@
 					oninput={(e) => setProps({ url: e.currentTarget.value })}
 				/>
 			</label>
-			<label class="block space-y-1 text-xs">
-				<span class="text-[hsl(var(--muted-foreground))]">Button background</span>
-				<input
-					type="color"
-					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-					value={hexColor(
-						String(
-							(block.data.props as { buttonBackgroundColor?: string })?.buttonBackgroundColor ?? '',
-						) || null,
-						'#000000',
-					)}
-					oninput={(e) => setProps({ buttonBackgroundColor: e.currentTarget.value })}
-				/>
-				{@render colorSwatches(
-					(block.data.props as { buttonBackgroundColor?: string })?.buttonBackgroundColor ?? null,
-					(color) => setProps({ buttonBackgroundColor: color ?? '#000000' }),
-				)}
-			</label>
-			<label class="block space-y-1 text-xs">
-				<span class="text-[hsl(var(--muted-foreground))]">Button text</span>
-				<input
-					type="color"
-					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-					value={hexColor(
-						String(
-							(block.data.props as { buttonTextColor?: string })?.buttonTextColor ?? '',
-						) || null,
-						'#FFFFFF',
-					)}
-					oninput={(e) => setProps({ buttonTextColor: e.currentTarget.value })}
-				/>
-				{@render colorSwatches(
-					(block.data.props as { buttonTextColor?: string })?.buttonTextColor ?? null,
-					(color) => setProps({ buttonTextColor: color ?? '#FFFFFF' }),
-				)}
-			</label>
+			{@render variantColor({
+				label: 'Light button background',
+				value: (block.data.props as { buttonBackgroundColor?: string })?.buttonBackgroundColor,
+				fallback: '#000000',
+				onInput: (color) => setProps({ buttonBackgroundColor: color }),
+			})}
+			{@render variantColor({
+				label: 'Dark button background',
+				value: (block.data.props as { buttonBackgroundColorDark?: string })
+					?.buttonBackgroundColorDark,
+				fallback: '#FFFFFF',
+				onInput: (color) => setProps({ buttonBackgroundColorDark: color }),
+				onClear: () => setProps({ buttonBackgroundColorDark: null }),
+				clearLabel: 'Match light',
+			})}
+			{@render variantColor({
+				label: 'Light button text',
+				value: (block.data.props as { buttonTextColor?: string })?.buttonTextColor,
+				fallback: '#FFFFFF',
+				onInput: (color) => setProps({ buttonTextColor: color }),
+			})}
+			{@render variantColor({
+				label: 'Dark button text',
+				value: (block.data.props as { buttonTextColorDark?: string })?.buttonTextColorDark,
+				fallback: '#111111',
+				onInput: (color) => setProps({ buttonTextColorDark: color }),
+				onClear: () => setProps({ buttonTextColorDark: null }),
+				clearLabel: 'Match light',
+			})}
 		{/if}
 
 		{#if block.type === 'Heading' || block.type === 'Text'}
-			<label class="block space-y-1 text-xs">
-				<span class="text-[hsl(var(--muted-foreground))]">Text color</span>
-				<input
-					type="color"
-					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-					value={hexColor(blockStyle.color ?? null, '#262626')}
-					oninput={(e) => setStyle({ color: e.currentTarget.value })}
-				/>
-				{@render colorSwatches(blockStyle.color ?? null, (color) => setStyle({ color }))}
-			</label>
+			{@render variantColor({
+				label: 'Light text color',
+				value: blockStyle.color,
+				fallback: '#262626',
+				onInput: (color) => setStyle({ color }),
+				onClear: () => setStyle({ color: null }),
+			})}
+			{@render variantColor({
+				label: 'Dark text color',
+				value: darkStyle.color,
+				fallback: '#f2f2f2',
+				onInput: (color) => setDarkStyle({ color }),
+				onClear: () => setDarkStyle({ color: null }),
+				clearLabel: 'Match light',
+			})}
 		{/if}
 
 		{#if block.type === 'Image'}
@@ -517,33 +591,115 @@
 		{/if}
 
 		{#if block.type === 'EmailLayout'}
-			<label class="block space-y-1 text-xs">
-				<span class="text-[hsl(var(--muted-foreground))]">Canvas color</span>
-				<input
-					type="color"
-					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-					value={String(block.data.canvasColor ?? '#FFFFFF')}
-					oninput={(e) => setLayoutField('canvasColor', e.currentTarget.value)}
-				/>
-				{@render colorSwatches(String(block.data.canvasColor ?? '#FFFFFF'), (color) =>
-					setLayoutField('canvasColor', color ?? ''),
-				)}
-			</label>
+			{@render variantColor({
+				label: 'Light canvas',
+				value: block.data.canvasColor,
+				fallback: '#FFFFFF',
+				onInput: (color) => setLayoutField('canvasColor', color),
+			})}
+			{@render variantColor({
+				label: 'Dark canvas',
+				value: block.data.darkCanvasColor,
+				fallback: '#1a1a1a',
+				onInput: (color) => setLayoutField('darkCanvasColor', color),
+				onClear: () => setLayoutField('darkCanvasColor', ''),
+				clearLabel: 'Match light',
+			})}
+			{@render variantColor({
+				label: 'Light backdrop',
+				value: block.data.backdropColor,
+				fallback: '#F5F5F5',
+				onInput: (color) => setLayoutField('backdropColor', color),
+			})}
+			{@render variantColor({
+				label: 'Dark backdrop',
+				value: block.data.darkBackdropColor,
+				fallback: '#0a0a0a',
+				onInput: (color) => setLayoutField('darkBackdropColor', color),
+				onClear: () => setLayoutField('darkBackdropColor', ''),
+				clearLabel: 'Match light',
+			})}
+			{@render variantColor({
+				label: 'Light text',
+				value: block.data.textColor,
+				fallback: '#262626',
+				onInput: (color) => setLayoutField('textColor', color),
+			})}
+			{@render variantColor({
+				label: 'Dark text',
+				value: block.data.darkTextColor,
+				fallback: '#f2f2f2',
+				onInput: (color) => setLayoutField('darkTextColor', color),
+				onClear: () => setLayoutField('darkTextColor', ''),
+				clearLabel: 'Match light',
+			})}
+		{/if}
+
+		{#if block.type === 'Divider'}
+			{@render variantColor({
+				label: 'Light line color',
+				value: (block.data.props as { lineColor?: string })?.lineColor,
+				fallback: '#CCCCCC',
+				onInput: (color) => setProps({ lineColor: color }),
+			})}
+			{@render variantColor({
+				label: 'Dark line color',
+				value: (block.data.props as { lineColorDark?: string })?.lineColorDark,
+				fallback: '#555555',
+				onInput: (color) => setProps({ lineColorDark: color }),
+				onClear: () => setProps({ lineColorDark: null }),
+				clearLabel: 'Match light',
+			})}
 		{/if}
 
 		{#if block.type === 'Container' || block.type === 'ColumnsContainer'}
-			<label class="block space-y-1 text-xs">
-				<span class="text-[hsl(var(--muted-foreground))]">Background</span>
-				<input
-					type="color"
-					class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-					value={hexColor(blockStyle.backgroundColor, '#FFFFFF')}
-					oninput={(e) => setStyle({ backgroundColor: e.currentTarget.value })}
-				/>
-				{@render colorSwatches(blockStyle.backgroundColor ?? null, (color) =>
-					setStyle({ backgroundColor: color }),
-				)}
-			</label>
+			{@render variantColor({
+				label: 'Light background',
+				value: blockStyle.backgroundColor,
+				fallback: '#FFFFFF',
+				onInput: (color) => setStyle({ backgroundColor: color }),
+				onClear: () => setStyle({ backgroundColor: null }),
+			})}
+			{@render variantColor({
+				label: 'Dark background',
+				value: darkStyle.backgroundColor,
+				fallback: '#1a1a1a',
+				onInput: (color) => setDarkStyle({ backgroundColor: color }),
+				onClear: () => setDarkStyle({ backgroundColor: null }),
+				clearLabel: 'Match light',
+			})}
+			{@render variantColor({
+				label: 'Light border',
+				value: blockStyle.borderColor,
+				fallback: '#CCCCCC',
+				onInput: (color) => setStyle({ borderColor: color }),
+				onClear: () => setStyle({ borderColor: null }),
+			})}
+			{@render variantColor({
+				label: 'Dark border',
+				value: darkStyle.borderColor,
+				fallback: '#333333',
+				onInput: (color) => setDarkStyle({ borderColor: color }),
+				onClear: () => setDarkStyle({ borderColor: null }),
+				clearLabel: 'Match light',
+			})}
+			{#if block.type === 'Container'}
+				{@render variantColor({
+					label: 'Light overlay',
+					value: blockStyle.overlayColor,
+					fallback: '#000000',
+					onInput: (color) => setStyle({ overlayColor: color }),
+					onClear: () => setStyle({ overlayColor: null }),
+				})}
+				{@render variantColor({
+					label: 'Dark overlay',
+					value: darkStyle.overlayColor,
+					fallback: '#000000',
+					onInput: (color) => setDarkStyle({ overlayColor: color }),
+					onClear: () => setDarkStyle({ overlayColor: null }),
+					clearLabel: 'Match light',
+				})}
+			{/if}
 
 			{#if block.type === 'Container'}
 				<div class="space-y-2">
@@ -643,28 +799,6 @@
 						value={bgMinHeight}
 						oninput={(e) => setStyle({ minHeight: Number(e.currentTarget.value) || 0 })}
 					/>
-				</label>
-				<label class="block space-y-1 text-xs">
-					<span class="text-[hsl(var(--muted-foreground))]">Overlay color</span>
-					<input
-						type="color"
-						class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-						value={hexColor(overlayColor, '#000000')}
-						oninput={(e) => setStyle({ overlayColor: e.currentTarget.value })}
-					/>
-					{@render colorSwatches(overlayColor, (color) => setStyle({ overlayColor: color }))}
-				</label>
-				<label class="block space-y-1 text-xs">
-					<span class="text-[hsl(var(--muted-foreground))]">Border color</span>
-					<input
-						type="color"
-						class="h-8 w-full cursor-pointer rounded border border-[hsl(var(--input))]"
-						value={hexColor(blockStyle.borderColor, '#CCCCCC')}
-						oninput={(e) => setStyle({ borderColor: e.currentTarget.value })}
-					/>
-					{@render colorSwatches(blockStyle.borderColor ?? null, (color) =>
-						setStyle({ borderColor: color }),
-					)}
 				</label>
 				<label class="block space-y-1 text-xs">
 					<span class="text-[hsl(var(--muted-foreground))]">Border radius (px)</span>

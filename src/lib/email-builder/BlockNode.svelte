@@ -3,7 +3,7 @@
 	import { EDITOR_KEY } from './context';
 	import type { EmailEditorState } from './editor-state.svelte';
 	import { getBlockChildrenIds } from './editor-state.svelte';
-	import { renderBlockInnerHtml } from './render';
+	import { promoteDarkColors, renderBlockInnerHtml } from './render';
 	import { substitutePreviewPlaceholders } from '$lib/design/extractTokens';
 	import { LIBRARY_KEY, EmailBuilderLibrary } from './library-context.svelte';
 	import BlockChildren from './BlockChildren.svelte';
@@ -13,7 +13,12 @@
 
 	const editor = getContext<EmailEditorState>(EDITOR_KEY);
 	const library = getContext<EmailBuilderLibrary>(LIBRARY_KEY);
-	const block = $derived(editor.document[blockId]);
+
+	/** Document with dark colors promoted when previewing/editing the dark variant. */
+	const displayDocument = $derived(
+		editor.colorScheme === 'dark' ? promoteDarkColors(editor.document) : editor.document,
+	);
+	const block = $derived(displayDocument[blockId]);
 
 	const leafHtml = $derived(
 		block &&
@@ -21,7 +26,7 @@
 			block.type !== 'Container' &&
 			block.type !== 'ColumnsContainer'
 			? substitutePreviewPlaceholders(
-					renderBlockInnerHtml(editor.document, blockId),
+					renderBlockInnerHtml(displayDocument, blockId),
 					library.previewOverrides,
 				)
 			: '',

@@ -51,7 +51,7 @@ export class EmailEditorState {
 	selectedBlockId = $state<string | null>(null);
 	tab = $state<EditorTab>('editor');
 	screen = $state<'desktop' | 'mobile'>('desktop');
-	/** Preview-only: force light/dark email color scheme (ignores OS preference). */
+	/** Preview / editor canvas: force light/dark email color scheme (ignores OS preference). */
 	colorScheme = $state<'light' | 'dark'>('light');
 	inspectorOpen = $state(true);
 	/** Brand colors from design.md — applied to new basic blocks. */

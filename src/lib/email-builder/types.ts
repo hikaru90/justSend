@@ -11,12 +11,18 @@ export type TEditorBlock = {
 	type: string;
 	data: {
 		style?: Record<string, unknown>;
+		/** Dark-mode color overrides (parallel to style; color fields only). */
+		darkStyle?: Record<string, unknown>;
 		props?: Record<string, unknown>;
 		// EmailLayout stores children on data directly
 		childrenIds?: string[];
 		backdropColor?: string;
 		canvasColor?: string;
 		textColor?: string;
+		/** Dark-mode layout colors (fall back to light when unset). */
+		darkBackdropColor?: string;
+		darkCanvasColor?: string;
+		darkTextColor?: string;
 		fontFamily?: string;
 		borderColor?: string;
 		borderRadius?: number;
@@ -58,6 +64,9 @@ export const EMPTY_DOCUMENT: TEditorConfiguration = {
 			backdropColor: '#F5F5F5',
 			canvasColor: '#FFFFFF',
 			textColor: '#262626',
+			darkBackdropColor: '#0a0a0a',
+			darkCanvasColor: '#1a1a1a',
+			darkTextColor: '#f2f2f2',
 			fontFamily: 'MODERN_SANS',
 			childrenIds: [],
 		},

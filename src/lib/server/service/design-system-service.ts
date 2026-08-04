@@ -1,5 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, unlink, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
@@ -85,24 +86,45 @@ export async function addAsset(
 		bytes: Uint8Array;
 	},
 ): Promise<DesignAsset> {
-	const id = cuid();
+	const id = createHash('sha256').update(input.bytes).digest('hex');
+
+	// Content-addressed: same bytes → same id, so the same file uploaded in
+	// dev and prod (or re-uploaded) resolves to the same link without syncing.
+	const existing = db.select().from(designAssets).where(eq(designAssets.id, id)).get();
+	if (existing) {
+		// Self-heal a missing on-disk file using the freshly uploaded bytes.
+		const path = assetDiskPath(existing.teamId, existing.kind, existing.id, existing.filename);
+		try {
+			await access(path);
+		} catch {
+			await mkdir(dirname(path), { recursive: true });
+			await writeFile(path, input.bytes);
+		}
+		return existing;
+	}
+
 	const path = assetDiskPath(teamId, input.kind, id, input.filename);
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, input.bytes);
 
-	return db
-		.insert(designAssets)
-		.values({
-			id,
-			teamId,
-			kind: input.kind,
-			name: input.name,
-			filename: input.filename,
-			mime: input.mime,
-			size: input.bytes.byteLength,
-		})
-		.returning()
-		.get();
+	try {
+		return db
+			.insert(designAssets)
+			.values({
+				id,
+				teamId,
+				kind: input.kind,
+				name: input.name,
+				filename: input.filename,
+				mime: input.mime,
+				size: input.bytes.byteLength,
+			})
+			.returning()
+			.get();
+	} catch {
+		// Concurrent upload of the same bytes raced us — return the winner.
+		return db.select().from(designAssets).where(eq(designAssets.id, id)).get()!;
+	}
 }
 
 export async function updateAsset(

@@ -7,7 +7,7 @@ import { assetDiskPath, getAssetById } from '$lib/server/service/design-system-s
 
 /**
  * Public GET — email clients fetch images without a session cookie.
- * Asset ids are opaque cuids; do not list this directory.
+ * Asset ids are sha256 content hashes (same bytes → same id); do not list this directory.
  */
 export const GET: RequestHandler = async ({ params }) => {
 	const id = params.id;
