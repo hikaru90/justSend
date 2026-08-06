@@ -3,8 +3,12 @@ import { SESSION_COOKIE, getSessionUser, verifyCookieValue } from '$lib/server/a
 import { getUserTeams } from '$lib/server/service/team-service';
 import { listTeamDomains } from '$lib/server/service/domain-service';
 import { ensureDevDomain } from '$lib/server/service/dev-seed';
+import { installOpenRouterFetchThrottle } from '$lib/server/service/openrouter-rate-limit';
 import type { Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
+
+// Throttle all OpenRouter HTTP (including Pi SDK tool loops) to ≤1 req/s.
+installOpenRouterFetchThrottle();
 
 let migrated = false;
 

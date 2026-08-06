@@ -1,28 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { OWL_MARKDOWN_LINK_COLOR, renderOwlMarkdown } from './markdown';
+import {
+	pickDesignHexToken,
+	renderOwlMarkdown,
+	resolveMarkdownLinkColors,
+} from './markdown';
 import { applySlotValues } from './slots';
 import { parseDocument, serialize } from './parser';
 import { starterByKey } from './starters';
 import { OWL } from './format';
+import { compileOwlDoc, defaultOwlShell } from './studio-server';
+import { newSectionId, type OwlDoc } from './studio';
 
 describe('owl markdown', () => {
-	it('renders bold, italic, and styled links', () => {
+	it('renders bold, italic, and underlined links that inherit text color by default', () => {
 		const html = renderOwlMarkdown('Hello **world** and *italics* and [site](https://example.com)');
 		expect(html).toMatch(/<(strong|b)>world<\/(strong|b)>/);
 		expect(html).toMatch(/<(em|i)>italics<\/(em|i)>/);
 		expect(html).toContain('href="https://example.com"');
 		expect(html).toContain('site');
-		expect(html).toContain(`color:${OWL_MARKDOWN_LINK_COLOR}`);
+		expect(html).toContain('color:inherit');
 		expect(html).toContain('text-decoration:underline');
 		expect(html).toContain('font-weight:400');
 		expect(html).toContain('target="_blank"');
 		expect(html).toContain('rel="noopener noreferrer"');
+		expect(html).not.toMatch(/color:\s*#(?:0000ee|00e|0066cc|0a2540)/i);
 	});
 
 	it('uses brand linkColor when provided', () => {
 		const html = renderOwlMarkdown('[Go](https://example.com)', 'p', { linkColor: '#c45c26' });
 		expect(html).toContain('color:#c45c26');
 		expect(html).toContain('text-decoration:underline');
+	});
+
+	it('writes data-owl-dark-style for dark link color', () => {
+		const html = renderOwlMarkdown('[Go](https://example.com)', 'p', {
+			linkColor: '#c45c26',
+			linkColorDark: '#f2f2f2',
+		});
+		expect(html).toContain('color:#c45c26');
+		expect(html).toContain('data-owl-dark-style="color:#f2f2f2;"');
 	});
 
 	it('unwraps a single paragraph for block hosts', () => {
@@ -57,12 +73,13 @@ describe('owl markdown', () => {
 			{
 				text: 'Welcome **{{firstName}}** — [learn more](https://example.com)',
 			},
-			{ linkColor: '#123456' },
+			{ linkColor: '#123456', linkColorDark: '#eeeeee' },
 		);
 		const html = serialize(doc);
 		expect(html).toMatch(/<(strong|b)>\{\{firstName\}\}<\/(strong|b)>/);
 		expect(html).toContain('href="https://example.com"');
 		expect(html).toContain('color:#123456');
+		expect(html).toContain('data-owl-dark-style="color:#eeeeee;"');
 		expect(html).toContain('text-decoration:underline');
 		expect(html).not.toContain('**{{firstName}}**');
 	});
@@ -74,5 +91,54 @@ describe('owl markdown', () => {
 		const el = doc.querySelector(`[${OWL.preheader}]`);
 		expect(el?.textContent).toContain('Sale on **now**');
 		expect(el?.innerHTML ?? '').not.toMatch(/<(strong|b)>/);
+	});
+});
+
+describe('resolveMarkdownLinkColors', () => {
+	it('picks primary / link tokens for light and dark', () => {
+		expect(
+			resolveMarkdownLinkColors({ primary: '#c45c26', link_dark: '#f5e6d3' }, 'light'),
+		).toEqual({ linkColor: '#c45c26', linkColorDark: '#f5e6d3' });
+		expect(
+			resolveMarkdownLinkColors({ primary: '#c45c26', text_dark: '#f2f2f2' }, 'dark'),
+		).toEqual({ linkColor: '#f2f2f2' });
+	});
+
+	it('inherits when design system has no link/primary token', () => {
+		expect(resolveMarkdownLinkColors({}, 'light')).toEqual({
+			linkColor: 'inherit',
+			linkColorDark: 'inherit',
+		});
+		expect(resolveMarkdownLinkColors(undefined, 'dark')).toEqual({ linkColor: 'inherit' });
+	});
+
+	it('pickDesignHexToken matches suffix keys', () => {
+		expect(pickDesignHexToken({ brand_primary: '#aabbcc' }, ['primary'])).toBe('#aabbcc');
+	});
+});
+
+describe('compileOwlDoc markdown links follow design tokens', () => {
+	it('uses design primary in light and inherits dark style for dark scheme', () => {
+		const text = starterByKey('text')!.html;
+		const doc: OwlDoc = {
+			version: 1,
+			shell: defaultOwlShell(),
+			preheader: '',
+			sections: [{ id: newSectionId(), key: 'text', label: 'Text', html: text }],
+			slotValues: {
+				text: 'See [docs](https://example.com) for details.',
+			},
+		};
+
+		const light = compileOwlDoc(doc, { tokens: { primary: '#c45c26' }, colorScheme: 'light' });
+		expect(light.html).toContain('color:#c45c26');
+		expect(light.html).toContain('data-owl-dark-style="color:inherit;"');
+
+		const dark = compileOwlDoc(doc, {
+			tokens: { primary: '#c45c26', text_dark: '#f2f2f2' },
+			colorScheme: 'dark',
+		});
+		expect(dark.html).toContain('color:#f2f2f2');
+		expect(dark.html).not.toMatch(/href="https:\/\/example\.com"[^>]*color:#c45c26/i);
 	});
 });

@@ -1,4 +1,5 @@
 import { env } from '../env';
+import { installOpenRouterFetchThrottle, openRouterFetch } from './openrouter-rate-limit';
 
 export type OpenRouterMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
@@ -86,7 +87,9 @@ export async function openRouterChat(
 		body.response_format = { type: 'json_object' };
 	}
 
-	const response = await fetch(`${env.OPENROUTER_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
+	installOpenRouterFetchThrottle();
+
+	const response = await openRouterFetch(`${env.OPENROUTER_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
 		method: 'POST',
 		headers: {
 			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,

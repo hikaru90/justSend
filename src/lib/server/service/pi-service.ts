@@ -39,6 +39,7 @@ import {
 	type DesignWorkspaceMode,
 } from './design-workspace-context';
 import { openRouterChat, openRouterModel } from './openrouter';
+import { installOpenRouterFetchThrottle } from './openrouter-rate-limit';
 import { assetDiskPath, type DesignAsset } from './design-system-service';
 
 export type { DesignAssetPromptRef, DesignWorkspaceMode };
@@ -432,9 +433,10 @@ let runtimePromise: Promise<ModelRuntime> | null = null;
 
 /** Initial + retries: first attempt, then up to 3 more on 429 / rate-limit. */
 const PI_RATE_LIMIT_RETRIES = 3;
-const PI_RATE_LIMIT_BASE_DELAY_MS = 2_000;
-/** Minimum gap between consecutive Pi prompts (serialize + space out). */
-const PI_PROMPT_MIN_GAP_MS = 1_500;
+/** After a failed prompt turn, wait a few seconds before retrying. */
+const PI_RATE_LIMIT_BASE_DELAY_MS = 5_000;
+/** Minimum gap between consecutive Pi prompts (serialize). HTTP is also ≤1/s via openrouter-rate-limit. */
+const PI_PROMPT_MIN_GAP_MS = 1_000;
 
 let piPromptChain: Promise<void> = Promise.resolve();
 let lastPiPromptAt = 0;
@@ -500,7 +502,8 @@ type RunPiPromptOptions = {
 
 /**
  * Prompt + waitForIdle, retrying up to {@link PI_RATE_LIMIT_RETRIES} times on 429 /
- * rate-limit errors with exponential backoff (2s, 4s, 8s).
+ * rate-limit errors. Waits a few seconds between retries; OpenRouter HTTP is also
+ * capped at 1 request/second by {@link installOpenRouterFetchThrottle}.
  */
 export async function runPiPromptWithRetries(
 	session: AgentSession,
@@ -509,6 +512,7 @@ export async function runPiPromptWithRetries(
 ): Promise<void> {
 	await withPiPromptSlot(async () => {
 		const maxAttempts = PI_RATE_LIMIT_RETRIES + 1;
+		let lastRateLimitError: string | null = null;
 		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 			if (opts.signal?.aborted) {
 				const err = new Error('Edit cancelled');
@@ -530,15 +534,28 @@ export async function runPiPromptWithRetries(
 
 			const retriesLeft = maxAttempts - attempt;
 			if (!isPiRateLimitError(agentError) || retriesLeft <= 0) {
+				if (isPiRateLimitError(agentError)) {
+					const model = getPiModelId();
+					throw new Error(
+						`Pi agent error: rate limited after ${PI_RATE_LIMIT_RETRIES} retries (${model}). ` +
+							`Wait a minute and try again, set PI_MODEL to another OpenRouter model, ` +
+							`or add your own provider key at openrouter.ai/settings/integrations. ` +
+							`Upstream: ${agentError.slice(0, 280)}`,
+					);
+				}
 				throw new Error(`Pi agent error: ${agentError}`);
 			}
 
-			const delayMs = PI_RATE_LIMIT_BASE_DELAY_MS * 2 ** (attempt - 1);
+			lastRateLimitError = agentError;
+			const delayMs = PI_RATE_LIMIT_BASE_DELAY_MS;
 			opts.onEvent?.({
 				type: 'step',
-				message: `Rate limited by provider; retrying in ${Math.round(delayMs / 1000)}s (${attempt}/${PI_RATE_LIMIT_RETRIES} retries)…`,
+				message: `Rate limited by provider; waiting ${Math.round(delayMs / 1000)}s then retrying (${attempt}/${PI_RATE_LIMIT_RETRIES})…`,
 			});
 			await sleepMs(delayMs, opts.signal);
+		}
+		if (lastRateLimitError) {
+			throw new Error(`Pi agent error: ${lastRateLimitError}`);
 		}
 	}, opts.signal);
 }
@@ -576,6 +593,8 @@ export async function createPiRuntime(): Promise<ModelRuntime> {
 			'Pi is not configured (set OPENROUTER_API_KEY, or PI_ENABLED=false to disable)',
 		);
 	}
+
+	installOpenRouterFetchThrottle();
 
 	const agentDir = resolvePiAgentDir();
 	await mkdir(agentDir, { recursive: true });

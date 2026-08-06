@@ -13,6 +13,7 @@ import { OWL } from './format';
 import { newSectionId, parseOwlDoc, type OwlDoc, type OwlSection } from './studio';
 import { rewriteDesignAssetUrls } from '$lib/design-asset-urls';
 import type { OwlIssue, OwlSlot } from './format';
+import { resolveMarkdownLinkColors } from './markdown';
 
 export type OwlSectionSlots = Record<string, OwlSlot[]>;
 
@@ -65,8 +66,8 @@ export function compileOwlDoc(
 	);
 
 	const parsed = parseDocument(composed.html);
-	const linkColor = ctx.tokens?.link ?? ctx.tokens?.primary;
-	applySlotValues(parsed, doc.slotValues, linkColor ? { linkColor } : undefined);
+	const mdColors = resolveMarkdownLinkColors(ctx.tokens, ctx.colorScheme);
+	applySlotValues(parsed, doc.slotValues, mdColors);
 
 	const result = compileOwlHtml(serialize(parsed), {
 		kind: 'marketing',

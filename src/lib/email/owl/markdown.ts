@@ -49,13 +49,98 @@ const INLINE_HOST_TAGS = new Set([
 	'button',
 ]);
 
-/** Default body-link color when no design token is provided (matches Owl starters). */
+/**
+ * Legacy default when callers pass an explicit fallback. Prefer design tokens or
+ * `inherit` (match surrounding body text — email formatting rules) over this.
+ */
 export const OWL_MARKDOWN_LINK_COLOR = '#0A2540';
 
 export type OwlMarkdownOptions = {
-	/** Inline link color (brand primary). Falls back to {@link OWL_MARKDOWN_LINK_COLOR}. */
+	/**
+	 * Inline link color (brand primary / link token).
+	 * Omit or pass `inherit` to match surrounding text (no browser-blue default).
+	 */
 	linkColor?: string;
+	/**
+	 * Dark-mode link color written to `data-owl-dark-style` so email clients and
+	 * forced-dark preview pick it up. Omit / `inherit` = match surrounding dark text.
+	 */
+	linkColorDark?: string;
 };
+
+const LIGHT_LINK_TOKEN_KEYS = [
+	'link',
+	'link_color',
+	'primary',
+	'brand_primary',
+	'accent',
+	'brand',
+	'text',
+	'foreground',
+	'body',
+] as const;
+
+const DARK_LINK_TOKEN_KEYS = [
+	'link_dark',
+	'link_color_dark',
+	'primary_dark',
+	'text_dark',
+	'foreground_dark',
+	'body_dark',
+	'text_light',
+	'foreground_light',
+] as const;
+
+function isHexColor(value: string): boolean {
+	return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value.trim());
+}
+
+/** Pick a hex token by exact key, then by key ending with `_name`. */
+export function pickDesignHexToken(
+	tokens: Record<string, string> | undefined,
+	names: readonly string[],
+): string | undefined {
+	if (!tokens) return undefined;
+	for (const name of names) {
+		const direct = tokens[name]?.trim();
+		if (direct && isHexColor(direct)) return direct;
+	}
+	const entries = Object.entries(tokens);
+	for (const name of names) {
+		const hit = entries.find(([key, value]) => {
+			if (!isHexColor(value)) return false;
+			if (key === name || key.endsWith(`_${name}`)) return true;
+			// brand_primary matches primary; avoid text matching text_dark
+			if (key.startsWith(`${name}_`) && !key.endsWith('_dark')) return true;
+			return false;
+		});
+		if (hit) return hit[1].trim();
+	}
+	return undefined;
+}
+
+/**
+ * Resolve markdown link colors from design.md tokens for the active color scheme.
+ * Falls back to `inherit` (match body text) — never browser default blue.
+ */
+export function resolveMarkdownLinkColors(
+	tokens?: Record<string, string>,
+	colorScheme?: 'light' | 'dark',
+): Pick<OwlMarkdownOptions, 'linkColor' | 'linkColorDark'> {
+	const light = pickDesignHexToken(tokens, LIGHT_LINK_TOKEN_KEYS);
+	const dark = pickDesignHexToken(tokens, DARK_LINK_TOKEN_KEYS);
+
+	if (colorScheme === 'dark') {
+		// Forced dark: paint dark token, else inherit parent dark body color.
+		return { linkColor: dark ?? light ?? 'inherit' };
+	}
+
+	return {
+		linkColor: light ?? 'inherit',
+		// Don't reuse light primary on dark backgrounds when no dark token exists.
+		linkColorDark: dark ?? 'inherit',
+	};
+}
 
 function sanitize(html: string): string {
 	return DOMPurify.sanitize(html, {
@@ -76,16 +161,19 @@ function unwrapSingleParagraph(html: string): string {
 }
 
 function linkInlineStyle(linkColor?: string): string {
-	const color = linkColor?.trim() || OWL_MARKDOWN_LINK_COLOR;
+	const color = linkColor?.trim() || 'inherit';
 	return `color:${color};text-decoration:underline;font-weight:400;`;
 }
 
 /**
  * Email clients need inline styles on body links. Also ensure target/rel for
- * outbound URLs (see email formatting rules).
+ * outbound URLs (see email formatting rules). Dark color goes on data-owl-dark-style.
  */
-function decorateMarkdownLinks(html: string, linkColor?: string): string {
-	const style = linkInlineStyle(linkColor);
+function decorateMarkdownLinks(html: string, options?: OwlMarkdownOptions): string {
+	const style = linkInlineStyle(options?.linkColor);
+	const darkColor = options?.linkColorDark?.trim();
+	const darkStyle = darkColor ? `color:${darkColor};` : undefined;
+
 	return html.replace(/<a\b([^>]*)>/gi, (_full, rawAttrs: string) => {
 		let attrs = rawAttrs;
 
@@ -98,6 +186,18 @@ function decorateMarkdownLinks(html: string, linkColor?: string): string {
 			attrs += ` style="${style}"`;
 		}
 
+		if (darkStyle) {
+			if (/\bdata-owl-dark-style\s*=/i.test(attrs)) {
+				attrs = attrs.replace(
+					/\bdata-owl-dark-style\s*=\s*(["'])([\s\S]*?)\1/i,
+					(_s, q: string, existing: string) =>
+						`data-owl-dark-style=${q}${darkStyle}${existing.trim()}${q}`,
+				);
+			} else {
+				attrs += ` data-owl-dark-style="${darkStyle}"`;
+			}
+		}
+
 		if (!/\btarget\s*=/i.test(attrs)) attrs += ' target="_blank"';
 		if (!/\brel\s*=/i.test(attrs)) attrs += ' rel="noopener noreferrer"';
 
@@ -108,7 +208,7 @@ function decorateMarkdownLinks(html: string, linkColor?: string): string {
 /**
  * Render markdown for a text slot host element.
  * Inline hosts (`a`, `span`, headings) use inline parse; others use block + unwrap.
- * Links get email-safe underline + brand color inline styles.
+ * Links get email-safe underline + design-system (or inherited) colors.
  */
 export function renderOwlMarkdown(
 	text: string,
@@ -124,7 +224,7 @@ export function renderOwlMarkdown(
 		html = marked.parse(text, { async: false }) as string;
 		html = sanitize(unwrapSingleParagraph(html));
 	}
-	return decorateMarkdownLinks(html, options?.linkColor);
+	return decorateMarkdownLinks(html, options);
 }
 
 export function isInlineMarkdownHost(tagName: string): boolean {

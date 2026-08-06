@@ -2863,6 +2863,15 @@
 		cursor: default;
 	}
 
+	.owl-preview-root[data-color-scheme='dark'] {
+		color-scheme: dark;
+	}
+
+	/* Body links: never fall back to browser blue in the dashboard preview. */
+	.owl-preview-root :global(a[href]) {
+		color: inherit;
+	}
+
 	.owl-preview-root :global(table) {
 		border-collapse: collapse;
 	}
