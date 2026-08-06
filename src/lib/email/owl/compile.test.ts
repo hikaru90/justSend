@@ -209,4 +209,22 @@ describe('owl: light/dark content pairs', () => {
 		const srcs = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]);
 		expect(srcs.every((s) => s === 'https://cdn.example/logo.png')).toBe(true);
 	});
+
+	it('wraps bare asset ids as /api/design-asset/{id} on image slots', () => {
+		const frag = starterByKey('logo-header')!.html;
+		const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${frag}</body></html>`);
+		applySlotValues(doc, { logo: '174e2ac4d3aa4de49eb17b86' });
+		const html = serialize(doc);
+		expect(html).toContain('src="/api/design-asset/174e2ac4d3aa4de49eb17b86"');
+		expect(html).not.toContain('src="174e2ac4d3aa4de49eb17b86"');
+	});
+
+	it('leaves already-prefixed image slot values unchanged', () => {
+		const frag = starterByKey('hero-image')!.html;
+		const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${frag}</body></html>`);
+		applySlotValues(doc, { hero: '/api/design-asset/5b638723b5fc4c20997f1496' });
+		const html = serialize(doc);
+		expect(html).toContain('src="/api/design-asset/5b638723b5fc4c20997f1496"');
+		expect(html.match(/\/api\/design-asset\/5b638723b5fc4c20997f1496/g)?.length).toBe(2);
+	});
 });

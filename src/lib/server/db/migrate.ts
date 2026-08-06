@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { migrate as drizzleMigrate } from 'drizzle-orm/better-sqlite3/migrator';
+import {
+	normalizeBareDesignAssetUrlsInDocument,
+	normalizeBareDesignAssetUrlsInHtml,
+	normalizeDesignAssetSlotValues,
+} from '$lib/design-asset-urls';
 import { db, rawDb } from './index';
 
 const migrationsFolder = join(process.cwd(), 'drizzle');
@@ -29,6 +34,7 @@ export function migrate() {
 	backfillTemplateElementOrders();
 	migrateHeroImageOverlay();
 	clearHeroImageDefaultBlackBackground();
+	normalizeBareDesignAssetRefs();
 
 	console.log('Database migrated');
 }
@@ -254,6 +260,150 @@ function clearHeroImageDefaultBlackBackground() {
 		}
 		if (changed) update.run(JSON.stringify(doc), row.id);
 	}
+}
+
+/**
+ * Rewrite bare design-asset ids (legacy cuid / sha256) to `/api/design-asset/{id}`
+ * in stored Owl slotValues, email-builder documents, and compiled HTML.
+ * Idempotent: already-prefixed URLs are left alone.
+ */
+function normalizeBareDesignAssetRefs() {
+	normalizeTemplateAssetRefs();
+	normalizeDesignComponentAssetRefs();
+}
+
+function normalizeTemplateAssetRefs() {
+	const rows = rawDb
+		.prepare(
+			`SELECT id, content, html FROM templates
+			 WHERE (content IS NOT NULL AND content != '')
+			    OR (html IS NOT NULL AND html != '')`,
+		)
+		.all() as Array<{ id: string; content: string | null; html: string | null }>;
+
+	const update = rawDb.prepare(
+		`UPDATE templates SET content = ?, html = ?, updated_at = datetime('now') WHERE id = ?`,
+	);
+
+	for (const row of rows) {
+		let content = row.content;
+		let html = row.html;
+		let changed = false;
+
+		if (content) {
+			const next = normalizeStoredContent(content);
+			if (next !== content) {
+				content = next;
+				changed = true;
+			}
+		}
+		if (html) {
+			const next = normalizeBareDesignAssetUrlsInHtml(html);
+			if (next !== html) {
+				html = next;
+				changed = true;
+			}
+		}
+		if (changed) update.run(content, html, row.id);
+	}
+}
+
+function normalizeDesignComponentAssetRefs() {
+	const rows = rawDb
+		.prepare(
+			`SELECT id, document, html FROM design_components
+			 WHERE (document IS NOT NULL AND document != '')
+			    OR (html IS NOT NULL AND html != '')`,
+		)
+		.all() as Array<{ id: string; document: string; html: string }>;
+
+	const update = rawDb.prepare(
+		`UPDATE design_components SET document = ?, html = ?, updated_at = datetime('now') WHERE id = ?`,
+	);
+
+	for (const row of rows) {
+		let document = row.document ?? '';
+		let html = row.html ?? '';
+		let changed = false;
+
+		if (document) {
+			try {
+				const parsed = JSON.parse(document) as Record<
+					string,
+					{ type?: string; data?: Record<string, unknown> }
+				>;
+				if (normalizeBareDesignAssetUrlsInDocument(parsed)) {
+					document = JSON.stringify(parsed);
+					changed = true;
+				}
+			} catch {
+				// ignore invalid JSON
+			}
+		}
+		if (html) {
+			const next = normalizeBareDesignAssetUrlsInHtml(html);
+			if (next !== html) {
+				html = next;
+				changed = true;
+			}
+		}
+		if (changed) update.run(document, html, row.id);
+	}
+}
+
+/** Normalize Owl slotValues or email-builder document trees inside templates.content. */
+function normalizeStoredContent(content: string): string {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(content);
+	} catch {
+		return normalizeBareDesignAssetUrlsInHtml(content);
+	}
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return content;
+
+	const obj = parsed as Record<string, unknown>;
+	let changed = false;
+
+	// OwlDoc envelope
+	if (obj.owl === 'v1' && obj.slotValues && typeof obj.slotValues === 'object') {
+		const prev = obj.slotValues as Record<string, string>;
+		const next = normalizeDesignAssetSlotValues(prev);
+		if (next !== prev) {
+			obj.slotValues = next;
+			changed = true;
+		}
+		if (Array.isArray(obj.sections)) {
+			for (const section of obj.sections as Array<{ html?: string }>) {
+				if (typeof section?.html !== 'string') continue;
+				const html = normalizeBareDesignAssetUrlsInHtml(section.html);
+				if (html !== section.html) {
+					section.html = html;
+					changed = true;
+				}
+			}
+		}
+	}
+
+	// Legacy email-builder envelope
+	if (obj.format === 'email-builder' && obj.document && typeof obj.document === 'object') {
+		if (
+			normalizeBareDesignAssetUrlsInDocument(
+				obj.document as Record<string, { type?: string; data?: Record<string, unknown> }>,
+			)
+		) {
+			changed = true;
+		}
+		const scaffold = obj.scaffold as { slots?: Record<string, string> } | undefined;
+		if (scaffold?.slots && typeof scaffold.slots === 'object') {
+			const next = normalizeDesignAssetSlotValues(scaffold.slots);
+			if (next !== scaffold.slots) {
+				scaffold.slots = next;
+				changed = true;
+			}
+		}
+	}
+
+	return changed ? JSON.stringify(obj) : content;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -8,6 +8,7 @@
  * `src` when the light slot is filled. An optional `<slot>_dark` value fills
  * the dark partner independently.
  */
+import { normalizeDesignAssetSrc } from '$lib/design-asset-urls';
 import { walkElements, parseFragment, parseDocument, type Document, type Element } from './parser';
 import { normalizeDocument } from './normalize';
 import { OWL, OWL_CLASS, OWL_SLOT_TYPES, type OwlSlot, type OwlSlotType, type OwlSlotValues } from './format';
@@ -129,7 +130,7 @@ function applyDarkSlotOverrides(doc: Document, values: OwlSlotValues): void {
 		if (!partner) continue;
 		const type = slotTypeOf(el);
 		if (type === 'image') {
-			partner.setAttribute('src', String(darkValue));
+			partner.setAttribute('src', normalizeDesignAssetSrc(String(darkValue)));
 		} else if (type === 'text') {
 			setText(partner, String(darkValue));
 		} else if (type === 'url') {
@@ -156,7 +157,7 @@ export function applySlotValues(doc: Document, values: OwlSlotValues): void {
 				break;
 			}
 			case 'image': {
-				const src = String(value);
+				const src = normalizeDesignAssetSrc(String(value));
 				el.setAttribute('src', src);
 				setVariantPair(el, src, values);
 				break;
