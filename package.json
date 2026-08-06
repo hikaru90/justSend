@@ -78,9 +78,9 @@
 		"vitest": "^4.1.10"
 	},
 	"dependencies": {
-		"@aws-sdk/client-sesv2": "^3.1100.0",
-		"@aws-sdk/client-sns": "^3.1100.0",
-		"@aws-sdk/client-sts": "^3.1100.0",
+		"@aws-sdk/client-sesv2": "^3.1102.0",
+		"@aws-sdk/client-sns": "^3.1102.0",
+		"@aws-sdk/client-sts": "^3.1102.0",
 		"@earendil-works/pi-coding-agent": "^0.83.0",
 		"@lucide/svelte": "^1.28.0",
 		"@sveltejs/adapter-node": "^5.5.7",
