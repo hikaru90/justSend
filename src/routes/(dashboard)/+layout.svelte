@@ -44,7 +44,7 @@
 		{@render children()}
 	{/key}
 {:else}
-	<div class="flex min-h-screen">
+	<div class="flex h-dvh overflow-hidden">
 		<Sidebar
 			user={data.user}
 			teams={data.teams}
@@ -52,7 +52,7 @@
 			domains={data.domains}
 			domainId={data.domainId}
 		/>
-		<main class="flex-1 overflow-y-auto p-6 lg:p-8">
+		<main class="min-h-0 flex-1 overflow-y-auto p-6 lg:p-8">
 			{#if showDomainGate}
 				<div class="flex min-h-[50vh] items-center justify-center">
 					<Card

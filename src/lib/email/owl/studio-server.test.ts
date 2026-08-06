@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { compileOwlDoc, defaultOwlShell, mergeEditedHtmlIntoOwlDoc, migrateToOwlDoc } from './studio-server';
+import {
+	applyComponentPiEdit,
+	applySectionPiEdit,
+	compileOwlDoc,
+	defaultOwlShell,
+	extractComponentPiFragment,
+	extractSectionPiFragment,
+	findSectionForOwlId,
+	mergeEditedHtmlIntoOwlDoc,
+	migrateToOwlDoc,
+	replaceElementInFragment,
+} from './studio-server';
 import { emptyOwlDoc, newSectionId, parseOwlDoc, serializeOwlDoc, type OwlDoc } from './studio';
 import { starterByKey } from './starters';
 
@@ -142,5 +153,109 @@ describe('studio: mergeEditedHtmlIntoOwlDoc', () => {
 		expect(merged.sections[0].html).toContain('Start now');
 		expect(merged.slotValues).toEqual(doc.slotValues);
 		expect(merged.shell).toBe(doc.shell);
+	});
+});
+
+describe('studio: component Pi fragment helpers', () => {
+	function docWithCtaAndFooter(): OwlDoc {
+		const doc = shellDoc();
+		const cta = starterByKey('cta-button')!;
+		const footer = starterByKey('footer-legal')!;
+		doc.sections.push({
+			id: newSectionId(),
+			key: cta.key,
+			label: cta.name,
+			html: cta.html.replace(
+				'data-owl-slot="cta_text"',
+				'data-owl-id="w10" data-owl-slot="cta_text"',
+			),
+		});
+		doc.sections.push({
+			id: newSectionId(),
+			key: footer.key,
+			label: footer.name,
+			html: footer.html.replace(
+				'data-owl-component="footer-legal"',
+				'data-owl-id="w20" data-owl-component="footer-legal"',
+			),
+		});
+		return doc;
+	}
+
+	it('findSectionForOwlId resolves the owning section', () => {
+		const doc = docWithCtaAndFooter();
+		expect(findSectionForOwlId(doc, 'w10')?.key).toBe('cta-button');
+		expect(findSectionForOwlId(doc, 'w20')?.key).toBe('footer-legal');
+		expect(findSectionForOwlId(doc, 'missing')).toBeNull();
+	});
+
+	it('extractComponentPiFragment returns element outerHTML for element scope', () => {
+		const doc = docWithCtaAndFooter();
+		const fragment = extractComponentPiFragment(doc, 'w10', 'element');
+		expect(fragment.scope).toBe('element');
+		expect(fragment.sectionId).toBe(doc.sections[0].id);
+		expect(fragment.html).toContain('data-owl-id="w10"');
+		expect(fragment.html).toContain('data-owl-slot="cta_text"');
+		expect(fragment.html).not.toContain('data-owl-component="cta-button"');
+	});
+
+	it('extractComponentPiFragment returns whole section for section scope', () => {
+		const doc = docWithCtaAndFooter();
+		const fragment = extractComponentPiFragment(doc, 'w10', 'section');
+		expect(fragment.scope).toBe('section');
+		expect(fragment.html).toBe(doc.sections[0].html);
+		expect(fragment.html).toContain('data-owl-component="cta-button"');
+	});
+
+	it('applyComponentPiEdit patches only the selected element', () => {
+		const doc = docWithCtaAndFooter();
+		const footerBefore = doc.sections[1].html;
+		const edited =
+			'<a href="https://example.com" style="background:#111;border-radius:8px" data-owl-slot="cta_text" data-owl-slot-type="text">Shop</a>';
+		const next = applyComponentPiEdit(doc, 'w10', 'element', edited);
+
+		expect(next.sections[0].html).toContain('data-owl-id="w10"');
+		expect(next.sections[0].html).toContain('Shop');
+		expect(next.sections[0].html).toContain('border-radius:8px');
+		expect(next.sections[0].html).toContain('data-owl-component="cta-button"');
+		expect(next.sections[1].html).toBe(footerBefore);
+		expect(next.shell).toBe(doc.shell);
+	});
+
+	it('applyComponentPiEdit replaces the whole section when scope is section', () => {
+		const doc = docWithCtaAndFooter();
+		const footerBefore = doc.sections[1].html;
+		const replacement =
+			'<table role="presentation" data-owl-component="cta-button" data-owl-role="section" data-owl-id="w99"><tr><td>Rebuilt</td></tr></table>';
+		const next = applyComponentPiEdit(doc, 'w10', 'section', replacement);
+
+		expect(next.sections[0].html).toContain('Rebuilt');
+		expect(next.sections[0].html).toContain('data-owl-component="cta-button"');
+		expect(next.sections[1].html).toBe(footerBefore);
+	});
+
+	it('extractSectionPiFragment and applySectionPiEdit work by section id', () => {
+		const doc = docWithCtaAndFooter();
+		const sectionId = doc.sections[0].id;
+		const fragment = extractSectionPiFragment(doc, sectionId);
+		expect(fragment.scope).toBe('section');
+		expect(fragment.html).toBe(doc.sections[0].html);
+
+		const next = applySectionPiEdit(
+			doc,
+			sectionId,
+			'<table data-owl-component="cta-button" data-owl-role="section"><tr><td>Via id</td></tr></table>',
+		);
+		expect(next.sections[0].html).toContain('Via id');
+		expect(next.sections[1].html).toBe(doc.sections[1].html);
+	});
+
+	it('replaceElementInFragment re-attaches data-owl-id when omitted', () => {
+		const html =
+			'<table data-owl-component="cta-button" data-owl-role="section"><tr><td><a data-owl-id="w7" data-owl-slot="cta_text">Go</a></td></tr></table>';
+		const next = replaceElementInFragment(html, 'w7', '<a href="#">New</a>');
+		expect(next).toContain('data-owl-id="w7"');
+		expect(next).toContain('New');
+		expect(next).toContain('data-owl-component="cta-button"');
 	});
 });

@@ -2,11 +2,11 @@
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import Modal from '$lib/components/ui/Modal.svelte';
-	import { deserialize } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { invalidateAll } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { tick, onMount } from 'svelte';
+	import { parseActionResult } from '$lib/sveltekit-action';
 	import {
 		AlertTriangle,
 		ChevronDown,
@@ -17,6 +17,7 @@
 		LoaderCircle,
 		Monitor,
 		Moon,
+		Pencil,
 		Plus,
 		Smartphone,
 		Sun,
@@ -46,7 +47,6 @@
 		findSectionIdForOwlId,
 		isOwlIdInShell,
 		isColorStyleProp,
-		maxOwlIdCounter,
 		mintOwlDoc,
 		mintOwlIdsInFragment,
 		nextStylePropertyToAdd,
@@ -107,13 +107,6 @@
 		sectionHtml: Record<string, string>;
 	};
 
-	type OwlAiResult = {
-		subject?: string;
-		preheader?: string;
-		slots: Record<string, string>;
-		model: string;
-	};
-
 	type OwlComposeResult = {
 		doc: OwlDoc;
 		subject?: string;
@@ -156,7 +149,6 @@
 	} = $props();
 
 	const sectionStarters = $derived(starters.filter((s) => s.role === 'section'));
-	const owlAiUrl = $derived(resolve(`/templates/${templateId}/owl-ai`));
 	const owlAiComposeUrl = $derived(resolve(`/templates/${templateId}/owl-ai-compose`));
 	const owlPiEditUrl = $derived(resolve(`/templates/${templateId}/owl-pi-edit`));
 
@@ -167,6 +159,9 @@
 
 	let currentDoc = $state<OwlDoc>(cloneDoc(doc));
 	let selectedId = $state<string | null>(null);
+	let renamingSectionId = $state<string | null>(null);
+	let renameDraft = $state('');
+	let renameInputEl = $state<HTMLInputElement | null>(null);
 	let selectedOwlId = $state<string | null>(null);
 	let colorScheme = $state<'light' | 'dark'>('light');
 	let inspectorMode = $state<'light' | 'dark'>('light');
@@ -174,14 +169,6 @@
 	let preview = $state<OwlCompilePreview | null>(null);
 	let compileError = $state<string | null>(null);
 	let addOpen = $state(false);
-	let aiPrompt = $state('');
-	let aiScope = $state<'email' | 'section'>('email');
-	let aiStatus = $state<string | null>(null);
-	let aiBusy = $state(false);
-	let aiResult = $state<OwlAiResult | null>(null);
-	let aiError = $state<string | null>(null);
-	let aiFeed = $state<AiFeedLine[]>([]);
-	let aiAbort: AbortController | null = null;
 	let composeBusy = $state(false);
 	let composeStatus = $state<string | null>(null);
 	let composeError = $state<string | null>(null);
@@ -195,6 +182,16 @@
 	let piEditFeed = $state<AiFeedLine[]>([]);
 	let piEditSessionId = $state<string | null>(null);
 	let piEditAbort: AbortController | null = null;
+	let componentPiOpen = $state(false);
+	let componentPiDraft = $state('');
+	let componentPiBusy = $state(false);
+	let componentPiStatus = $state<string | null>(null);
+	let componentPiError = $state<string | null>(null);
+	let componentPiFeed = $state<AiFeedLine[]>([]);
+	let componentPiSessionId = $state<string | null>(null);
+	let componentPiAbort: AbortController | null = null;
+	let componentPiSectionId = $state<string | null>(null);
+	let componentPiSectionLabel = $state('');
 	let issuesOpen = $state(false);
 	let inspector = $state<InspectorSnapshot | null>(null);
 	let styleRows = $state<StyleRow[]>([]);
@@ -210,9 +207,13 @@
 	let lightEditOwlId = $state<string | null>(null);
 	let darkEditOwlId = $state<string | null>(null);
 	let styleEditOwlId = $state<string | null>(null);
+	let contentTextFocused = $state(false);
+	let partnerTextFocused = $state(false);
 	let previewRoot = $state<HTMLDivElement | null>(null);
 	let previewScrollEl = $state<HTMLDivElement | null>(null);
 	let hoverMarkedEl: HTMLElement | null = null;
+	/** Live DOM node from the last preview click — preferred over id re-lookup for outlines. */
+	let selectedMarkedEl: HTMLElement | null = null;
 	let breadcrumbHoverOwlId = $state<string | null>(null);
 
 	onMount(() => {
@@ -333,12 +334,16 @@
 				body,
 				headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
 			});
-			const result = deserialize(await res.text());
+			if (!res.ok) {
+				compileError = `Compile failed (${res.status})`;
+				return;
+			}
+			const result = parseActionResult(await res.text());
 			if (result.type !== 'success') {
 				compileError =
 					result.type === 'failure' && typeof result.data?.error === 'string'
 						? result.data.error
-						: 'Compile failed';
+						: `Compile failed (${result.type})`;
 				return;
 			}
 			const data = result.data as OwlCompilePreview;
@@ -348,8 +353,8 @@
 			}
 			compileError = null;
 			preview = data;
-		} catch {
-			compileError = 'Compile failed';
+		} catch (e) {
+			compileError = e instanceof Error ? e.message : 'Compile failed';
 		}
 	}
 
@@ -377,9 +382,22 @@
 		return roots[idx] ?? null;
 	}
 
+	/** Prefer the UI-selected section when an owl id appears in more than one fragment. */
+	function sectionIdForOwlId(owlId: string): string | null {
+		if (
+			selectedId &&
+			currentDoc.sections.some(
+				(s) => s.id === selectedId && s.html.includes(`${OWL.id}="${owlId}"`),
+			)
+		) {
+			return selectedId;
+		}
+		return findSectionIdForOwlId(currentDoc, owlId);
+	}
+
 	function editHtmlForOwlId(owlId: string): string | null {
 		if (isOwlIdInShell(currentDoc, owlId)) return currentDoc.shell;
-		const sectionId = findSectionIdForOwlId(currentDoc, owlId);
+		const sectionId = sectionIdForOwlId(owlId);
 		if (!sectionId) return null;
 		return currentDoc.sections.find((s) => s.id === sectionId)?.html ?? null;
 	}
@@ -388,28 +406,91 @@
 		if (isOwlIdInShell(currentDoc, owlId)) {
 			return extractShellInspector(currentDoc.shell, owlId);
 		}
-		const sectionId = findSectionIdForOwlId(currentDoc, owlId);
+		const sectionId = sectionIdForOwlId(owlId);
 		if (!sectionId) return null;
 		const section = currentDoc.sections.find((s) => s.id === sectionId);
 		if (!section) return null;
 		return extractInspector(section.html, owlId);
 	}
 
+	function textFromPreviewEl(el: HTMLElement): string {
+		if (el.childElementCount === 0) return el.textContent ?? '';
+		const only = el.children[0];
+		if (el.children.length === 1 && only instanceof HTMLElement && only.tagName === 'A') {
+			return only.textContent ?? '';
+		}
+		return el.textContent ?? '';
+	}
+
+	/**
+	 * Content as shown in preview: slot override when set, else source HTML,
+	 * with test-variable placeholders substituted. Prefer live preview DOM when
+	 * it already reflects that element (post-compile).
+	 */
+	function effectiveContentText(
+		owlId: string,
+		htmlFallback: string,
+		slotName?: string,
+		darkPartner = false,
+		slotType?: string,
+	): string {
+		if (slotName && (!slotType || slotType === 'text')) {
+			// Per-instance key (owlId) wins; slot name is the legacy fallback.
+			const fallbackName = darkPartner ? `${slotName}_dark` : slotName;
+			const value = currentDoc.slotValues[owlId] ?? currentDoc.slotValues[fallbackName];
+			if (typeof value === 'string') {
+				return substitutePreviewPlaceholders(value, testVariables);
+			}
+		}
+		const previewEl = previewElForOwlId(owlId);
+		if (previewEl) {
+			const live = textFromPreviewEl(previewEl).trim();
+			// Prefer live preview when it has visible text; otherwise fall back to source.
+			if (live) return live;
+		}
+		return substitutePreviewPlaceholders(htmlFallback, testVariables);
+	}
+
+	function isTextSlot(snap: InspectorSnapshot | null): boolean {
+		if (!snap?.slotName) return false;
+		return !snap.slotType || snap.slotType === 'text';
+	}
+
 	function refreshInspector() {
+		// Selection changed — never leave Content stuck behind a stale focus flag.
+		contentTextFocused = false;
+		partnerTextFocused = false;
+
 		if (!selectedOwlId) {
 			inspector = null;
 			lightEditOwlId = null;
 			darkEditOwlId = null;
 			styleEditOwlId = null;
+			textDraft = '';
+			partnerTextDraft = '';
 			return;
 		}
 
 		const snap = extractForOwlId(selectedOwlId);
 		inspector = snap;
-		if (!snap) return;
+		if (!snap) {
+			lightEditOwlId = null;
+			darkEditOwlId = null;
+			styleEditOwlId = null;
+			textDraft = '';
+			partnerTextDraft = '';
+			return;
+		}
 
 		const editHtml = editHtmlForOwlId(selectedOwlId);
-		if (!editHtml) return;
+		if (!editHtml) {
+			lightEditOwlId = null;
+			darkEditOwlId = null;
+			styleEditOwlId = null;
+			textDraft = '';
+			partnerTextDraft = '';
+			return;
+		}
 
 		const targets = isOwlIdInShell(currentDoc, selectedOwlId)
 			? { lightOwlId: selectedOwlId, darkOwlId: null, styleOwlId: selectedOwlId }
@@ -427,7 +508,15 @@
 		if (lightSnap) {
 			styleRows = lightSnap.styleRows.map((r) => ({ ...r }));
 			attrRows = lightSnap.attrRows.map((r) => ({ ...r }));
-			textDraft = lightSnap.textContent;
+			textDraft = effectiveContentText(
+				lightEditOwlId!,
+				lightSnap.textContent,
+				lightSnap.slotName ?? snap.slotName,
+				false,
+				lightSnap.slotType ?? snap.slotType,
+			);
+		} else {
+			textDraft = '';
 		}
 		if (styleSnap) {
 			darkStyleRows = styleSnap.darkStyleRows.map((r) => ({ ...r }));
@@ -437,7 +526,13 @@
 			partnerStyleRows = darkSnap.styleRows.map((r) => ({ ...r }));
 			partnerSrcDraft = darkSnap.attrRows.find((r) => r.name === 'src')?.value ?? '';
 			partnerAltDraft = darkSnap.attrRows.find((r) => r.name === 'alt')?.value ?? '';
-			partnerTextDraft = darkSnap.textContent;
+			partnerTextDraft = effectiveContentText(
+				darkEditOwlId!,
+				darkSnap.textContent,
+				snap.slotName ?? lightSnap?.slotName,
+				true,
+				snap.slotType ?? lightSnap?.slotType,
+			);
 		} else {
 			partnerAttrRows = [];
 			partnerStyleRows = [];
@@ -455,9 +550,51 @@
 		refreshInspector();
 	});
 
+	/** After compile / slot edits, refresh Content to match preview (skip if typing). */
+	$effect(() => {
+		previewBodyHtml;
+		void currentDoc.slotValues;
+		void testVariables;
+		selectedOwlId;
+		lightEditOwlId;
+		darkEditOwlId;
+		if (!selectedOwlId || !inspector) return;
+		void tick().then(() => {
+			if (!inspector || !lightEditOwlId) return;
+			if (!contentTextFocused) {
+				const lightSnap =
+					lightEditOwlId === inspector.owlId
+						? inspector
+						: extractForOwlId(lightEditOwlId);
+				if (lightSnap) {
+					textDraft = effectiveContentText(
+						lightEditOwlId,
+						lightSnap.textContent,
+						lightSnap.slotName ?? inspector.slotName,
+						false,
+						lightSnap.slotType ?? inspector.slotType,
+					);
+				}
+			}
+			if (!partnerTextFocused && darkEditOwlId) {
+				const darkSnap = extractForOwlId(darkEditOwlId);
+				if (darkSnap) {
+					partnerTextDraft = effectiveContentText(
+						darkEditOwlId,
+						darkSnap.textContent,
+						inspector.slotName,
+						true,
+						inspector.slotType,
+					);
+				}
+			}
+		});
+	});
+
 	$effect(() => {
 		previewBodyHtml;
 		hoverMarkedEl = null;
+		selectedMarkedEl = null;
 	});
 
 	$effect(() => {
@@ -570,7 +707,7 @@
 		if (isOwlIdInShell(currentDoc, owlId)) {
 			return findPreviewElByOwlId(previewRoot, null, owlId);
 		}
-		const sectionId = findSectionIdForOwlId(currentDoc, owlId);
+		const sectionId = sectionIdForOwlId(owlId);
 		const scope = sectionId ? sectionRootInPreview(sectionId) : null;
 		return findPreviewElByOwlId(previewRoot, scope, owlId);
 	}
@@ -584,12 +721,16 @@
 		if (hoverMarkedEl && !previewRoot.contains(hoverMarkedEl)) {
 			hoverMarkedEl = null;
 		}
+		if (selectedMarkedEl && !previewRoot.contains(selectedMarkedEl)) {
+			selectedMarkedEl = null;
+		}
 		let hoverEl = hoverMarkedEl;
 		if (breadcrumbHoverOwlId) {
 			const crumbEl = previewElForOwlId(breadcrumbHoverOwlId);
 			if (crumbEl) hoverEl = crumbEl;
 		}
-		const selectedEl = selectedOwlId ? previewElForOwlId(selectedOwlId) : null;
+		const selectedEl =
+			selectedMarkedEl ?? (selectedOwlId ? previewElForOwlId(selectedOwlId) : null);
 		syncInlinePreviewOutlines(previewRoot, { hoverEl, selectedEl });
 	}
 
@@ -607,8 +748,9 @@
 		});
 	}
 
-	function selectOwlId(owlId: string, sectionId?: string | null) {
+	function selectOwlId(owlId: string, sectionId?: string | null, el?: HTMLElement | null) {
 		selectedOwlId = owlId;
+		selectedMarkedEl = el ?? null;
 		inspectorMode = colorScheme;
 		if (isOwlIdInShell(currentDoc, owlId)) {
 			selectedId = null;
@@ -629,6 +771,7 @@
 	function selectEmailContainer() {
 		if (!emailContainer) return;
 		selectedOwlId = emailContainer.owlId;
+		selectedMarkedEl = null;
 		selectedId = null;
 		inspectorMode = colorScheme;
 		void tick().then(() => {
@@ -647,7 +790,7 @@
 			refreshInspector();
 			return;
 		}
-		const sectionId = findSectionIdForOwlId(currentDoc, owlId);
+		const sectionId = sectionIdForOwlId(owlId);
 		if (!sectionId) return;
 		const section = currentDoc.sections.find((s) => s.id === sectionId);
 		if (!section) return;
@@ -686,7 +829,7 @@
 					if (idx >= 0) sectionId = currentDoc.sections[idx]?.id ?? null;
 				}
 			}
-			selectOwlId(owlId, sectionId);
+			selectOwlId(owlId, sectionId, marked);
 			return;
 		}
 	}
@@ -729,6 +872,10 @@
 
 	function applyPartnerText() {
 		if (!darkEditOwlId) return;
+		if (isTextSlot(inspector) && inspector?.slotName) {
+			setSlot(darkEditOwlId, partnerTextDraft);
+			return;
+		}
 		applyToOwlId(darkEditOwlId, { textContent: partnerTextDraft });
 	}
 
@@ -742,6 +889,10 @@
 
 	function applyTextDraft() {
 		if (!lightEditOwlId) return;
+		if (isTextSlot(inspector) && inspector?.slotName) {
+			setSlot(inspector.owlId, textDraft);
+			return;
+		}
 		applyToOwlId(lightEditOwlId, { textContent: textDraft });
 	}
 
@@ -874,26 +1025,40 @@
 	}
 
 	function slotValue(slot: OwlSlot): string | boolean | undefined {
-		return currentDoc.slotValues[slot.name];
+		return currentDoc.slotValues[slot.owlId] ?? currentDoc.slotValues[slot.name];
 	}
 
-	function setSlot(name: string, value: string | boolean | null) {
+	function setSlot(key: string, value: string | boolean | null) {
 		const next = { ...currentDoc };
 		if (value === null) {
 			const values = { ...currentDoc.slotValues };
-			delete values[name];
+			delete values[key];
 			next.slotValues = values;
 		} else {
-			next.slotValues = { ...currentDoc.slotValues, [name]: value };
+			next.slotValues = { ...currentDoc.slotValues, [key]: value };
 		}
 		currentDoc = next;
 	}
 
+	function reservedOwlIds(doc: OwlDoc = currentDoc): Set<string> {
+		const reserved = new Set<string>();
+		for (const m of doc.shell.matchAll(new RegExp(`${OWL.id}="(w\\d+)"`, 'g'))) {
+			reserved.add(m[1]!);
+		}
+		for (const s of doc.sections) {
+			for (const m of s.html.matchAll(new RegExp(`${OWL.id}="(w\\d+)"`, 'g'))) {
+				reserved.add(m[1]!);
+			}
+		}
+		return reserved;
+	}
+
 	function addSection(section: { html: string; key: string; label: string }) {
 		const next = { ...currentDoc };
-		let maxId = maxOwlIdCounter(next.shell);
-		for (const s of next.sections) maxId = Math.max(maxId, maxOwlIdCounter(s.html));
-		const html = mintOwlIdsInFragment(section.html, maxId);
+		const reserved = reservedOwlIds(next);
+		let maxId = 0;
+		for (const id of reserved) maxId = Math.max(maxId, Number(id.slice(1)) || 0);
+		const html = mintOwlIdsInFragment(section.html, maxId, reserved);
 		const id = newSectionId();
 		next.sections = [
 			...currentDoc.sections,
@@ -906,11 +1071,14 @@
 
 	function duplicateSection(section: OwlSection) {
 		const idx = currentDoc.sections.findIndex((s) => s.id === section.id);
+		const reserved = reservedOwlIds();
+		let maxId = 0;
+		for (const id of reserved) maxId = Math.max(maxId, Number(id.slice(1)) || 0);
 		const copy = {
 			...section,
 			id: newSectionId(),
 			label: `${section.label} copy`,
-			html: mintOwlIdsInFragment(section.html),
+			html: mintOwlIdsInFragment(section.html, maxId, reserved),
 		};
 		const next = { ...currentDoc };
 		next.sections = [...currentDoc.sections];
@@ -924,6 +1092,10 @@
 		const next = { ...currentDoc };
 		next.sections = currentDoc.sections.filter((s) => s.id !== id);
 		currentDoc = next;
+		if (renamingSectionId === id) {
+			renamingSectionId = null;
+			renameDraft = '';
+		}
 		if (selectedId === id) {
 			const remaining = next.sections;
 			selectedId = remaining.length > 0 ? remaining[Math.max(0, idx - 1)].id : null;
@@ -943,6 +1115,44 @@
 		currentDoc = next;
 	}
 
+	function startRenameSection(section: OwlSection) {
+		renamingSectionId = section.id;
+		renameDraft = section.label;
+		selectedId = section.id;
+		selectedOwlId = null;
+		selectedMarkedEl = null;
+		void tick().then(() => {
+			renameInputEl?.focus();
+			renameInputEl?.select();
+		});
+	}
+
+	function cancelRenameSection() {
+		renamingSectionId = null;
+		renameDraft = '';
+	}
+
+	function commitRenameSection() {
+		const id = renamingSectionId;
+		if (!id) return;
+		const label = renameDraft.trim() || 'Section';
+		const next = { ...currentDoc };
+		next.sections = currentDoc.sections.map((s) => (s.id === id ? { ...s, label } : s));
+		currentDoc = next;
+		renamingSectionId = null;
+		renameDraft = '';
+	}
+
+	function handleRenameKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			commitRenameSection();
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			cancelRenameSection();
+		}
+	}
+
 	function sectionThumbnail(sectionId: string): string {
 		const html = preview?.sectionHtml[sectionId];
 		if (!html) return '';
@@ -959,123 +1169,12 @@
 			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
 		});
 		if (!res.ok) return null;
-		const result = deserialize(await res.text());
+		const result = parseActionResult(await res.text());
 		if (result.type !== 'success' || !result.data || typeof result.data !== 'object') return null;
 		const asset = (result.data as { asset?: { id: string; name: string; kind: 'logo' | 'image' } }).asset;
 		if (!asset?.id) return null;
 		await invalidateAll();
 		return { id: asset.id, name: asset.name, kind: asset.kind };
-	}
-
-	async function runAi() {
-		if (aiBusy) return;
-		aiBusy = true;
-		aiStatus = 'Starting…';
-		aiResult = null;
-		aiError = null;
-		const reducer = createAiFeedReducer();
-		aiFeed = [];
-		if (aiPrompt.trim()) {
-			applyAiStreamEvent(reducer, { type: 'user', message: aiPrompt.trim() });
-			aiFeed = [...reducer.feed];
-		}
-		const sectionId = aiScope === 'section' ? (selectedId ?? undefined) : undefined;
-		if (aiScope === 'section' && !sectionId) {
-			aiError = 'Select a section first.';
-			aiBusy = false;
-			return;
-		}
-		aiAbort = new AbortController();
-		try {
-			const res = await fetch(owlAiUrl, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-				body: JSON.stringify({
-					doc: serializeOwlDoc(currentDoc),
-					prompt: aiPrompt,
-					sectionId,
-				}),
-				signal: aiAbort.signal,
-			});
-			if (!res.ok || !res.body) {
-				throw new Error(await res.text().catch(() => '') || `Generation failed (${res.status})`);
-			}
-			const reader = res.body.getReader();
-			const decoder = new TextDecoder();
-			let buffer = '';
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				buffer += decoder.decode(value, { stream: true });
-				const parts = buffer.split('\n\n');
-				buffer = parts.pop() ?? '';
-				for (const part of parts) {
-					const line = part.trim();
-					if (!line.startsWith('data: ')) continue;
-					let event: {
-						stage: string;
-						message?: string;
-						chars?: number;
-						delta?: string;
-						system?: string;
-						context?: string;
-						content?: OwlAiResult;
-					};
-					try {
-						event = JSON.parse(line.slice(6));
-					} catch {
-						continue;
-					}
-					const mapped = owlProgressToStreamEvent(event);
-					if (mapped) {
-						const status = applyAiStreamEvent(reducer, mapped);
-						aiFeed = [...reducer.feed];
-						if (status) aiStatus = status;
-					}
-					if (event.stage === 'done') {
-						aiResult = event.content ?? null;
-						aiStatus = event.message ?? 'Copy ready.';
-					} else if (event.stage === 'error') {
-						aiError = event.message ?? 'Generation failed';
-						aiStatus = null;
-					} else if (event.stage === 'cancelled') {
-						aiStatus = 'Cancelled.';
-					} else if (event.message && !mapped) {
-						applyAiStreamEvent(reducer, { type: event.stage, message: event.message });
-						aiFeed = [...reducer.feed];
-						aiStatus = event.message;
-					}
-				}
-			}
-		} catch (e) {
-			if (e instanceof DOMException && e.name === 'AbortError') {
-				aiStatus = 'Cancelled.';
-			} else {
-				aiError = e instanceof Error ? e.message : 'Generation failed';
-				aiStatus = null;
-			}
-		} finally {
-			aiBusy = false;
-			aiAbort = null;
-		}
-	}
-
-	function applyAi() {
-		if (!aiResult) return;
-		const next = { ...currentDoc };
-		if (aiResult.preheader) {
-			next.preheader = aiResult.preheader;
-			preheader = aiResult.preheader;
-		}
-		const values = { ...currentDoc.slotValues };
-		for (const [key, value] of Object.entries(aiResult.slots)) {
-			if (typeof value === 'string' && value !== '') values[key] = value;
-		}
-		next.slotValues = values;
-		currentDoc = next;
-		if (aiResult.subject) onSubjectSuggest?.(aiResult.subject);
-		aiResult = null;
-		aiStatus = null;
 	}
 
 	function openHammerModal(tab: 'build' | 'pi' = 'build') {
@@ -1332,6 +1431,182 @@
 		piEditStatus = 'Stopping…';
 	}
 
+	async function disposeComponentPiSession() {
+		if (!componentPiSessionId) return;
+		const sessionId = componentPiSessionId;
+		componentPiSessionId = null;
+		try {
+			await fetch(owlPiEditUrl, {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ sessionId }),
+			});
+		} catch {
+			// best-effort cleanup
+		}
+	}
+
+	async function closeComponentPiModal() {
+		if (componentPiBusy) componentPiAbort?.abort();
+		await disposeComponentPiSession();
+		componentPiOpen = false;
+		componentPiSectionId = null;
+		componentPiSectionLabel = '';
+		componentPiError = null;
+		componentPiStatus = null;
+		componentPiFeed = [];
+		componentPiDraft = '';
+	}
+
+	async function openComponentPiModal(section: OwlSection) {
+		if (!piConfigured) {
+			componentPiError = 'Pi is not configured (OPENROUTER_API_KEY).';
+			componentPiSectionId = section.id;
+			componentPiSectionLabel = section.label;
+			componentPiOpen = true;
+			return;
+		}
+		if (componentPiSectionId && componentPiSectionId !== section.id) {
+			await disposeComponentPiSession();
+			componentPiFeed = [];
+			componentPiDraft = '';
+		}
+		selectSection(section);
+		componentPiSectionId = section.id;
+		componentPiSectionLabel = section.label;
+		componentPiError = null;
+		componentPiStatus = null;
+		if (!componentPiSessionId) componentPiFeed = [];
+		componentPiOpen = true;
+	}
+
+	function stopComponentPiEdit() {
+		componentPiAbort?.abort();
+		componentPiStatus = 'Stopping…';
+	}
+
+	async function runComponentPiEdit() {
+		const instruction = componentPiDraft.trim();
+		if (!instruction) {
+			componentPiError = 'Describe what to change.';
+			return;
+		}
+		if (!componentPiSectionId) {
+			componentPiError = 'No component selected.';
+			return;
+		}
+		componentPiBusy = true;
+		componentPiStatus = 'Starting…';
+		componentPiError = null;
+		const reducer = createAiFeedReducer();
+		if (!componentPiSessionId) {
+			componentPiFeed = [];
+		}
+		applyAiStreamEvent(reducer, { type: 'user', message: instruction });
+		componentPiFeed = [...reducer.feed];
+		componentPiDraft = '';
+		componentPiAbort = new AbortController();
+		try {
+			const res = await fetch(owlPiEditUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+				body: JSON.stringify({
+					doc: serializeOwlDoc(currentDoc),
+					instruction,
+					sectionId: componentPiSectionId,
+					sessionId: componentPiSessionId ?? undefined,
+					keepSession: true,
+					name: templateName,
+					subject: templateSubject || templateName,
+					description: templateDescription,
+				}),
+				signal: componentPiAbort.signal,
+			});
+			if (!res.ok || !res.body) {
+				throw new Error(await res.text().catch(() => '') || `Pi edit failed (${res.status})`);
+			}
+			const reader = res.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buffer += decoder.decode(value, { stream: true });
+				const parts = buffer.split('\n\n');
+				buffer = parts.pop() ?? '';
+				for (const part of parts) {
+					const line = part
+						.split('\n')
+						.map((l) => l.trim())
+						.find((l) => l.startsWith('data:'));
+					if (!line) continue;
+					let event: {
+						type?: string;
+						message?: string;
+						content?: string;
+						delta?: string;
+						toolName?: string;
+						tool?: string;
+						toolCallId?: string;
+						isError?: boolean;
+						doc?: OwlDoc;
+						sessionId?: string;
+					};
+					try {
+						event = JSON.parse(line.slice(5).trim());
+					} catch {
+						continue;
+					}
+					const type = event.type ?? '';
+					if (type === 'done') {
+						if (event.doc) {
+							currentDoc = cloneDoc(event.doc);
+							if (componentPiSectionId) {
+								selectedId = componentPiSectionId;
+								selectedOwlId = null;
+								selectedMarkedEl = null;
+							}
+							refreshInspector();
+						}
+						if (event.sessionId) componentPiSessionId = event.sessionId;
+						componentPiStatus = event.message ?? 'Component edit applied.';
+						applyAiStreamEvent(reducer, { type: 'step', message: componentPiStatus });
+						componentPiFeed = [...reducer.feed];
+						continue;
+					}
+					if (type === 'error') {
+						throw new Error(event.message ?? 'Pi edit failed');
+					}
+					if (type === 'cancelled') {
+						componentPiStatus = event.message ?? 'Cancelled.';
+						continue;
+					}
+					const mapped = applyAiStreamEvent(reducer, {
+						type,
+						message: event.message,
+						content: event.content,
+						delta: event.delta,
+						tool: event.tool ?? event.toolName,
+						toolCallId: event.toolCallId,
+						isError: event.isError,
+					});
+					componentPiFeed = [...reducer.feed];
+					if (mapped) componentPiStatus = mapped;
+				}
+			}
+		} catch (e) {
+			if (e instanceof DOMException && e.name === 'AbortError') {
+				componentPiStatus = 'Cancelled.';
+			} else {
+				componentPiError = e instanceof Error ? e.message : 'Pi edit failed';
+				componentPiStatus = null;
+			}
+		} finally {
+			componentPiBusy = false;
+			componentPiAbort = null;
+		}
+	}
+
 	function assetKindFor(slot: OwlSlot): VisualAsset[] {
 		return slot.name.startsWith('logo') ? logoAssets : imageAssets;
 	}
@@ -1344,6 +1619,7 @@
 	function selectSection(section: OwlSection) {
 		selectedId = section.id;
 		selectedOwlId = null;
+		selectedMarkedEl = null;
 	}
 
 	function linkedLibrarySection(section: OwlSection): DesignSection | null {
@@ -1390,7 +1666,7 @@
 				body,
 				headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
 			});
-			const result = deserialize(await res.text());
+			const result = parseActionResult(await res.text());
 			if (result.type !== 'success') {
 				throw new Error(
 					result.type === 'failure' && typeof result.data?.error === 'string'
@@ -1438,8 +1714,10 @@
 	}
 </script>
 
-<div class="grid gap-4 lg:grid-cols-[280px_1fr_320px]">
-	<section class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3">
+<div class="grid gap-4 lg:grid-cols-[280px_1fr_320px] lg:items-start">
+	<section
+		class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto"
+	>
 		<div class="mb-2 flex items-center justify-between gap-2">
 			<h2 class="flex items-center gap-2 text-sm font-medium">
 				<Layers class="size-4" />
@@ -1553,15 +1831,51 @@
 									</div>
 								{/if}
 								<div class="min-w-0 flex-1">
-									<button
-										type="button"
-										class="w-full truncate px-1 text-left text-sm"
-										onclick={() => selectSection(section)}
-										title={section.label}
-									>
-										{section.label}
-									</button>
+									{#if renamingSectionId === section.id}
+										<input
+											bind:this={renameInputEl}
+											bind:value={renameDraft}
+											type="text"
+											aria-label="Section name"
+											class="w-full rounded border border-[hsl(var(--input))] bg-transparent px-1 py-0.5 text-sm"
+											onkeydown={handleRenameKeydown}
+											onblur={commitRenameSection}
+										/>
+									{:else}
+										<button
+											type="button"
+											class="w-full truncate px-1 text-left text-sm"
+											onclick={() => selectSection(section)}
+											ondblclick={() => startRenameSection(section)}
+											title="{section.label} — double-click to rename"
+										>
+											{section.label}
+										</button>
+									{/if}
 									<div class="flex shrink-0 items-center">
+										{#if piConfigured}
+											<button
+												type="button"
+												class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] disabled:opacity-30"
+												aria-label="Edit with Pi"
+												title="Edit component with Pi"
+												disabled={componentPiBusy && componentPiSectionId !== section.id}
+												onclick={() => void openComponentPiModal(section)}
+											>
+												{#if componentPiBusy && componentPiSectionId === section.id}
+													<LoaderCircle class="size-3.5 animate-spin" />
+												{:else}
+													<Hammer class="size-3.5" />
+												{/if}
+											</button>
+										{/if}
+										<button
+											type="button"
+											class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
+											aria-label="Rename"
+											title="Rename"
+											onclick={() => startRenameSection(section)}
+										><Pencil class="size-3.5" /></button>
 										<button
 											type="button"
 											class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] disabled:opacity-30"
@@ -1709,7 +2023,9 @@
 		</div>
 	</section>
 
-	<section class="max-h-[calc(100vh-12rem)] overflow-auto rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3">
+	<section
+		class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto"
+	>
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<h2 class="text-sm font-medium">
 				{inspector ? 'Inspector' : selectedSection ? 'Content' : 'Sidebar'}
@@ -1839,9 +2155,17 @@
 						<textarea
 							rows="2"
 							bind:value={textDraft}
+							placeholder="Enter text…"
+							onfocus={() => (contentTextFocused = true)}
+							onblur={() => (contentTextFocused = false)}
 							onchange={applyTextDraft}
 							class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
 						></textarea>
+						{#if isTextSlot(inspector)}
+							<p class="mt-1 text-[0.65rem] text-[hsl(var(--muted-foreground))]">
+								Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
+							</p>
+						{/if}
 					</div>
 
 					<div>
@@ -1936,6 +2260,31 @@
 						<Button size="sm" variant="outline" class="mt-2" onclick={addAttrRow}>Add attribute</Button>
 					</div>
 				{:else}
+					{#if !darkEditOwlId}
+						<div>
+							<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">Content</p>
+							{#if inspector.slotName}
+								<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
+									Slot <code class="text-[0.65rem]">{inspector.slotName}</code>
+									({inspector.slotType}) — use the slot editor below when available.
+								</p>
+							{/if}
+							<textarea
+								rows="2"
+								bind:value={textDraft}
+								placeholder="Enter text…"
+								onfocus={() => (contentTextFocused = true)}
+								onblur={() => (contentTextFocused = false)}
+								onchange={applyTextDraft}
+								class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
+							></textarea>
+							{#if isTextSlot(inspector)}
+								<p class="mt-1 text-[0.65rem] text-[hsl(var(--muted-foreground))]">
+									Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
+								</p>
+							{/if}
+						</div>
+					{/if}
 					{#if inheritedDarkRows.length > 0}
 						<div>
 							<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">
@@ -2111,6 +2460,9 @@
 								<textarea
 									rows="2"
 									bind:value={partnerTextDraft}
+									placeholder="Enter text…"
+									onfocus={() => (partnerTextFocused = true)}
+									onblur={() => (partnerTextFocused = false)}
 									onchange={applyPartnerText}
 									class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
 								></textarea>
@@ -2205,7 +2557,7 @@
 				<p class="mb-3 text-xs font-medium text-[hsl(var(--muted-foreground))]">Content slots</p>
 			{/if}
 			<div class="space-y-4">
-				{#each selectedSlots as slot (slot.name)}
+				{#each selectedSlots as slot (slot.owlId)}
 					{@const value = slotValue(slot)}
 					{@const slotSelected = slot.owlId === lightEditOwlId}
 					<div
@@ -2226,107 +2578,64 @@
 								</button>
 							{/if}
 						</label>
-						{#if slot.type === 'text'}
-							<textarea
-								id={`slot-${selectedSection.id}-${slot.name}`}
-								rows="3"
-								value={typeof value === 'string' ? value : ''}
-								oninput={(e) => setSlot(slot.name, e.currentTarget.value)}
-								class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm"
-							></textarea>
-						{:else if slot.type === 'url'}
-							<Input
-								type="url"
-								value={typeof value === 'string' ? value : ''}
-								oninput={(e) => setSlot(slot.name, e.currentTarget.value)}
-							/>
-						{:else if slot.type === 'image'}
-							<div class="grid grid-cols-3 gap-2">
-								{#each assetKindFor(slot) as asset (asset.id)}
-									<button
-										type="button"
-										class="rounded-md border p-1.5 {value === designAssetPath(asset.id)
-											? 'border-[hsl(var(--ring))]'
-											: 'border-[hsl(var(--border))]'}"
-										onclick={() => setSlot(slot.name, designAssetPath(asset.id))}
-									>
-										<img src={designAssetPath(asset.id)} alt={asset.name} class="h-12 w-full object-contain" />
-									</button>
-								{/each}
-							</div>
-						{:else if slot.type === 'color'}
-							<div class="flex items-center gap-2">
-								<input
-									type="color"
-									value={colorFor(slot) ?? '#0A2540'}
-									oninput={(e) => setSlot(slot.name, e.currentTarget.value)}
-									class="h-9 w-12 rounded border"
-								/>
-								<Input
-									type="text"
-									value={colorFor(slot) ?? ''}
-									oninput={(e) => setSlot(slot.name, e.currentTarget.value)}
-								/>
-							</div>
-						{:else if slot.type === 'boolean'}
-							<label class="flex items-center gap-2 text-sm">
-								<input
-									type="checkbox"
-									checked={value === false ? false : true}
-									onchange={(e) => setSlot(slot.name, e.currentTarget.checked ? null : false)}
-									class="rounded border"
-								/>
-								Show this block
-							</label>
-						{/if}
-					</div>
-				{/each}
-
-				{#if piConfigured && selectedSlots.some((s) => s.type === 'text')}
-					<div class="space-y-3 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-3">
-						<div class="flex items-center justify-between">
-							<p class="text-xs font-medium">Generate copy with AI</p>
-							<div class="flex items-center gap-1 rounded-md border border-[hsl(var(--border))] p-0.5">
-								<button
-									type="button"
-									class="rounded px-2 py-0.5 text-xs {aiScope === 'email' ? 'bg-[hsl(var(--secondary))]' : ''}"
-									onclick={() => (aiScope = 'email')}
-								>Email</button>
-								<button
-									type="button"
-									class="rounded px-2 py-0.5 text-xs {aiScope === 'section'
-										? 'bg-[hsl(var(--secondary))]'
-										: 'opacity-50'}"
-									disabled={!selectedSection}
-									onclick={() => (aiScope = 'section')}
-								>Section</button>
-							</div>
-						</div>
+					{#if slot.type === 'text'}
 						<textarea
-							rows="2"
-							placeholder="e.g. Friendly welcome email with one CTA."
-							bind:value={aiPrompt}
+							id={`slot-${selectedSection.id}-${slot.name}`}
+							rows="3"
+							value={typeof value === 'string' ? value : ''}
+							oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
 							class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm"
 						></textarea>
-						<AiStreamFeed
-							lines={aiFeed}
-							busy={aiBusy}
-							status={aiStatus ?? ''}
-							error={aiError}
-							class="mb-2"
+						<p class="text-[0.65rem] text-[hsl(var(--muted-foreground))]">
+							Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
+						</p>
+					{:else if slot.type === 'url'}
+						<Input
+							type="url"
+							value={typeof value === 'string' ? value : ''}
+							oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
 						/>
-						<div class="flex items-center gap-2">
-							<Button size="sm" onclick={runAi} disabled={aiBusy || !currentDoc.sections.length}>
-								{#if aiBusy}<LoaderCircle class="size-4 animate-spin" />{/if}
-								{aiBusy ? 'Generating…' : 'Generate'}
-							</Button>
-							{#if aiResult}<Button size="sm" onclick={applyAi}>Apply</Button>{/if}
+					{:else if slot.type === 'image'}
+						<div class="grid grid-cols-3 gap-2">
+							{#each assetKindFor(slot) as asset (asset.id)}
+								<button
+									type="button"
+									class="rounded-md border p-1.5 {value === designAssetPath(asset.id)
+										? 'border-[hsl(var(--ring))]'
+										: 'border-[hsl(var(--border))]'}"
+									onclick={() => setSlot(slot.owlId, designAssetPath(asset.id))}
+								>
+									<img src={designAssetPath(asset.id)} alt={asset.name} class="h-12 w-full object-contain" />
+								</button>
+							{/each}
 						</div>
-						{#if aiError}
-							<p class="text-xs text-[hsl(var(--destructive))]">{aiError}</p>
-						{/if}
+					{:else if slot.type === 'color'}
+						<div class="flex items-center gap-2">
+							<input
+								type="color"
+								value={colorFor(slot) ?? '#0A2540'}
+								oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
+								class="h-9 w-12 rounded border"
+							/>
+							<Input
+								type="text"
+								value={colorFor(slot) ?? ''}
+								oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
+							/>
+						</div>
+					{:else if slot.type === 'boolean'}
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={value === false ? false : true}
+								onchange={(e) => setSlot(slot.owlId, e.currentTarget.checked ? null : false)}
+								class="rounded border"
+							/>
+							Show this block
+						</label>
+					{/if}
 					</div>
-				{/if}
+				{/each}
 			</div>
 		{/if}
 	</section>
@@ -2439,6 +2748,64 @@
 				{/if}
 			</div>
 		{/if}
+	</div>
+</Modal>
+
+<Modal
+	open={componentPiOpen}
+	title={componentPiSectionLabel
+		? `Edit "${componentPiSectionLabel}" with Pi`
+		: 'Edit component with Pi'}
+	description="Pi rewrites this whole component's HTML using your design system. The rest of the email stays unchanged."
+	class="max-w-2xl"
+	onClose={() => void closeComponentPiModal()}
+>
+	<div class="space-y-4">
+		<p class="text-sm text-[hsl(var(--muted-foreground))]">
+			Describe what you don't like about this component.
+			{#if componentPiSessionId}
+				Follow-up edits continue the same session.
+			{/if}
+		</p>
+		<div class="space-y-1.5">
+			<label class="text-sm font-medium" for="component-pi-instruction">Instruction</label>
+			<textarea
+				id="component-pi-instruction"
+				rows="4"
+				bind:value={componentPiDraft}
+				disabled={componentPiBusy}
+				placeholder="e.g. Make this button use the brand primary color and round the corners."
+				class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm"
+				onkeydown={(e) => {
+					if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+						e.preventDefault();
+						void runComponentPiEdit();
+					}
+				}}
+			></textarea>
+		</div>
+		<AiStreamFeed
+			lines={componentPiFeed}
+			busy={componentPiBusy}
+			status={componentPiStatus ?? ''}
+			error={componentPiError}
+		/>
+		<div class="flex flex-wrap justify-end gap-2">
+			<Button
+				variant="outline"
+				disabled={componentPiBusy}
+				onclick={() => void closeComponentPiModal()}
+			>
+				Close
+			</Button>
+			{#if componentPiBusy}
+				<Button variant="outline" onclick={stopComponentPiEdit}>Stop</Button>
+			{:else}
+				<Button disabled={!componentPiDraft.trim()} onclick={() => void runComponentPiEdit()}>
+					{componentPiSessionId ? 'Send follow-up' : 'Run Pi edit'}
+				</Button>
+			{/if}
+		</div>
 	</div>
 </Modal>
 

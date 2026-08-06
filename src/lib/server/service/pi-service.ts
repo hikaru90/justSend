@@ -430,6 +430,119 @@ const registry = new Map<string, PiRegistryEntry>();
 
 let runtimePromise: Promise<ModelRuntime> | null = null;
 
+/** Initial + retries: first attempt, then up to 3 more on 429 / rate-limit. */
+const PI_RATE_LIMIT_RETRIES = 3;
+const PI_RATE_LIMIT_BASE_DELAY_MS = 2_000;
+/** Minimum gap between consecutive Pi prompts (serialize + space out). */
+const PI_PROMPT_MIN_GAP_MS = 1_500;
+
+let piPromptChain: Promise<void> = Promise.resolve();
+let lastPiPromptAt = 0;
+
+export function isPiRateLimitError(message: string): boolean {
+	return /\b429\b|rate[- ]?limit(?:ed)?|temporarily rate-limited|insufficient_quota|upstream_provider_shared_pool/i.test(
+		message,
+	);
+}
+
+function sleepMs(ms: number, signal?: AbortSignal): Promise<void> {
+	if (ms <= 0) return Promise.resolve();
+	return new Promise((resolve, reject) => {
+		if (signal?.aborted) {
+			const err = new Error('Edit cancelled');
+			err.name = 'AbortError';
+			reject(err);
+			return;
+		}
+		const timer = setTimeout(() => {
+			signal?.removeEventListener('abort', onAbort);
+			resolve();
+		}, ms);
+		const onAbort = () => {
+			clearTimeout(timer);
+			const err = new Error('Edit cancelled');
+			err.name = 'AbortError';
+			reject(err);
+		};
+		signal?.addEventListener('abort', onAbort, { once: true });
+	});
+}
+
+/**
+ * Run Pi prompts one-at-a-time with a short gap so we don't stampede OpenRouter.
+ */
+async function withPiPromptSlot<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+	const prev = piPromptChain;
+	let release!: () => void;
+	piPromptChain = new Promise<void>((r) => {
+		release = r;
+	});
+	await prev;
+	try {
+		if (signal?.aborted) {
+			const err = new Error('Edit cancelled');
+			err.name = 'AbortError';
+			throw err;
+		}
+		const gap = PI_PROMPT_MIN_GAP_MS - (Date.now() - lastPiPromptAt);
+		if (gap > 0) await sleepMs(gap, signal);
+		return await fn();
+	} finally {
+		lastPiPromptAt = Date.now();
+		release();
+	}
+}
+
+type RunPiPromptOptions = {
+	signal?: AbortSignal;
+	onEvent?: (event: PiEditStreamEvent) => void;
+};
+
+/**
+ * Prompt + waitForIdle, retrying up to {@link PI_RATE_LIMIT_RETRIES} times on 429 /
+ * rate-limit errors with exponential backoff (2s, 4s, 8s).
+ */
+export async function runPiPromptWithRetries(
+	session: AgentSession,
+	prompt: string,
+	opts: RunPiPromptOptions = {},
+): Promise<void> {
+	await withPiPromptSlot(async () => {
+		const maxAttempts = PI_RATE_LIMIT_RETRIES + 1;
+		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+			if (opts.signal?.aborted) {
+				const err = new Error('Edit cancelled');
+				err.name = 'AbortError';
+				throw err;
+			}
+
+			await session.prompt(prompt);
+			await session.agent.waitForIdle();
+
+			if (opts.signal?.aborted) {
+				const err = new Error('Edit cancelled');
+				err.name = 'AbortError';
+				throw err;
+			}
+
+			const agentError = session.agent.state.errorMessage;
+			if (!agentError) return;
+
+			const retriesLeft = maxAttempts - attempt;
+			if (!isPiRateLimitError(agentError) || retriesLeft <= 0) {
+				throw new Error(`Pi agent error: ${agentError}`);
+			}
+
+			const delayMs = PI_RATE_LIMIT_BASE_DELAY_MS * 2 ** (attempt - 1);
+			opts.onEvent?.({
+				type: 'step',
+				message: `Rate limited by provider; retrying in ${Math.round(delayMs / 1000)}s (${attempt}/${PI_RATE_LIMIT_RETRIES} retries)…`,
+			});
+			await sleepMs(delayMs, opts.signal);
+		}
+	}, opts.signal);
+}
+
 export function resolvePiConfigured(input: {
 	piEnabled: boolean | undefined;
 	openRouterApiKey: string | undefined;
@@ -743,8 +856,7 @@ export async function promptPiSession(
 	);
 
 	try {
-		await session.prompt(prompt);
-		await session.agent.waitForIdle();
+		await runPiPromptWithRetries(session, prompt);
 		return sink.text.trim();
 	} finally {
 		unsubscribe();
@@ -756,6 +868,16 @@ export function looksLikeHtml(text: string): boolean {
 	const t = text.trim();
 	if (!t) return false;
 	return /<\/?[a-zA-Z][\w:-]*\b/.test(t) || /\$props\s*\(/.test(t) || /\{#snippet\b/.test(t);
+}
+
+/**
+ * True when `after` is effectively identical to `before` (whitespace-only
+ * differences). Used to detect a Pi run that did not actually edit the file —
+ * so we can fail honestly instead of reporting a false "applied".
+ */
+export function htmlEffectivelyUnchanged(before: string, after: string): boolean {
+	const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+	return norm(before) === norm(after);
 }
 
 export type EditHtmlWithPiInput = {
@@ -972,19 +1094,20 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 				].join('\n');
 
 		emit({ type: 'context', content: `## User prompt\n${prompt}` });
-		await handle.session.prompt(prompt);
-		await handle.session.agent.waitForIdle();
-
-		if (input.signal?.aborted) {
-			const err = new Error('Edit cancelled');
-			err.name = 'AbortError';
-			throw err;
-		}
+		await runPiPromptWithRetries(handle.session, prompt, {
+			signal: input.signal,
+			onEvent: emit,
+		});
 
 		const edited = await readFile(filePath, 'utf8');
 		if (!looksLikeHtml(edited)) {
 			throw new Error(
 				`Pi finished but \`${filename}\` does not look like markup. The file was not applied.`,
+			);
+		}
+		if (htmlEffectivelyUnchanged(input.html, edited)) {
+			throw new Error(
+				`Pi finished without editing \`${filename}\`. The model replied but did not use its edit tools to change the file — try a more specific instruction, or use a model that supports tool calling.`,
 			);
 		}
 		return { html: edited, sessionId: handle.id };
@@ -1167,14 +1290,10 @@ export async function editTemplateTreeWithPi(
 			].join('\n');
 
 		emit({ type: 'context', content: `## User prompt\n${treePrompt}` });
-		await handle.session.prompt(treePrompt);
-		await handle.session.agent.waitForIdle();
-
-		if (input.signal?.aborted) {
-			const err = new Error('Edit cancelled');
-			err.name = 'AbortError';
-			throw err;
-		}
+		await runPiPromptWithRetries(handle.session, treePrompt, {
+			signal: input.signal,
+			onEvent: emit,
+		});
 
 		const tree = await readPiEmailTree(emailDir);
 		const roots = tree.filter((c) => c.kind === 'root');

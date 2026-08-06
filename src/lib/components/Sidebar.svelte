@@ -61,7 +61,7 @@
 </script>
 
 <aside
-	class="flex h-screen w-64 shrink-0 flex-col border-r border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))]"
+	class="flex h-full w-64 shrink-0 flex-col border-r border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))]"
 >
 	<div class="border-b border-[hsl(var(--sidebar-border))] p-4">
 		<a href="/dashboard" class="flex items-center gap-2.5">

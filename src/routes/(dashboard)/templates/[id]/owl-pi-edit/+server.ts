@@ -1,9 +1,17 @@
 import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import { env } from '$lib/server/env';
-import { compileOwlDoc, mergeEditedHtmlIntoOwlDoc } from '$lib/email/owl/studio-server';
+import {
+	applyComponentPiEdit,
+	applySectionPiEdit,
+	compileOwlDoc,
+	extractComponentPiFragment,
+	extractSectionPiFragment,
+	mergeEditedHtmlIntoOwlDoc,
+	type ComponentPiScope,
+} from '$lib/email/owl/studio-server';
 import { parseDesignTokenMap } from '$lib/design/extractTokens';
-import { parseOwlDoc, serializeOwlDoc, type OwlDoc } from '$lib/email/owl/studio';
+import { parseOwlDoc, type OwlDoc } from '$lib/email/owl/studio';
 import { getDesignSystemBundle } from '$lib/server/service/design-system-service';
 import {
 	disposePiSession,
@@ -25,7 +33,17 @@ function designTokensForTeam(teamId: number): Record<string, string> {
 const OWL_PRESERVE_RULE =
 	'Preserve every data-owl-component and data-owl-role="section" marker on section root elements so the studio can split the email back into sections.';
 
-export const POST: RequestHandler = async ({ request, locals, params, url }) => {
+const OWL_ELEMENT_PRESERVE_RULE =
+	'Preserve the data-owl-id attribute on the root element you edit so the studio can patch it back into the template. Keep all other data-owl-* attributes on that element and its descendants.';
+
+const OWL_SECTION_PRESERVE_RULE =
+	'Preserve data-owl-component and data-owl-role="section" on the section root element. Preserve every data-owl-id on elements you keep so the studio can re-select them.';
+
+function parseScope(value: unknown): ComponentPiScope {
+	return value === 'section' ? 'section' : 'element';
+}
+
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const teamId = requireTeamId(locals.teamId);
 
 	if (!isPiConfigured()) {
@@ -40,6 +58,9 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 		name?: string;
 		subject?: string;
 		description?: string;
+		owlId?: string;
+		sectionId?: string;
+		scope?: string;
 	};
 	try {
 		body = (await request.json()) as typeof body;
@@ -58,11 +79,9 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 	const templateName = String(body.name ?? 'Email').trim() || 'Email';
 	const templateSubject = String(body.subject ?? '').trim();
 	const templateDescription = String(body.description ?? '').trim() || null;
-
-	const compiled = compileOwlDoc(doc, {
-		origin: url.origin,
-		tokens: designTokensForTeam(teamId),
-	});
+	const owlId = String(body.owlId ?? '').trim() || undefined;
+	const sectionId = String(body.sectionId ?? '').trim() || undefined;
+	const scope = parseScope(body.scope);
 
 	const encoder = new TextEncoder();
 	const stream = new ReadableStream<Uint8Array>({
@@ -72,6 +91,73 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 			};
 
 			try {
+				if (sectionId) {
+					const fragment = extractSectionPiFragment(doc, sectionId);
+					const result = await editHtmlWithPiStream({
+						teamId,
+						html: fragment.html,
+						instruction: `${instruction}\n\n${OWL_SECTION_PRESERVE_RULE}`,
+						mode: fragment.html.trim() ? 'edit' : 'create',
+						assetBaseUrl: env.HOST_URL.replace(/\/$/, ''),
+						filename: 'component.html',
+						context: {
+							kind: 'component',
+							name: fragment.name,
+							description: templateDescription,
+						},
+						sessionId,
+						keepSession,
+						signal: request.signal,
+						onEvent: (event) => send(event),
+					});
+
+					const merged = applySectionPiEdit(doc, sectionId, result.html);
+					send({
+						type: 'done',
+						message: 'Component edit applied.',
+						doc: merged,
+						sessionId: result.sessionId,
+					});
+					return;
+				}
+
+				if (owlId) {
+					const fragment = extractComponentPiFragment(doc, owlId, scope);
+					const preserveRule =
+						fragment.scope === 'section' ? OWL_SECTION_PRESERVE_RULE : OWL_ELEMENT_PRESERVE_RULE;
+					const result = await editHtmlWithPiStream({
+						teamId,
+						html: fragment.html,
+						instruction: `${instruction}\n\n${preserveRule}`,
+						mode: fragment.html.trim() ? 'edit' : 'create',
+						assetBaseUrl: env.HOST_URL.replace(/\/$/, ''),
+						filename: 'component.html',
+						context: {
+							kind: 'component',
+							name: fragment.name,
+							description: templateDescription,
+						},
+						sessionId,
+						keepSession,
+						signal: request.signal,
+						onEvent: (event) => send(event),
+					});
+
+					const merged = applyComponentPiEdit(doc, owlId, fragment.scope, result.html);
+					send({
+						type: 'done',
+						message: 'Component edit applied.',
+						doc: merged,
+						sessionId: result.sessionId,
+					});
+					return;
+				}
+
+				const compiled = compileOwlDoc(doc, {
+					origin: url.origin,
+					tokens: designTokensForTeam(teamId),
+				});
+
 				const result = await editHtmlWithPiStream({
 					teamId,
 					html: compiled.html,

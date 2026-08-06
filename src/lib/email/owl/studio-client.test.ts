@@ -21,6 +21,8 @@ import {
 	shellCanvasBackgroundColor,
 	shellCanvasCrumb,
 } from './studio-client';
+import { applySlotValues } from './slots';
+import { parseDocument, serialize } from './parser';
 import { starterByKey } from './starters';
 import { OWL, OWL_CLASS } from './format';
 
@@ -170,11 +172,13 @@ describe('studio-client: email container', () => {
 			slotValues: {},
 		});
 		expect(doc.shell).toMatch(/data-owl-id="w\d+"/);
-		const shellIds = [...doc.shell.matchAll(/data-owl-id="w(\d+)"/g)].map((m) => Number(m[1]));
-		const sectionIds = [
-			...doc.sections[0].html.matchAll(/data-owl-id="w(\d+)"/g),
-		].map((m) => Number(m[1]));
-		expect(Math.min(...sectionIds)).toBeGreaterThan(Math.max(...shellIds));
+		const shellIds = new Set([...doc.shell.matchAll(/data-owl-id="(w\d+)"/g)].map((m) => m[1]!));
+		const sectionIds = new Set(
+			[...doc.sections[0].html.matchAll(/data-owl-id="(w\d+)"/g)].map((m) => m[1]!),
+		);
+		expect(shellIds.size).toBeGreaterThan(0);
+		expect(sectionIds.size).toBeGreaterThan(0);
+		for (const id of shellIds) expect(sectionIds.has(id)).toBe(false);
 	});
 
 	it('remints shell ids when they collide with section ids', () => {
@@ -191,6 +195,23 @@ describe('studio-client: email container', () => {
 			doc.sections.flatMap((s) => [...s.html.matchAll(/data-owl-id="(w\d+)"/g)].map((m) => m[1]!)),
 		);
 		for (const id of shellIds) expect(sectionIds.has(id)).toBe(false);
+	});
+
+	it('remints duplicate section ids instead of preserving collisions', () => {
+		const frag = mintOwlIdsInFragment(starterByKey('heading')!.html);
+		const doc = mintOwlDoc({
+			owl: 'v1',
+			shell: starterByKey('base-layout')!.html,
+			sections: [
+				{ id: 's1', key: 'heading', label: 'A', html: frag },
+				{ id: 's2', key: 'heading', label: 'B', html: frag },
+			],
+			slotValues: {},
+		});
+		const allIds = doc.sections.flatMap((s) =>
+			[...s.html.matchAll(/data-owl-id="(w\d+)"/g)].map((m) => m[1]!),
+		);
+		expect(new Set(allIds).size).toBe(allIds.length);
 	});
 
 	it('shellCanvasCrumb points at the 620px email container', () => {
@@ -280,5 +301,64 @@ describe('studio-client: variant partner inspector', () => {
 		expect(next!.match(/<img/g)?.length).toBe(2);
 		const snap = extractInspector(next!, owlId);
 		expect(snap!.variantPartner).toBeDefined();
+	});
+});
+
+describe('studio-client: per-instance slot values', () => {
+	it('keys slot values by owlId so two instances diverge', () => {
+		const reserved = new Set<string>();
+		const a = mintOwlIdsInFragment(starterByKey('text')!.html, 0, reserved);
+		const b = mintOwlIdsInFragment(starterByKey('text')!.html, 0, new Set(reserved));
+		const aId = owlIdForSlot(a, 'text');
+		const bId = owlIdForSlot(b, 'text');
+		expect(aId).not.toBe(bId);
+
+		const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${a}${b}</body></html>`);
+		applySlotValues(doc, { [aId]: 'First instance copy' });
+		const html = serialize(doc);
+
+		expect(html).toContain('First instance copy');
+		// Second instance keeps its authored default, not the first instance's value.
+		expect(html).toContain('Write a short, benefit-focused paragraph here.');
+		expect(html.match(/First instance copy/g)?.length).toBe(1);
+	});
+
+	it('falls back to slot-name values for legacy envelopes', () => {
+		const frag = starterByKey('text')!.html;
+		const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${frag}</body></html>`);
+		applySlotValues(doc, { text: 'Legacy default' });
+		expect(serialize(doc)).toContain('Legacy default');
+	});
+});
+
+describe('studio-client: component-scoped rawHtml patch', () => {
+	it('replaces only the selected element and preserves data-owl-id', () => {
+		const html = mintOwlIdsInFragment(starterByKey('cta-button')!.html);
+		const owlId = owlIdForSlot(html, 'cta_text');
+		const snap = extractInspector(html, owlId)!;
+		expect(snap.rawHtml).toContain(owlId);
+
+		const edited = `<a href="https://example.com/new" style="background:#111;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;" data-owl-slot="cta_text" data-owl-slot-type="text">Shop now</a>`;
+		const next = applyInspectorPatch(html, owlId, { rawHtml: edited });
+		expect(next).toBeTruthy();
+		expect(next!).toContain(`data-owl-id="${owlId}"`);
+		expect(next!).toContain('Shop now');
+		expect(next!).toContain('border-radius:8px');
+		expect(next!).toContain('data-owl-component="cta-button"');
+		expect(next!).toContain('data-owl-slot="cta_url"');
+
+		const again = extractInspector(next!, owlId);
+		expect(again).not.toBeNull();
+		expect(again!.textContent).toContain('Shop now');
+	});
+
+	it('re-attaches data-owl-id when the replacement omits it', () => {
+		const html = mintOwlIdsInFragment(starterByKey('cta-button')!.html);
+		const owlId = owlIdForSlot(html, 'cta_text');
+		const next = applyInspectorPatch(html, owlId, {
+			rawHtml: `<span data-owl-slot="cta_text" data-owl-slot-type="text">Bare</span>`,
+		});
+		expect(next).toContain(`data-owl-id="${owlId}"`);
+		expect(extractInspector(next!, owlId)?.textContent).toContain('Bare');
 	});
 });

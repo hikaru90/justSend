@@ -12,7 +12,9 @@ import {
 	formatDesignAssetsForPrompt,
 	getPiModelId,
 	getPiSession,
+	htmlEffectivelyUnchanged,
 	isPiConfigured,
+	isPiRateLimitError,
 	listPiSessions,
 	looksLikeHtml,
 	mapAgentSessionEventToPiEdit,
@@ -25,6 +27,25 @@ import {
 	slugifyPiComponentFilename,
 	spawnPiSession,
 } from './pi-service';
+
+describe('isPiRateLimitError', () => {
+	it('detects OpenRouter / upstream 429 payloads', () => {
+		expect(
+			isPiRateLimitError(
+				'429: {"message":"Provider returned error","code":429,"metadata":{"raw":"qwen/qwen3.7-flash is temporarily rate-limited upstream"}}',
+			),
+		).toBe(true);
+		expect(isPiRateLimitError('insufficient_quota from upstream_provider_shared_pool')).toBe(
+			true,
+		);
+		expect(isPiRateLimitError('Rate limited by provider')).toBe(true);
+	});
+
+	it('ignores unrelated agent errors', () => {
+		expect(isPiRateLimitError('Model refused the request')).toBe(false);
+		expect(isPiRateLimitError('Cannot find module openai-completions.js')).toBe(false);
+	});
+});
 
 describe('resolvePiConfigured', () => {
 	it('returns false when explicitly disabled', () => {
@@ -79,6 +100,20 @@ describe('looksLikeHtml', () => {
 	it('rejects plain text', () => {
 		expect(looksLikeHtml('ts find: email templates OR header component in project')).toBe(false);
 		expect(looksLikeHtml('just some notes')).toBe(false);
+	});
+});
+
+describe('htmlEffectivelyUnchanged', () => {
+	it('flags whitespace-only differences as unchanged', () => {
+		const before = '<a href="x">\n  <span>Go</span>\n</a>';
+		const after = '<a href="x"> <span>Go</span> </a>';
+		expect(htmlEffectivelyUnchanged(before, after)).toBe(true);
+	});
+
+	it('detects real content changes', () => {
+		const before = '<a href="x" style="border-radius:6px">Go</a>';
+		const after = '<a href="x" style="border-radius:0">Go</a>';
+		expect(htmlEffectivelyUnchanged(before, after)).toBe(false);
 	});
 });
 

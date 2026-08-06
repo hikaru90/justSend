@@ -1,7 +1,8 @@
 /**
  * Slots: declared content targets (`data-owl-slot`). Extraction drives the
  * Content panel and AI scaffold; `applySlotValues` fills values into the DOM
- * at compose time (deterministic).
+ * at compose time (deterministic). Text slots accept Markdown and are rendered
+ * to sanitized HTML (preheader stays plain text).
  *
  * Light/dark content pairs (`.owl-light`/`.owl-dark` or legacy
  * `.logo-light`/`.logo-dark`) sharing `data-owl-variant-group` sync image
@@ -9,9 +10,10 @@
  * the dark partner independently.
  */
 import { normalizeDesignAssetSrc } from '$lib/design-asset-urls';
-import { walkElements, parseFragment, parseDocument, type Document, type Element } from './parser';
+import { walkElements, parseFragment, parseDocument, importNodes, type Document, type Element } from './parser';
 import { normalizeDocument } from './normalize';
 import { OWL, OWL_CLASS, OWL_SLOT_TYPES, type OwlSlot, type OwlSlotType, type OwlSlotValues } from './format';
+import { renderOwlMarkdown, type OwlMarkdownOptions } from './markdown';
 import { mergeStyleDecls, removeStyleDecls } from './style';
 
 const LIGHT_CLASSES = new Set([OWL_CLASS.light, OWL_CLASS.logoLight]);
@@ -89,20 +91,39 @@ export function findVariantPartner(el: Element, prefer: 'light' | 'dark'): Eleme
 }
 
 /**
+ * Resolve a slot value for an element. Values are keyed per-instance by the
+ * element's `data-owl-id` (so two instances of the same component are
+ * independent); the slot name is a backward-compatible fallback used by
+ * legacy envelopes, migration, and AI generation.
+ */
+function slotValueFor(el: Element, name: string, values: OwlSlotValues): unknown {
+	const id = el.getAttribute(OWL.id);
+	if (id && values[id] !== undefined) return values[id];
+	return values[name];
+}
+
+/**
  * When filling an image slot on a light-variant element, sync `src` onto the
- * dark partner unless `<slot>_dark` is present in values (handled separately).
+ * dark partner unless a per-instance (`data-owl-id`) or legacy `<slot>_dark`
+ * override is present in values (handled separately).
  */
 function setVariantPair(el: Element, src: string, values: OwlSlotValues): void {
 	if (!isLightVariant(el)) return;
-	const slotName = el.getAttribute(OWL.slot);
-	if (slotName && values[`${slotName}_dark`] !== undefined) return;
 	const partner = findVariantPartner(el, 'dark');
 	if (!partner) return;
+	const slotName = el.getAttribute(OWL.slot);
+	const partnerId = partner.getAttribute(OWL.id);
+	if (slotName && partnerId && values[partnerId] !== undefined) return;
+	if (slotName && values[`${slotName}_dark`] !== undefined) return;
 	partner.setAttribute('src', src);
 }
 
-function setText(el: Element, value: string): void {
-	// Preserve the first text node (e.g. preheader filler lives after it).
+function isPreheaderEl(el: Element): boolean {
+	return el.hasAttribute(OWL.preheader) || el.getAttribute(OWL.slot) === 'preheader';
+}
+
+/** Plain text only — keeps preheader filler text nodes intact. */
+function setPlainText(el: Element, value: string): void {
 	let target: Node | null = null;
 	for (const child of el.childNodes ?? []) {
 		if (child.nodeType === 3) {
@@ -117,39 +138,73 @@ function setText(el: Element, value: string): void {
 	}
 }
 
-/** Apply `<slot>_dark` values onto dark partners of matching light slots. */
-function applyDarkSlotOverrides(doc: Document, values: OwlSlotValues): void {
+export type ApplySlotValuesOptions = OwlMarkdownOptions;
+
+/**
+ * Fill a text slot: markdown → sanitized HTML (bold, italic, links, lists).
+ * Preheader stays plain text for inbox preview clients.
+ */
+function setText(el: Element, value: string, options?: ApplySlotValuesOptions): void {
+	if (isPreheaderEl(el)) {
+		setPlainText(el, value);
+		return;
+	}
+
+	const html = renderOwlMarkdown(value, el.tagName, options);
+	const doc = el.ownerDocument as Document | null;
+	if (!doc) {
+		el.textContent = value;
+		return;
+	}
+
+	while (el.firstChild) el.removeChild(el.firstChild);
+	if (!html) return;
+	importNodes(doc, parseFragment(html), el);
+}
+
+/** Apply per-instance / `<slot>_dark` values onto dark partners of light slots. */
+function applyDarkSlotOverrides(
+	doc: Document,
+	values: OwlSlotValues,
+	options?: ApplySlotValuesOptions,
+): void {
 	for (const el of walkElements(doc)) {
 		const name = el.getAttribute(OWL.slot);
 		if (!name) continue;
-		const darkKey = `${name}_dark`;
-		const darkValue = values[darkKey];
-		if (darkValue === undefined || darkValue === null) continue;
 		if (!isLightVariant(el)) continue;
 		const partner = findVariantPartner(el, 'dark');
 		if (!partner) continue;
+		const partnerId = partner.getAttribute(OWL.id);
+		const darkValue =
+			(partnerId && values[partnerId] !== undefined ? values[partnerId] : undefined) ??
+			values[`${name}_dark`];
+		if (darkValue === undefined || darkValue === null) continue;
 		const type = slotTypeOf(el);
 		if (type === 'image') {
 			partner.setAttribute('src', normalizeDesignAssetSrc(String(darkValue)));
 		} else if (type === 'text') {
-			setText(partner, String(darkValue));
+			setText(partner, String(darkValue), options);
 		} else if (type === 'url') {
 			partner.setAttribute('href', String(darkValue));
 		}
 	}
 }
 
-export function applySlotValues(doc: Document, values: OwlSlotValues): void {
+export function applySlotValues(
+	doc: Document,
+	values: OwlSlotValues,
+	options?: ApplySlotValuesOptions,
+): void {
 	for (const el of walkElements(doc)) {
 		const name = el.getAttribute(OWL.slot);
 		if (!name) continue;
-		const value = values[name];
+		const value = slotValueFor(el, name, values);
 		if (value === undefined || value === null) continue;
 		const type = slotTypeOf(el);
 
 		switch (type) {
 			case 'text': {
-				setText(el, String(value));
+				setText(el, String(value), options);
 				break;
 			}
 			case 'url': {
@@ -188,7 +243,7 @@ export function applySlotValues(doc: Document, values: OwlSlotValues): void {
 			}
 		}
 	}
-	applyDarkSlotOverrides(doc, values);
+	applyDarkSlotOverrides(doc, values, options);
 }
 
 /** Analyze a component fragment (no <html>/<head>/<body> wrapper needed). */

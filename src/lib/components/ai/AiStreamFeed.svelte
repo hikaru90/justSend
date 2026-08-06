@@ -7,6 +7,8 @@
 		status = '',
 		error = null,
 		emptyLabel = 'No messages yet.',
+		/** When false, feed grows with content (parent scrolls) — avoids nested scroll regions. */
+		scrollBody = true,
 		class: className = '',
 	}: {
 		lines?: AiFeedLine[];
@@ -14,21 +16,27 @@
 		status?: string;
 		error?: string | null;
 		emptyLabel?: string;
+		scrollBody?: boolean;
 		class?: string;
 	} = $props();
 </script>
 
 <div
-	class="flex min-h-0 flex-col overflow-hidden rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.35)] {className}"
+	class="flex min-h-0 flex-col rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted)/0.35)] {scrollBody
+		? 'overflow-hidden'
+		: ''} {className}"
 >
 	<div
 		{@attach (node) => {
 			void lines;
+			if (!scrollBody) return;
 			requestAnimationFrame(() => {
 				node.scrollTop = node.scrollHeight;
 			});
 		}}
-		class="min-h-48 max-h-80 flex-1 space-y-1.5 overflow-y-auto px-3 py-2 font-mono text-xs"
+		class="space-y-1.5 px-3 py-2 font-mono text-xs {scrollBody
+			? 'min-h-48 max-h-80 flex-1 overflow-y-auto'
+			: ''}"
 		aria-live="polite"
 	>
 		{#if lines.length === 0 && !busy}

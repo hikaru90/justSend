@@ -188,21 +188,39 @@ function wrapFragment(html: string): { doc: Document; container: HTMLElement } |
 	return { doc, container };
 }
 
-/** Mint missing `data-owl-id` values in a section fragment (document order). */
-export function mintOwlIdsInFragment(html: string, startCounter = 0): string {
+/**
+ * Mint `data-owl-id` values in a section fragment (document order).
+ * Missing ids are assigned; ids already in `reserved` are reminted so sections
+ * never share ids (otherwise preview/inspector `querySelector` hits the first match).
+ * Returns the original string when nothing changes (stable across recompiles).
+ */
+export function mintOwlIdsInFragment(
+	html: string,
+	startCounter = 0,
+	reserved: Set<string> = new Set(),
+): string {
 	const wrapped = wrapFragment(html);
 	if (!wrapped) return html;
 	const { container } = wrapped;
 	let counter = startCounter;
+	for (const id of reserved) counter = Math.max(counter, Number(id.slice(1)) || 0);
+	let changed = false;
 	const walk = (el: Element) => {
-		if (!el.getAttribute(OWL.id)) {
+		const id = el.getAttribute(OWL.id);
+		if (!id || reserved.has(id)) {
 			counter += 1;
-			el.setAttribute(OWL.id, `w${counter}`);
+			const next = `w${counter}`;
+			el.setAttribute(OWL.id, next);
+			reserved.add(next);
+			changed = true;
+		} else {
+			reserved.add(id);
+			counter = Math.max(counter, Number(id.slice(1)) || 0);
 		}
 		for (const child of Array.from(el.children)) walk(child);
 	};
 	for (const child of Array.from(container.children)) walk(child);
-	return container.innerHTML;
+	return changed ? container.innerHTML : html;
 }
 
 /** Count existing `wN` ids in a fragment so the next mint continues the sequence. */
@@ -263,6 +281,7 @@ function remintConflictingShellIds(shellHtml: string, reserved: Set<string>): st
 	for (const m of shellHtml.matchAll(new RegExp(`${OWL.id}="(w\\d+)"`, 'g'))) {
 		counter = Math.max(counter, Number(m[1]) || 0);
 	}
+	let changed = false;
 	for (const el of walkBodyElements(doc.body)) {
 		const id = el.getAttribute(OWL.id);
 		if (!id || reserved.has(id)) {
@@ -270,11 +289,12 @@ function remintConflictingShellIds(shellHtml: string, reserved: Set<string>): st
 			const next = `w${counter}`;
 			el.setAttribute(OWL.id, next);
 			reserved.add(next);
+			changed = true;
 		} else {
 			reserved.add(id);
 		}
 	}
-	return serializeShellDocument(doc, shellHtml);
+	return changed ? serializeShellDocument(doc, shellHtml) : shellHtml;
 }
 
 /** Mint missing `data-owl-id` values in a full shell document (body tree). */
@@ -287,16 +307,13 @@ export function mintOwlIdsInShell(shellHtml: string, startCounter = 0): string {
 
 export function mintOwlDoc(doc: OwlDoc): OwlDoc {
 	const reserved = new Set<string>();
-	for (const section of doc.sections) {
-		for (const id of collectOwlIds(section.html)) reserved.add(id);
-	}
-	const shell = remintConflictingShellIds(doc.shell, reserved);
-	let counter = maxOwlIdCounter(shell);
+	let counter = 0;
 	const sections = doc.sections.map((s) => {
-		const html = mintOwlIdsInFragment(s.html, counter);
+		const html = mintOwlIdsInFragment(s.html, counter, reserved);
 		counter = Math.max(counter, maxOwlIdCounter(html));
 		return { ...s, html };
 	});
+	const shell = remintConflictingShellIds(doc.shell, reserved);
 	return { ...doc, shell, sections };
 }
 
