@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
+import { annotateOwlSectionRoot, isOwlSectionHtml, prepareOwlSectionFragment } from '$lib/email/owl/fragment';
+import { slotsFromFragment } from '$lib/email/owl/slots';
 import { cuid, nowIso } from '$lib/utils';
 import { db } from '../db';
 import { designAssets, designComponents, designSystems, type DesignAssetKind } from '../db/schema';
@@ -378,6 +380,86 @@ export function upsertComponent(teamId: number, input: UpsertComponentInput): De
 		})
 		.returning()
 		.get();
+}
+
+export type UpsertOwlSectionComponentInput = {
+	id?: string;
+	name: string;
+	description?: string | null;
+	html: string;
+	/** Optional stable library key (defaults to slugified name). */
+	componentKey?: string | null;
+};
+
+function slugifyOwlComponentKey(name: string): string {
+	const slug = name
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+	return slug || 'section';
+}
+
+/** Save or update a reusable Owl HTML section in the design library. */
+export function upsertOwlSectionComponent(
+	teamId: number,
+	input: UpsertOwlSectionComponentInput,
+): DesignComponent {
+	const name = input.name.trim();
+	if (!name) throw new Error('Component name is required');
+
+	const prepared = prepareOwlSectionFragment(input.html);
+	if (!prepared) throw new Error('Section HTML is required');
+	if (!isOwlSectionHtml(prepared)) {
+		throw new Error('Section must use Owl annotations (data-owl-slot, data-owl-component, …)');
+	}
+
+	const componentKey = (input.componentKey?.trim() || slugifyOwlComponentKey(name)).slice(0, 80);
+	const html = annotateOwlSectionRoot(prepared, componentKey);
+	const slotNames = slotsFromFragment(html).map((s) => s.name);
+
+	if (input.id) {
+		const existing = getComponent(input.id, teamId);
+		return db
+			.update(designComponents)
+			.set({
+				name,
+				kind: 'custom',
+				role: 'section',
+				description: input.description ?? null,
+				props: JSON.stringify(slotNames),
+				html,
+				document: '',
+				slots: '[]',
+				updatedAt: nowIso(),
+			})
+			.where(eq(designComponents.id, existing.id))
+			.returning()
+			.get();
+	}
+
+	return db
+		.insert(designComponents)
+		.values({
+			id: cuid(),
+			teamId,
+			name,
+			kind: 'custom',
+			role: 'section',
+			description: input.description ?? null,
+			props: JSON.stringify(slotNames),
+			starterKey: null,
+			html,
+			document: '',
+			slots: '[]',
+		})
+		.returning()
+		.get();
+}
+
+/** Design-library sections with Owl HTML suitable for studio / compose / Pi. */
+export function listOwlSectionComponents(teamId: number): DesignComponent[] {
+	return listComponents(teamId).filter((c) => c.html?.trim() && isOwlSectionHtml(c.html));
 }
 
 export function deleteComponent(componentId: string, teamId: number): DesignComponent {

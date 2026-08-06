@@ -393,7 +393,7 @@ table{border-collapse:collapse;}
 .logo-dark{display:none!important;max-height:0!important;overflow:hidden!important;}
 @media (prefers-color-scheme:dark){
 .logo-light{display:none!important;max-height:0!important;overflow:hidden!important;}
-.logo-dark{display:inline-block!important;max-height:none!important;overflow:visible!important;}
+.logo-dark{display:block!important;max-height:none!important;overflow:visible!important;}
 body,.owl-email-backdrop,td.owl-email-pad{background-color:${escapeAttr(darkBackdrop)}!important;}
 .owl-email-canvas{background-color:${escapeAttr(darkCanvas)}!important;color:${escapeAttr(darkText)}!important;}
 ${blockDarkCss}

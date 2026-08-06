@@ -2,6 +2,12 @@
 
 Rules distilled from `email-example.html` (Cursor / Customer.io marketing email). Use these when authoring or generating HTML emails.
 
+> **Sync note:** Authoring now happens in **Owl HTML** (annotated email HTML).
+> See [Owl HTML v1 — Format Specification](./owl-html.md) for the format,
+> annotations, and compiler contract. The rules below are the visual/typographic
+> guidelines; the `.owl` module encodes the structural ones (preheader filler,
+> banned tags, unsubscribe, dark mode, mobile stacking).
+
 Runtime copy for AI prompts: `src/lib/server/email-formatting-rules.ts` (keep in sync with this file).
 
 ## Structure

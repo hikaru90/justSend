@@ -604,6 +604,8 @@ function collectTextDelta(event: AgentSessionEvent, sink: { text: string }) {
 /** Public progress events forwarded to the templates/[id] Pi edit SSE client. */
 export type PiEditStreamEvent =
 	| { type: 'step'; message: string }
+	| { type: 'system'; content: string }
+	| { type: 'context'; content: string }
 	| { type: 'thinking'; delta: string }
 	| { type: 'text'; delta: string }
 	| { type: 'tool_start'; toolName: string; detail?: string }
@@ -905,13 +907,23 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 			'utf8',
 		);
 
-		emit({
-			type: 'step',
-			message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components (${mode}).`,
-		});
-		emit({ type: 'step', message: 'Starting Pi…' });
+	emit({
+		type: 'step',
+		message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components (${mode}).`,
+	});
+	emit({ type: 'system', content: HTML_EDIT_SYSTEM_PROMPT });
+	const agentsMd = buildPiAgentsMd({ filename, metaLines, designFiles });
+	emit({
+		type: 'context',
+		content: [
+			`Work directory: ${designFiles.map((f) => f.relativePath).join(', ') || '(empty)'}`,
+			'',
+			agentsMd,
+		].join('\n'),
+	});
+	emit({ type: 'step', message: 'Starting Pi…' });
 
-		handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
+	handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
 		const entry = registry.get(handle.id);
 		if (entry) {
 			entry.workDir = workDir;
@@ -959,6 +971,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 					'When done, the updated HTML must be saved in that file.',
 				].join('\n');
 
+		emit({ type: 'context', content: `## User prompt\n${prompt}` });
 		await handle.session.prompt(prompt);
 		await handle.session.agent.waitForIdle();
 
@@ -1111,6 +1124,16 @@ export async function editTemplateTreeWithPi(
 		type: 'step',
 		message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components.`,
 	});
+	emit({ type: 'system', content: EMAIL_TREE_EDIT_SYSTEM_PROMPT });
+	const agentsMd = buildPiEmailTreeAgentsMd({ fileNames: stagedFiles, metaLines, designFiles });
+	emit({
+		type: 'context',
+		content: [
+			`Work directory: email/, ${designFiles.map((f) => f.relativePath).join(', ') || '(empty)'}`,
+			'',
+			agentsMd,
+		].join('\n'),
+	});
 	emit({ type: 'step', message: 'Starting Pi…' });
 
 	const handle = await spawnPiSession({ purpose: 'email-tree-edit', cwd: workDir });
@@ -1131,8 +1154,7 @@ export async function editTemplateTreeWithPi(
 			throw err;
 		}
 
-		await handle.session.prompt(
-			[
+		const treePrompt = [
 				'Edit the Svelte email under `email/` in the current working directory.',
 				`Email directory: ${emailDir}`,
 				'',
@@ -1142,8 +1164,10 @@ export async function editTemplateTreeWithPi(
 				'Use your read/edit/write/ls tools. You may change multiple files, add new section `.svelte` files, and update Root imports.',
 				'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
 				'When done, the updated tree must live under `email/` with exactly one Root.svelte.',
-			].join('\n'),
-		);
+			].join('\n');
+
+		emit({ type: 'context', content: `## User prompt\n${treePrompt}` });
+		await handle.session.prompt(treePrompt);
 		await handle.session.agent.waitForIdle();
 
 		if (input.signal?.aborted) {
@@ -1270,9 +1294,11 @@ export async function editComponentTreeWithPi(
 		type: 'step',
 		message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components.`,
 	});
-	emit({ type: 'step', message: `Calling ${openRouterModel()} (JSON mode)…` });
+	emit({ type: 'system', content: COMPONENT_TREE_SYSTEM });
 
 	const userPrompt = buildDesignWorkspaceUserPrompt(workspace, input.instruction);
+	emit({ type: 'context', content: userPrompt });
+	emit({ type: 'step', message: `Calling ${openRouterModel()} (JSON mode)…` });
 
 	const raw = await openRouterChat(
 		[

@@ -1,27 +1,32 @@
 import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import {
-	generateScaffold,
+	generateOwlScaffold,
+	type OwlAiResult,
 	type GenerateProgressEvent,
-} from '$lib/server/service/ai-template-service';
+} from '$lib/server/service/ai-owl-service';
+import { parseOwlDoc } from '$lib/email/owl/studio';
 import type { RequestHandler } from './$types';
 
 function sse(data: Record<string, unknown>): string {
 	return `data: ${JSON.stringify(data)}\n\n`;
 }
 
-export const POST: RequestHandler = async ({ request, locals, params, url }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const teamId = requireTeamId(locals.teamId);
-	const domainId = locals.domainId ?? undefined;
 
-	let body: { prompt?: string };
+	let body: { doc?: string; prompt?: string; sectionId?: string };
 	try {
-		body = (await request.json()) as { prompt?: string };
+		body = (await request.json()) as { doc?: string; prompt?: string; sectionId?: string };
 	} catch {
 		error(400, 'Invalid JSON body');
 	}
 
+	const doc = parseOwlDoc(body.doc);
+	if (!doc) error(400, 'Invalid owl document');
+
 	const prompt = String(body.prompt ?? '');
+	const sectionId = String(body.sectionId ?? '') || undefined;
 	const encoder = new TextEncoder();
 
 	const stream = new ReadableStream<Uint8Array>({
@@ -31,16 +36,21 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 			};
 
 			try {
-				await generateScaffold({
+				const result: OwlAiResult = await generateOwlScaffold({
 					teamId,
-					domainId,
-					templateId: params.id,
+					doc,
 					prompt,
+					sectionId,
 					assetBaseUrl: url.origin,
 					signal: request.signal,
 					onProgress: (event: GenerateProgressEvent) => {
 						send(event);
 					},
+				});
+				send({
+					stage: 'done',
+					message: 'Copy ready.',
+					content: result,
 				});
 			} catch (e) {
 				if (e instanceof Error && e.name === 'AbortError') {
@@ -48,7 +58,7 @@ export const POST: RequestHandler = async ({ request, locals, params, url }) => 
 				} else {
 					send({
 						stage: 'error',
-						message: e instanceof Error ? e.message : 'Scaffold failed',
+						message: e instanceof Error ? e.message : 'Generation failed',
 					});
 				}
 			} finally {

@@ -540,6 +540,7 @@
 		onEvent: (event: {
 			type: string;
 			message?: string;
+			content?: string;
 			delta?: string;
 			tool?: string;
 			toolCallId?: string;
@@ -643,6 +644,9 @@
 				args.onEvent({
 					type,
 					message: event.message ?? event.detail,
+					content: typeof (event as { content?: string }).content === 'string'
+						? (event as { content: string }).content
+						: undefined,
 					delta: event.delta,
 					tool: event.tool ?? event.toolName,
 					toolCallId: event.toolCallId,

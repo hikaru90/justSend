@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
 	addHexColor,
 	applyPreviewColorScheme,
+	buildDesignColorOptions,
 	extractDesignTokens,
 	hexForColorInput,
+	orderDesignColorOptions,
+	parseDesignTokenMap,
 	pickEmailLogos,
 	removeHexColor,
 	replaceHexColor,
@@ -16,6 +19,35 @@ describe('extractDesignTokens', () => {
 		const md = '# Brand\nPrimary: #112233\nSecondary: #abc\nPrimary again: #112233';
 		const tokens = extractDesignTokens(md);
 		expect(tokens.colors).toEqual(['#112233', '#aabbcc']);
+	});
+
+	it('extracts named token map for compile', () => {
+		const md = '## Colors\n- Primary: `#112233`\n- Accent: #ff0000';
+		expect(parseDesignTokenMap(md)).toEqual({
+			primary: '#112233',
+			accent: '#ff0000',
+		});
+	});
+
+	it('buildDesignColorOptions merges named tokens and swatches', () => {
+		const md = '## Colors\n- Primary: `#112233`\n- Accent: #ff0000';
+		const tokens = parseDesignTokenMap(md);
+		const colors = extractDesignTokens(md).colors;
+		expect(buildDesignColorOptions(colors, tokens)).toEqual([
+			{ label: 'primary', value: '#112233' },
+			{ label: 'accent', value: '#ff0000' },
+		]);
+	});
+
+	it('orderDesignColorOptions puts recommended hex first', () => {
+		const options = [
+			{ label: 'primary', value: '#112233' },
+			{ label: 'accent', value: '#ff0000' },
+		];
+		expect(orderDesignColorOptions(options, '#ff0000')).toEqual([
+			{ label: 'accent', value: '#ff0000' },
+			{ label: 'primary', value: '#112233' },
+		]);
 	});
 
 	it('extracts font families from typography section', () => {

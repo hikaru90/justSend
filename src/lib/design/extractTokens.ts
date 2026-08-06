@@ -118,6 +118,85 @@ export function extractDesignTokens(md: string): DesignTokens {
 	return { colors, fontFamilies };
 }
 
+/** Normalize a design.md label to an owl token name (e.g. "Primary CTA" → primary_cta). */
+function normalizeTokenName(label: string): string {
+	return label
+		.trim()
+		.replace(/\*\*/g, '')
+		.replace(/[`'"]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '_')
+		.replace(/^_|_$/g, '');
+}
+
+const DESIGN_TOKEN_LINE_RE =
+	/(?:^|[\n\r])\s*(?:[-*]\s*)?(?:\*\*)?([A-Za-z][A-Za-z0-9\s/_-]{0,48})(?:\*\*)?\s*[:=]\s*(?:`([^`]+)`|"([^"]+)"|'([^']+)'|(#[0-9a-fA-F]{3,8}))/gm;
+
+/**
+ * Parse named design tokens from design.md for the Owl compiler
+ * (`data-owl-token="color:primary"` → `{ primary: '#0a2540' }`).
+ */
+export function parseDesignTokenMap(md: string): Record<string, string> {
+	const tokens: Record<string, string> = {};
+	for (const match of md.matchAll(DESIGN_TOKEN_LINE_RE)) {
+		const name = normalizeTokenName(match[1]);
+		let value = (match[2] ?? match[3] ?? match[4] ?? match[5] ?? '').trim();
+		if (!name || !value) continue;
+		if (/^#?[0-9a-fA-F]{3,8}$/.test(value)) {
+			if (!value.startsWith('#')) value = `#${value}`;
+			tokens[name] = normalizeHex(value);
+		} else if (/font|heading|body|typeface|typography/i.test(name)) {
+			tokens[name] = value;
+		}
+	}
+	return tokens;
+}
+
+export type DesignColorOption = { label: string; value: string };
+
+/** Named tokens + raw swatches for comboboxes (design.md order, deduped by hex). */
+export function buildDesignColorOptions(
+	designColors: string[],
+	designTokens: Record<string, string> = {},
+): DesignColorOption[] {
+	const seen = new Set<string>();
+	const out: DesignColorOption[] = [];
+
+	for (const [name, raw] of Object.entries(designTokens)) {
+		const value = raw.trim();
+		if (!/^#?[0-9a-fA-F]{3,8}$/.test(value)) continue;
+		const hex = normalizeHex(value.startsWith('#') ? value : `#${value}`);
+		if (seen.has(hex)) continue;
+		seen.add(hex);
+		out.push({ label: name.replace(/_/g, ' '), value: hex });
+	}
+
+	for (const raw of designColors) {
+		const hex = normalizeHex(raw);
+		if (seen.has(hex)) continue;
+		seen.add(hex);
+		out.push({ label: hex, value: hex });
+	}
+
+	return out;
+}
+
+/** Put the recommended design-system color first for combobox + swatch pre-selection. */
+export function orderDesignColorOptions(
+	options: DesignColorOption[],
+	recommended: string,
+): DesignColorOption[] {
+	if (!recommended.trim()) return options;
+	const norm = recommended.trim().toLowerCase();
+	const idx = options.findIndex((o) => o.value.toLowerCase() === norm);
+	if (idx <= 0) {
+		if (idx === 0) return options;
+		const label = options.find((o) => o.label.toLowerCase() === norm)?.label ?? recommended;
+		return [{ label, value: recommended }, ...options];
+	}
+	return [options[idx]!, ...options.slice(0, idx), ...options.slice(idx + 1)];
+}
+
 const COLORS_HEADING_RE = /^#{1,4}\s*.*colors?\b/i;
 
 function escapeRegExp(value: string): string {
@@ -292,10 +371,10 @@ export function applyPreviewColorScheme(html: string, scheme: 'light' | 'dark'):
 	if (scheme === 'dark') {
 		result = simulateClientAutoDarken(result);
 		result +=
-			'<style data-owlery-preview-scheme>:root{color-scheme:dark!important}.logo-light{display:none!important}.logo-dark{display:inline-block!important}</style>';
+			'<style data-owlery-preview-scheme>:root{color-scheme:dark!important}.logo-light{display:none!important}.logo-dark{display:block!important}</style>';
 	} else {
 		result +=
-			'<style data-owlery-preview-scheme>:root{color-scheme:light!important}.logo-dark{display:none!important}.logo-light{display:inline-block!important}</style>';
+			'<style data-owlery-preview-scheme>:root{color-scheme:light!important}.logo-dark{display:none!important}.logo-light{display:block!important}</style>';
 	}
 
 	return result;

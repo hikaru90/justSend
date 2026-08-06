@@ -439,6 +439,7 @@ export const templates = sqliteTable(
 		domainId: integer('domain_id').references(() => domains.id, { onDelete: 'cascade' }),
 		subject: text('subject').notNull(),
 		html: text('html'),
+		/** OwlDoc JSON envelope ("owl":"v1") — the editable source of truth. */
 		content: text('content'),
 		prompt: text('prompt'),
 		designSnapshot: text('design_snapshot'),

@@ -18,7 +18,7 @@
 
 	type AiFeedLine = {
 		id: number;
-		kind: 'user' | 'step' | 'thinking' | 'text' | 'tool' | 'error';
+		kind: 'user' | 'step' | 'system' | 'context' | 'thinking' | 'text' | 'tool' | 'error';
 		label: string;
 		detail?: string;
 		pending?: boolean;
@@ -28,6 +28,7 @@
 	type AiEditEvent = {
 		type: string;
 		message?: string;
+		content?: string;
 		delta?: string;
 		tool?: string;
 		toolCallId?: string;
@@ -168,6 +169,16 @@
 				if (event.message) {
 					aiStatus = event.message;
 					appendAiFeed({ kind: 'step', label: event.message });
+				}
+				break;
+			case 'system':
+				if (event.content) {
+					appendAiFeed({ kind: 'system', label: event.content });
+				}
+				break;
+			case 'context':
+				if (event.content) {
+					appendAiFeed({ kind: 'context', label: event.content });
 				}
 				break;
 			case 'thinking':
@@ -531,9 +542,19 @@
 									<p class="font-sans whitespace-pre-wrap text-[hsl(var(--foreground))]">
 										<span class="opacity-70">you </span>{line.label}
 									</p>
-								{:else if line.kind === 'step'}
-									<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
-								{:else if line.kind === 'thinking'}
+							{:else if line.kind === 'step'}
+								<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
+							{:else if line.kind === 'system'}
+								<details class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1">
+									<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]">System prompt</summary>
+									<pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
+								</details>
+							{:else if line.kind === 'context'}
+								<details class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1">
+									<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]">Context</summary>
+									<pre class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
+								</details>
+							{:else if line.kind === 'thinking'}
 									<p class="whitespace-pre-wrap text-[hsl(var(--muted-foreground))] italic">
 										<span class="not-italic opacity-70">thinking </span>{line.label}
 									</p>

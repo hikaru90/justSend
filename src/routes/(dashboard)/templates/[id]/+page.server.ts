@@ -1,112 +1,28 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
-import { generateScaffold } from '$lib/server/service/ai-template-service';
 import {
 	addAsset,
 	getAsset,
 	getComponent,
 	getDesignSystemBundle,
+	listOwlSectionComponents,
 	parseComponentProps,
 	parseComponentSlots,
+	upsertOwlSectionComponent,
 } from '$lib/server/service/design-system-service';
 import { getDomain } from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
 import {
-	parseElementConfig,
-	serializeElementConfig,
-	type TemplateElementConfig,
-} from '$lib/template-element-config';
-import {
-	createElement,
-	deleteElement,
-	listElements,
-	reorderElements,
-	updateElement,
-} from '$lib/server/service/template-element-service';
-import {
-	composeEmailSections,
-	parseScaffoldContent,
-	serializeScaffoldContent,
-} from '$lib/server/service/template-compose-service';
+	compileOwlDoc,
+	migrateToOwlDoc,
+} from '$lib/email/owl/studio-server';
+import { parseOwlDoc, serializeOwlDoc, parseTemplateStudioSnapshot, serializeTemplateStudioSnapshot } from '$lib/email/owl/studio';
+import { STARTERS } from '$lib/email/owl/starters';
 import { relativizeDesignAssetUrls } from '$lib/design-asset-urls';
-import {
-	documentFromComposedHtml,
-	documentFromComposedSections,
-	parseEmailBuilderContent,
-	renderEmailHtml,
-	serializeEmailBuilderContent,
-	EMPTY_DOCUMENT,
-} from '$lib/email-builder/render';
 import { deleteTemplate, getTemplate, updateTemplate } from '$lib/server/service/template-service';
-import { templateElementTypes, type TemplateElementType } from '$lib/server/db/schema';
-import { pickEmailLogos, extractDesignTokens, hexForColorInput } from '$lib/design/extractTokens';
+import { pickEmailLogos, extractDesignTokens, hexForColorInput, parseDesignTokenMap } from '$lib/design/extractTokens';
 import { isPiConfigured } from '$lib/server/service/pi-service';
 import type { Actions, PageServerLoad } from './$types';
-
-const ELEMENT_TYPES = new Set<string>(templateElementTypes);
-const IMAGE_TYPES = new Set<TemplateElementType>(['logo', 'image']);
-const LINKISH_TYPES = new Set<TemplateElementType>(['button', 'cta', 'link']);
-
-function configFromForm(type: TemplateElementType, form: FormData): TemplateElementConfig {
-	const config: TemplateElementConfig = {};
-	const text = String(form.get('text') ?? '').trim();
-	const url = String(form.get('url') ?? '').trim();
-	const assetId = String(form.get('assetId') ?? '').trim();
-	const designComponentId = String(form.get('designComponentId') ?? '').trim();
-
-	if (type === 'component') {
-		if (designComponentId) config.designComponentId = designComponentId;
-		return config;
-	}
-
-	if (type === 'text' || LINKISH_TYPES.has(type)) {
-		if (text) config.text = text;
-	}
-	if (LINKISH_TYPES.has(type) && url) {
-		config.url = url;
-	}
-	if (IMAGE_TYPES.has(type) && assetId) {
-		config.assetId = assetId;
-	}
-	return config;
-}
-
-async function resolveAssetIdFromForm(
-	teamId: number,
-	type: TemplateElementType,
-	form: FormData,
-	existingAssetId?: string,
-): Promise<string | undefined> {
-	if (!IMAGE_TYPES.has(type)) return undefined;
-
-	const file = form.get('file');
-	if (file instanceof File && file.size > 0) {
-		const name =
-			String(form.get('assetName') ?? '').trim() ||
-			file.name.replace(/\.[^.]+$/, '') ||
-			(type === 'logo' ? 'Logo' : 'Image');
-		const asset = await addAsset(teamId, {
-			kind: type === 'logo' ? 'logo' : 'image',
-			name,
-			filename: file.name || name,
-			mime: file.type || 'application/octet-stream',
-			bytes: new Uint8Array(await file.arrayBuffer()),
-		});
-		return asset.id;
-	}
-
-	const assetId = String(form.get('assetId') ?? '').trim() || existingAssetId;
-	if (!assetId) return undefined;
-
-	const asset = getAsset(assetId, teamId);
-	if (type === 'logo' && asset.kind !== 'logo') {
-		throw new Error('Select a logo asset for logo elements');
-	}
-	if (type === 'image' && asset.kind !== 'image' && asset.kind !== 'logo') {
-		throw new Error('Select an image or logo asset');
-	}
-	return asset.id;
-}
 
 function logoExtraProps(teamId: number, origin = ''): Record<string, string> {
 	const extra: Record<string, string> = {};
@@ -128,6 +44,11 @@ function logoExtraProps(teamId: number, origin = ''): Record<string, string> {
 		extra.logo_dark_url = dark;
 	}
 	return extra;
+}
+
+function designTokensForTeam(teamId: number): Record<string, string> {
+	const bundle = getDesignSystemBundle(teamId);
+	return parseDesignTokenMap(bundle.system?.designMd ?? '');
 }
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
@@ -152,28 +73,41 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
 		const content = relativizeDesignAssetUrls(template.content ?? '');
 		const html = template.html ? relativizeDesignAssetUrls(template.html) : template.html;
-		const parsedContent = parseEmailBuilderContent(content);
-		const scaffold = parsedContent.scaffold.slots
-			? parsedContent.scaffold
-			: parseScaffoldContent(content);
-		const hasHtml = Boolean(html?.trim());
-		const emailDocument =
-			parsedContent.document ?? (html?.trim() ? documentFromComposedHtml(html) : EMPTY_DOCUMENT);
+		const owlParsed = parseOwlDoc(content);
+		const owlMigration = owlParsed
+			? null
+			: migrateToOwlDoc({
+					content,
+					html,
+				});
+
+		const studioSnapshot = parseTemplateStudioSnapshot(template.designSnapshot);
 
 		return {
 			template: { ...template, content, html },
-			elements: listElements(template.id, teamId, domainId).map((el) => ({
-				...el,
-				parsedConfig: parseElementConfig(el.config),
+			studioSnapshot,
+			owlDoc: owlParsed ?? owlMigration?.doc ?? null,
+			owlMigrated: owlMigration?.migrated ?? false,
+			owlMigrationNote: owlMigration?.note ?? null,
+			owlStarters: STARTERS.map((s) => ({
+				key: s.key,
+				name: s.name,
+				role: s.role,
+				description: s.description,
+				html: s.html,
 			})),
-			scaffold,
-			emailDocument,
-			hasHtml,
-			previewHtml: html ?? null,
+			owlDesignSections: listOwlSectionComponents(teamId).map((c) => ({
+				id: c.id,
+				name: c.name,
+				description: c.description,
+				starterKey: c.starterKey,
+				html: c.html,
+			})),
 			designReady: Boolean(
 				bundle.system?.designMd?.trim() || bundle.components.length > 0 || bundle.assets.length > 0,
 			),
 			designColors: extractDesignTokens(bundle.system?.designMd ?? '').colors.map(hexForColorInput),
+			designTokens: parseDesignTokenMap(bundle.system?.designMd ?? ''),
 			designSummary: {
 				hasMd: Boolean(bundle.system?.designMd?.trim()),
 				assetCount: bundle.assets.length,
@@ -212,10 +146,11 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim();
 		const subject = String(form.get('subject') ?? '').trim();
+		const prompt = String(form.get('prompt') ?? '').trim();
 		if (!name || !subject) return fail(400, { error: 'Name and subject required' });
 
 		try {
-			updateTemplate(params.id, teamId, { name, subject }, domainId);
+			updateTemplate(params.id, teamId, { name, subject, prompt: prompt || null }, domainId);
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
 		}
@@ -233,278 +168,6 @@ export const actions: Actions = {
 		redirect(302, '/templates');
 	},
 
-	addElement: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const type = String(form.get('type') ?? '').trim();
-		const label = String(form.get('label') ?? '').trim();
-		const required = form.get('required') === 'on';
-
-		if (!ELEMENT_TYPES.has(type)) {
-			return fail(400, { error: 'Invalid element type' });
-		}
-		if (!label) return fail(400, { error: 'Label is required' });
-
-		const elementType = type as TemplateElementType;
-
-		try {
-			const config = configFromForm(elementType, form);
-			if (elementType === 'component') {
-				if (!config.designComponentId) {
-					return fail(400, { error: 'Select a design-system component' });
-				}
-				getComponent(config.designComponentId, teamId);
-			} else {
-				const assetId = await resolveAssetIdFromForm(teamId, elementType, form);
-				if (assetId) config.assetId = assetId;
-			}
-
-			createElement({
-				templateId: params.id,
-				teamId,
-				domainId,
-				type: elementType,
-				label,
-				required,
-				config: serializeElementConfig(config),
-			});
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Create failed' });
-		}
-		return { success: true, saved: 'element' as const };
-	},
-
-	addElements: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const required = form.get('required') !== 'off';
-		const ids = form
-			.getAll('designComponentId')
-			.map((v) => String(v).trim())
-			.filter(Boolean);
-
-		if (ids.length === 0) {
-			return fail(400, { error: 'Select at least one design-system component' });
-		}
-
-		const uniqueIds = [...new Set(ids)];
-
-		try {
-			let added = 0;
-			for (const designComponentId of uniqueIds) {
-				const component = getComponent(designComponentId, teamId);
-				createElement({
-					templateId: params.id,
-					teamId,
-					domainId,
-					type: 'component',
-					label: component.name,
-					required,
-					config: serializeElementConfig({ designComponentId }),
-				});
-				added += 1;
-			}
-
-			return { success: true, saved: 'element' as const, added };
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Create failed' });
-		}
-	},
-
-	updateElement: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const id = String(form.get('id') ?? '');
-		const label = String(form.get('label') ?? '').trim();
-		const required = form.get('required') === 'on';
-
-		try {
-			const existing = listElements(params.id, teamId, domainId).find((e) => e.id === id);
-			if (!existing) return fail(404, { error: 'Element not found' });
-
-			const config = configFromForm(existing.type, form);
-			if (existing.type === 'component') {
-				if (!config.designComponentId) {
-					return fail(400, { error: 'Select a design-system component' });
-				}
-				getComponent(config.designComponentId, teamId);
-			} else {
-				const assetId = await resolveAssetIdFromForm(
-					teamId,
-					existing.type,
-					form,
-					parseElementConfig(existing.config).assetId,
-				);
-				if (assetId) config.assetId = assetId;
-			}
-
-			updateElement(id, params.id, teamId, domainId, {
-				label: label || existing.label,
-				required,
-				config: serializeElementConfig(config),
-			});
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
-		}
-		return { success: true, saved: 'element' as const };
-	},
-
-	deleteElement: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const id = String((await request.formData()).get('id') ?? '');
-		try {
-			deleteElement(id, params.id, teamId, domainId);
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Delete failed' });
-		}
-		return { success: true };
-	},
-
-	reorderElements: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const orderedIds = form
-			.getAll('orderedId')
-			.map((v) => String(v).trim())
-			.filter(Boolean);
-
-		try {
-			reorderElements(params.id, teamId, domainId, orderedIds);
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Reorder failed' });
-		}
-		return { success: true, saved: 'element' as const };
-	},
-
-	scaffold: async ({ request, locals, params, url }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const prompt = String(form.get('prompt') ?? '');
-
-		try {
-			await generateScaffold({
-				teamId,
-				domainId,
-				templateId: params.id,
-				prompt,
-				assetBaseUrl: url.origin,
-			});
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Scaffold failed' });
-		}
-		return { success: true, saved: 'scaffold' as const };
-	},
-
-	saveSlots: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const preheader = String(form.get('preheader') ?? '').trim();
-		const subject = String(form.get('subject') ?? '').trim();
-
-		try {
-			const template = getTemplate(params.id, teamId, domainId);
-			const existing = parseScaffoldContent(template.content);
-			const slots: Record<string, string> = { ...existing.slots };
-
-			for (const [key, value] of form.entries()) {
-				if (typeof value !== 'string') continue;
-				if (key === 'preheader' || key === 'subject' || key === 'prompt') continue;
-				if (key.startsWith('slot_')) {
-					slots[key.slice(5)] = relativizeDesignAssetUrls(value);
-				}
-			}
-
-			updateTemplate(
-				params.id,
-				teamId,
-				{
-					content: serializeScaffoldContent({
-						subject: subject || existing.subject,
-						preheader: preheader || existing.preheader,
-						slots,
-					}),
-					...(subject ? { subject } : {}),
-				},
-				domainId,
-			);
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
-		}
-		return { success: true, saved: 'slots' as const };
-	},
-
-	compose: async ({ locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-
-		try {
-			const template = getTemplate(params.id, teamId, domainId);
-			const bundle = getDesignSystemBundle(teamId);
-			const elements = listElements(params.id, teamId, domainId);
-			if (elements.length === 0) {
-				return fail(400, { error: 'Add at least one section before composing' });
-			}
-
-			const composeInput = {
-				template,
-				elements,
-				components: bundle.components,
-				assets: bundle.assets,
-				// Persist root-relative asset URLs so templates work across prod/dev.
-				assetBaseUrl: '',
-				extraSlots: logoExtraProps(teamId),
-			};
-			const sections = composeEmailSections(composeInput);
-			const existing = parseEmailBuilderContent(template.content);
-			const document = documentFromComposedSections(sections);
-			const content = serializeEmailBuilderContent(document, existing.scaffold);
-			const rendered = renderEmailHtml(document);
-
-			updateTemplate(params.id, teamId, { html: rendered, content }, domainId);
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Compose failed' });
-		}
-		return { success: true, saved: 'compose' as const };
-	},
-
-	saveHtml: async ({ request, locals, params }) => {
-		const teamId = requireTeamId(locals.teamId);
-		const domainId = locals.domainId ?? undefined;
-		const form = await request.formData();
-		const html = String(form.get('html') ?? '');
-		const documentJson = String(form.get('document') ?? '');
-
-		try {
-			const template = getTemplate(params.id, teamId, domainId);
-			const existing = parseEmailBuilderContent(template.content);
-
-			if (documentJson.trim()) {
-				const document = JSON.parse(relativizeDesignAssetUrls(documentJson)) as Parameters<
-					typeof serializeEmailBuilderContent
-				>[0];
-				const content = relativizeDesignAssetUrls(
-					serializeEmailBuilderContent(document, existing.scaffold),
-				);
-				const rendered = relativizeDesignAssetUrls(html.trim() || renderEmailHtml(document));
-				updateTemplate(params.id, teamId, { html: rendered, content }, domainId);
-			} else if (html.trim()) {
-				updateTemplate(params.id, teamId, { html: relativizeDesignAssetUrls(html) }, domainId);
-			} else {
-				return fail(400, { error: 'Nothing to save' });
-			}
-		} catch (e) {
-			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
-		}
-		return { success: true, saved: 'html' as const };
-	},
-
 	sendPreview: async ({ request, locals, params, url }) => {
 		const teamId = requireTeamId(locals.teamId);
 		const domainId = locals.domainId;
@@ -517,7 +180,7 @@ export const actions: Actions = {
 		try {
 			const template = getTemplate(params.id, teamId, domainId);
 			if (!template.html?.trim()) {
-				return fail(400, { error: 'Compose the email before sending a preview' });
+				return fail(400, { error: 'Save the email before sending a preview' });
 			}
 
 			const domain = await getDomain(domainId, teamId);
@@ -580,6 +243,126 @@ export const actions: Actions = {
 			};
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Upload failed' });
+		}
+	},
+
+	owlCompile: async ({ request, locals, url }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const form = await request.formData();
+		const raw = String(form.get('doc') ?? '');
+		const colorScheme = form.get('colorScheme') === 'dark' ? 'dark' : 'light';
+		const doc = parseOwlDoc(raw);
+		if (!doc) return fail(400, { error: 'Invalid owl document' });
+
+		try {
+			return compileOwlDoc(doc, {
+				origin: url.origin,
+				colorScheme,
+				tokens: designTokensForTeam(teamId),
+			});
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Compile failed' });
+		}
+	},
+
+	saveTemplate: async ({ request, locals, params }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const domainId = locals.domainId ?? undefined;
+		const form = await request.formData();
+		const name = String(form.get('name') ?? '').trim();
+		const subject = String(form.get('subject') ?? '').trim();
+		const prompt = String(form.get('prompt') ?? '').trim();
+		const raw = String(form.get('doc') ?? '');
+		const doc = parseOwlDoc(raw);
+		if (!name || !subject) return fail(400, { error: 'Name and subject required' });
+		if (!doc) return fail(400, { error: 'Invalid owl document' });
+
+		const testVariables: Record<string, string> = {};
+		for (const key of ['email', 'firstName', 'lastName'] as const) {
+			const value = String(form.get(key) ?? '').trim();
+			if (value) testVariables[key] = value;
+		}
+
+		try {
+			const preview = compileOwlDoc(doc, { tokens: designTokensForTeam(teamId) });
+			updateTemplate(
+				params.id,
+				teamId,
+				{
+					name,
+					subject,
+					prompt: prompt || null,
+					content: serializeOwlDoc(doc),
+					html: relativizeDesignAssetUrls(preview.html),
+					designSnapshot: serializeTemplateStudioSnapshot({ testVariables }),
+				},
+				domainId,
+			);
+			const errorCount = preview.issues.filter((i) => i.severity === 'error').length;
+			return { success: true, saved: 'template' as const, errorCount };
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
+		}
+	},
+
+	owlSave: async ({ request, locals, params }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const domainId = locals.domainId ?? undefined;
+		const form = await request.formData();
+		const raw = String(form.get('doc') ?? '');
+		const doc = parseOwlDoc(raw);
+		if (!doc) return fail(400, { error: 'Invalid owl document' });
+
+		try {
+			const preview = compileOwlDoc(doc, { tokens: designTokensForTeam(teamId) });
+			updateTemplate(
+				params.id,
+				teamId,
+				{
+					content: serializeOwlDoc(doc),
+					html: relativizeDesignAssetUrls(preview.html),
+				},
+				domainId,
+			);
+			const errorCount = preview.issues.filter((i) => i.severity === 'error').length;
+			return { success: true, saved: 'owl' as const, errorCount };
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
+		}
+	},
+
+	saveOwlComponent: async ({ request, locals }) => {
+		const teamId = requireTeamId(locals.teamId);
+		const form = await request.formData();
+		const id = String(form.get('id') ?? '').trim() || undefined;
+		const name = String(form.get('name') ?? '').trim();
+		const description = String(form.get('description') ?? '').trim() || null;
+		const html = String(form.get('html') ?? '');
+		const componentKey = String(form.get('componentKey') ?? '').trim() || undefined;
+
+		if (!name) return fail(400, { error: 'Component name is required' });
+		if (!html.trim()) return fail(400, { error: 'Section HTML is required' });
+
+		try {
+			const component = upsertOwlSectionComponent(teamId, {
+				id,
+				name,
+				description,
+				html,
+				componentKey,
+			});
+			return {
+				success: true,
+				saved: 'owlComponent' as const,
+				component: {
+					id: component.id,
+					name: component.name,
+					description: component.description,
+					html: component.html,
+				},
+			};
+		} catch (e) {
+			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
 		}
 	},
 };

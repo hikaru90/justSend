@@ -94,6 +94,7 @@
 		"drizzle-orm": "^0.45.2",
 		"isomorphic-dompurify": "^3.20.0",
 		"juice": "^12.1.1",
+		"linkedom": "^0.18.13",
 		"marked": "^18.0.7",
 		"mode-watcher": "^1.1.0",
 		"nanoid": "^6.0.0",
