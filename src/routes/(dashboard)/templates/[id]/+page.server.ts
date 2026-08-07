@@ -171,9 +171,6 @@ export const actions: Actions = {
 
 		try {
 			const template = getTemplate(params.id, teamId, domainId);
-			if (!template.html?.trim()) {
-				return fail(400, { error: 'Save the email before sending a preview' });
-			}
 
 			const domain = await getDomain(domainId, teamId);
 			if (domain.status !== 'SUCCESS') {
@@ -187,15 +184,52 @@ export const actions: Actions = {
 				if (value) variables[key] = value;
 			}
 
-			const email = await sendEmail({
-				teamId,
-				from: `preview@${domain.name}`,
-				to,
-				subject: template.subject,
-				templateId: template.id,
-				variables,
-				assetBaseUrl: origin,
-			});
+			// Save-then-send: accept the live editor doc, persist it together with
+			// the freshly compiled HTML (so DB / preview / API sends all agree),
+			// and send exactly that HTML — never a stale cached snapshot.
+			const rawDoc = String(form.get('doc') ?? '');
+			const doc = rawDoc ? parseOwlDoc(rawDoc) : null;
+
+			let sendInput: Parameters<typeof sendEmail>[0];
+			if (doc) {
+				const preview = compileOwlDoc(doc, {
+					origin,
+					tokens: designTokensForTeam(teamId),
+				});
+				updateTemplate(
+					params.id,
+					teamId,
+					{
+						content: serializeOwlDoc(doc),
+						html: relativizeDesignAssetUrls(preview.html),
+					},
+					domainId,
+				);
+				sendInput = {
+					teamId,
+					from: `preview@${domain.name}`,
+					to,
+					subject: template.subject,
+					html: preview.html,
+					variables,
+					assetBaseUrl: origin,
+				};
+			} else {
+				if (!template.html?.trim()) {
+					return fail(400, { error: 'Save the email before sending a preview' });
+				}
+				sendInput = {
+					teamId,
+					from: `preview@${domain.name}`,
+					to,
+					subject: template.subject,
+					templateId: template.id,
+					variables,
+					assetBaseUrl: origin,
+				};
+			}
+
+			const email = await sendEmail(sendInput);
 
 			if (email.latestStatus === 'SUPPRESSED') {
 				return fail(400, {

@@ -5,15 +5,12 @@
  */
 import { parseDocument, parseFragment, serialize, walkElements, type Element } from './parser';
 import type { Document, Node } from 'linkedom';
-import { composeEmailHtml } from './shell';
-import { compileOwlHtml } from './compile';
-import { applySlotValues, slotsFromFragment } from './slots';
+import { slotsFromFragment } from './slots';
 import { starterByKey } from './starters';
 import { OWL } from './format';
 import { newSectionId, parseOwlDoc, type OwlDoc, type OwlSection } from './studio';
-import { rewriteDesignAssetUrls } from '$lib/design-asset-urls';
 import type { OwlIssue, OwlSlot } from './format';
-import { resolveMarkdownLinkColors } from './markdown';
+import { renderOwlDocHtml } from './render-doc';
 
 export type OwlSectionSlots = Record<string, OwlSlot[]>;
 
@@ -52,29 +49,16 @@ export function defaultOwlShell(): string {
 
 /**
  * Compose + compile an OwlDoc. Deterministic; issues are returned alongside
- * output, never thrown. `origin` rewrites `/api/design-asset/...` to absolute
- * URLs for iframe preview; omit it when persisting final HTML.
+ * output, never thrown. Delegates the compose→slots→compile pipeline to
+ * `renderOwlDocHtml` and augments the result with preview-only section
+ * metadata. `origin` rewrites `/api/design-asset/...` to absolute URLs for
+ * iframe preview; omit it when persisting final HTML.
  */
 export function compileOwlDoc(
 	doc: OwlDoc,
 	ctx: { origin?: string; tokens?: Record<string, string> } = {},
 ): OwlCompilePreview {
-	const composed = composeEmailHtml(
-		doc.shell,
-		doc.sections.map((s) => s.html),
-		{ preheader: doc.preheader },
-	);
-
-	const parsed = parseDocument(composed.html);
-	const mdColors = resolveMarkdownLinkColors(ctx.tokens);
-	applySlotValues(parsed, doc.slotValues, mdColors);
-
-	const result = compileOwlHtml(serialize(parsed), {
-		kind: 'marketing',
-		tokens: ctx.tokens,
-	});
-
-	const html = ctx.origin ? rewriteDesignAssetUrls(result.html, ctx.origin) : result.html;
+	const { html, issues } = renderOwlDocHtml(doc, ctx);
 
 	const sectionSlots: OwlSectionSlots = {};
 	for (const section of doc.sections) {
@@ -83,7 +67,7 @@ export function compileOwlDoc(
 
 	return {
 		html,
-		issues: [...composed.issues, ...result.issues],
+		issues,
 		sectionSlots,
 		sectionHtml: extractSectionHtml(html, doc.sections),
 	};

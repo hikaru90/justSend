@@ -198,6 +198,7 @@ export function createTemplate(
 		name: string;
 		subject: string;
 		html: string;
+		content: string | null;
 		domainId: number | null;
 		tags: string[];
 	}> = {},
@@ -212,6 +213,7 @@ export function createTemplate(
 			name: overrides.name ?? `Template ${n}`,
 			subject: overrides.subject ?? `Hello {{name}}`,
 			html: overrides.html ?? `<p>Hi {{name}}</p>`,
+			content: overrides.content ?? null,
 			tags: jsonArray(overrides.tags ?? []),
 		})
 		.returning()

@@ -1,6 +1,5 @@
 import { and, eq } from 'drizzle-orm';
 import { cuid, jsonArray, nowIso } from '$lib/utils';
-import { renderEmailHtml } from '$lib/email-editor/renderer';
 import { db } from '../db';
 import {
 	automationEnrollments,
@@ -22,6 +21,13 @@ import {
 	type FlowGraph,
 } from './flow-service';
 import { getTemplate } from './template-service';
+import { renderTemplateForSend } from './email-service';
+import { getDesignSystemBundle } from './design-system-service';
+import { parseDesignTokenMap } from '$lib/design/extractTokens';
+
+function designTokensForTeam(teamId: number): Record<string, string> {
+	return parseDesignTokenMap(getDesignSystemBundle(teamId).system?.designMd ?? '');
+}
 
 export type Enrollment = typeof automationEnrollments.$inferSelect;
 
@@ -196,11 +202,17 @@ async function executeSendEmail(
 		try {
 			const template = getTemplate(templateId, flow.teamId, flow.domainId);
 			html = absolutizeEmailAssetUrls(
-				renderEmailHtml(template.content, template.html, {
-					email: contact.email,
-					firstName: contact.firstName ?? '',
-					lastName: contact.lastName ?? '',
-				}),
+				renderTemplateForSend(
+					{ content: template.content, html: template.html },
+					{
+						variables: {
+							email: contact.email,
+							firstName: contact.firstName ?? '',
+							lastName: contact.lastName ?? '',
+						},
+						tokens: designTokensForTeam(flow.teamId),
+					},
+				),
 				env.HOST_URL,
 			);
 			if (!subjectOverride) {

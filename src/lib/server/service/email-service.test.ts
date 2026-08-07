@@ -7,6 +7,7 @@ import {
 	createDomain,
 	createSesSetting,
 	createEmail,
+	createTemplate,
 } from '../../../tests/helpers/factories';
 import {
 	sendEmail,
@@ -15,11 +16,13 @@ import {
 	cancelEmail,
 	updateEmail,
 	replaceVariables,
+	renderTemplateForSend,
 } from './email-service';
 import { addSuppression } from './suppression-service';
 import { db } from '../db';
 import { emails, queueJobs } from '../db/schema';
 import { transactionalQueueName } from '../queue/constants';
+import { emptyOwlDoc, newSectionId, serializeOwlDoc } from '$lib/email/owl/studio';
 
 describe('email-service', () => {
 	beforeEach(() => resetDb());
@@ -142,6 +145,51 @@ describe('email-service', () => {
 
 			const fetched = getEmail(email.id, team.id);
 			expect(fetched.emailEvents.some((e) => e.status === 'SUPPRESSED')).toBe(true);
+		});
+
+		it('compiles from the stored OwlDoc instead of trusting stale cached HTML', async () => {
+			const { team, domain } = setupTeamWithDomain();
+
+			const SHELL = `<!DOCTYPE html><html><head></head><body>
+<div data-owl-preheader>Preheader</div>
+<!--owl:sections-->
+</body></html>`;
+			const doc = emptyOwlDoc(SHELL, 'Preheader');
+			doc.sections.push({
+				id: newSectionId(),
+				key: 'text',
+				label: 'Text',
+				html: '<p data-owl-slot="body" data-owl-slot-type="text">stale</p>',
+			});
+			doc.slotValues = { body: 'Light logo copy' };
+
+			// The cached snapshot still carries the OLD (dark) copy, while the
+			// OwlDoc (source of truth) has the current (light) copy.
+			const template = createTemplate(team.id, {
+				name: 'drift',
+				subject: 'Drift check',
+				content: serializeOwlDoc(doc),
+				html: '<p>DARK-STALE</p>',
+			});
+
+			const email = await sendEmail({
+				teamId: team.id,
+				from: `noreply@${domain.name}`,
+				to: 'light@test.com',
+				subject: 'Unused',
+				templateId: template.id,
+			});
+
+			expect(email.html).toContain('Light logo copy');
+			expect(email.html).not.toContain('DARK-STALE');
+		});
+
+		it('renderTemplateForSend falls back to cached HTML for legacy templates', () => {
+			const html = renderTemplateForSend(
+				{ content: null, html: '<p>Hi {{name}}</p>' },
+				{ variables: { name: 'Ada' } },
+			);
+			expect(html).toBe('<p>Hi Ada</p>');
 		});
 
 		it('creates a scheduled email and queue job', async () => {

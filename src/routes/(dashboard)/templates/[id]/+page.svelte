@@ -263,6 +263,7 @@
 		action="?/sendPreview"
 		use:enhance={({ formData }) => {
 			sending = true;
+			if (studio) formData.set('doc', serializeOwlDoc(studio.getCurrentDoc()));
 			formData.set('email', testEmail);
 			formData.set('firstName', testFirstName);
 			formData.set('lastName', testLastName);
