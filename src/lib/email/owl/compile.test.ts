@@ -105,6 +105,44 @@ describe('owl: light-only output', () => {
 		// Never reintroduce dark-variant markup.
 		expect(html).not.toContain('data-owl-dark');
 	});
+
+	it('strips authored dark-variant logos and swap CSS from legacy templates', () => {
+		const legacyHead = `<meta name="color-scheme" content="light dark">
+<style data-owl-base-css>
+.logo-dark{display:none!important;max-height:0!important;overflow:hidden!important;}
+@media (prefers-color-scheme:dark){
+.logo-light{display:none!important;max-height:0!important;overflow:hidden!important;}
+.logo-dark{display:inline-block!important;max-height:none!important;overflow:visible!important;}
+}
+</style>
+<style data-owl-dark-css></style>`;
+		const legacySection = `<table role="presentation" data-owl-component="logo-header" data-owl-role="section" width="100%">
+<tbody><tr><td style="padding: 24px 24px 8px 24px" align="center" data-owl-dark-style="color: #ffffff">
+<a href="#" data-owl-slot="logo_link" data-owl-slot-type="url" data-owl-slot-label="Logo link">
+<img src="/api/design-asset/light" class="logo-light" style="display: block; width: 120px; height: auto; max-width: 100%" data-owl-slot="logo" data-owl-slot-type="image" data-owl-slot-label="Logo" alt="Brand" width="93">
+<img src="/api/design-asset/dark" alt="Brand" width="93" class="logo-dark" style="display:none;width:120px;height:auto;max-width:100%;">
+<img src="/api/design-asset/hero-dark" class="owl-dark" data-owl-variant="dark" data-owl-variant-group="hero" alt="Hero" style="display:none;">
+</a>
+</td></tr></tbody></table>`;
+		const shell = SHELL.replace(
+			'<style data-owl-base-css>',
+			`${legacyHead.replace('<style data-owl-base-css>', '<style data-owl-base-css data-legacy="1">')}<style data-owl-base-css>`,
+		);
+		const composed = composeEmailHtml(shell, [legacySection]).html;
+		const { html } = compileOwlHtml(composed);
+
+		// Dark-variant elements are gone; only the light logo survives.
+		expect(html).toContain('/api/design-asset/light');
+		expect(html).not.toContain('/api/design-asset/dark');
+		expect(html).not.toContain('logo-dark');
+		expect(html).not.toContain('owl-dark');
+		expect(html).not.toContain('data-owl-variant');
+
+		// The authored dark swap media query is stripped from base css;
+		// the only surviving dark media block is the compiler's light-pin.
+		expect(html).not.toContain('light dark');
+		expect(html).toContain('name="color-scheme" content="light only"');
+	});
 });
 
 describe('owl: tokens & heal & normalize', () => {

@@ -1,7 +1,7 @@
 /**
  * compileOwlHtml — the single, pure, deterministic pipeline:
  *
- *   parse → heal → normalize → tokens → light-override → preheader → fluidify → lint
+ *   parse → heal → strip-dark → normalize → tokens → light-override → preheader → fluidify → lint
  *
  * Guarantees:
  *  - Same input bytes -> byte-identical output (enforced by tests).
@@ -10,6 +10,7 @@
  */
 import { parseDocument, serialize, spliceRawAtComment, walkElements, type Document } from './parser';
 import { healDocument } from './heal';
+import { stripDarkVariants } from './strip-dark';
 import { normalizeDocument } from './normalize';
 import { applyTokens } from './tokens';
 import { applyLightOverride } from './light-override';
@@ -50,6 +51,8 @@ function setPreheader(doc: Document, preheader: string, issues: OwlIssue[]): voi
 export function compileOwlHtml(sourceHtml: string, ctx: OwlCompileContext = {}): OwlCompileResult {
 	const doc = parseDocument(sourceHtml);
 	const issues: OwlIssue[] = [...healDocument(doc)];
+
+	issues.push(...stripDarkVariants(doc));
 
 	normalizeDocument(doc);
 
