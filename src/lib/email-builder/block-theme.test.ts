@@ -81,12 +81,15 @@ describe('themeEmptyDocument', () => {
 });
 
 describe('render light-only output', () => {
-	it('emits light color-scheme metas and never a dark media query', () => {
+	it('emits light-only metas and pins a dark-mode override', () => {
 		const html = renderBlock(structuredClone(EMPTY_DOCUMENT), 'root');
-		expect(html).toContain('<meta name="color-scheme" content="light">');
-		expect(html).toContain('<meta name="supported-color-schemes" content="light">');
-		expect(html).toContain('color-scheme:light');
-		expect(html).not.toContain('prefers-color-scheme');
+		expect(html).toContain('<meta name="color-scheme" content="light only">');
+		expect(html).toContain('<meta name="supported-color-schemes" content="light only">');
+		expect(html).toContain('color-scheme:light only');
+		expect(html).toContain('@media (prefers-color-scheme:dark)');
+		expect(html).toContain('u + .body .gmail-blend-screen');
+		expect(html).toContain('class="body"');
+		expect(html).toContain('class="gmail-blend-screen"');
 		expect(html).not.toContain('data-owl-dark');
 	});
 

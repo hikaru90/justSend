@@ -79,17 +79,31 @@ describe('owl: compose + compile end-to-end', () => {
 });
 
 describe('owl: light-only output', () => {
-	it('emits light color-scheme metas and no dark media/markup', () => {
+	it('pins light colors with a dark-mode override and never emits dark variants', () => {
 		const composed = composeEmailHtml(SHELL, [SAMPLE_SECTION]).html;
 		const { html } = compileOwlHtml(composed);
 
-		expect(html).toContain('name="color-scheme" content="light"');
-		expect(html).toContain('name="supported-color-schemes" content="light"');
-		expect(html).toContain('color-scheme:light');
-		expect(html).not.toContain('prefers-color-scheme');
+		// Light-only signaling: metas + :root pin say "light only".
+		expect(html).toContain('name="color-scheme" content="light only"');
+		expect(html).toContain('name="supported-color-schemes" content="light only"');
+		expect(html).toContain('color-scheme:light only');
+
+		// The override re-asserts the same light colors inside a dark media query.
+		expect(html).toContain('@media (prefers-color-scheme:dark)');
+		expect(html).toContain('body{background-color:#F5F5F5!important');
+		expect(html).toContain('background-color:#FFFFFF!important');
+		expect(html).toContain('color:#262626!important');
+		expect(html).toContain('.owll-w');
+
+		// Outlook stamps + Gmail blend wrappers present.
+		expect(html).toContain('data-ogsc="#FFFFFF"');
+		expect(html).toContain('data-ogsb="#0A2540"');
+		expect(html).toContain('gmail-blend-screen');
+		expect(html).toContain('u + .body .gmail-blend-screen');
+		expect(html).toContain('mix-blend-mode:screen');
+
+		// Never reintroduce dark-variant markup.
 		expect(html).not.toContain('data-owl-dark');
-		expect(html).not.toContain('data-ogsc');
-		expect(html).not.toContain('data-ogsb');
 	});
 });
 
@@ -145,11 +159,15 @@ describe('owl: slots', () => {
 });
 
 describe('owl: image slots (light-only)', () => {
-	it('base shell CSS has no dark swap rules', () => {
+	it('base shell signals light-only and carries the override scaffold', () => {
 		expect(SHELL).not.toContain('.owl-dark');
 		expect(SHELL).not.toContain('.logo-dark');
+		expect(SHELL).toContain('color-scheme:light only');
+		expect(SHELL).toContain('data-owl-light-css');
+		expect(SHELL).toContain('class="body"');
+		expect(SHELL).toContain('gmail-blend-screen');
+		// prefers-color-scheme + blend CSS are compiler-generated, not authored.
 		expect(SHELL).not.toContain('prefers-color-scheme');
-		expect(SHELL).toContain('color-scheme:light');
 	});
 
 	it('hero starter ships a single image slot', () => {

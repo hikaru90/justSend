@@ -1,7 +1,7 @@
 /**
  * compileOwlHtml — the single, pure, deterministic pipeline:
  *
- *   parse → heal → normalize → tokens → preheader → fluidify → lint
+ *   parse → heal → normalize → tokens → light-override → preheader → fluidify → lint
  *
  * Guarantees:
  *  - Same input bytes -> byte-identical output (enforced by tests).
@@ -12,6 +12,7 @@ import { parseDocument, serialize, spliceRawAtComment, walkElements, type Docume
 import { healDocument } from './heal';
 import { normalizeDocument } from './normalize';
 import { applyTokens } from './tokens';
+import { applyLightOverride } from './light-override';
 import { extractSlots } from './slots';
 import { lintDocument } from './lint';
 import { fluidifyEmailHtml } from '$lib/email/fluidify-email-html';
@@ -53,6 +54,8 @@ export function compileOwlHtml(sourceHtml: string, ctx: OwlCompileContext = {}):
 	normalizeDocument(doc);
 
 	issues.push(...applyTokens(doc, ctx));
+
+	issues.push(...applyLightOverride(doc, ctx));
 
 	if (ctx.preheader !== undefined) setPreheader(doc, ctx.preheader, issues);
 

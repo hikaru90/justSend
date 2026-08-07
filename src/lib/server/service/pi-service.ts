@@ -78,6 +78,7 @@ const HTML_EDIT_SYSTEM_PROMPT = [
 	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
+	'Emails are always light: never author dark-mode variants, prefers-color-scheme rules, color-scheme:dark, or data-owl-dark markup. Preserve the dark-mode override scaffold (data-owl-light-css style, class="body", gmail-blend-screen/gmail-blend-difference wrappers, owll-* classes, data-ogsc/data-ogsb).',
 	'Do not create unrelated files. Do not leave the work directory.',
 ].join(' ');
 
@@ -93,6 +94,7 @@ const EMAIL_TREE_EDIT_SYSTEM_PROMPT = [
 	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
+	'Emails are always light: never author dark-mode variants, prefers-color-scheme rules, color-scheme:dark, or data-owl-dark markup. Preserve the dark-mode override scaffold (data-owl-light-css style, class="body", gmail-blend-screen/gmail-blend-difference wrappers, owll-* classes, data-ogsc/data-ogsb).',
 	'Keep <script> limited to relative .svelte imports and $props() only — a single top-level <script> block (never two).',
 	'Do not modify design.md, components/, or assets/. Do not leave the work directory.',
 ].join(' ');

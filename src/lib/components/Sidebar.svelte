@@ -16,7 +16,7 @@
 		Shield,
 	} from '@lucide/svelte';
 	import { cn } from '$lib/utils';
-	import logo from '$lib/assets/owlery.svg';
+	import logo from '$lib/assets/owlery-dark.svg';
 	import DomainSwitcher from './DomainSwitcher.svelte';
 	import TeamSwitcher from './TeamSwitcher.svelte';
 

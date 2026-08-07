@@ -2,11 +2,17 @@
  * Table-based email HTML renderer for TEditorConfiguration documents.
  * Plain TypeScript + marked for Text markdown — no third-party email SDK.
  *
- * Emails are always light. Color-scheme is forced to light so inboxes do not
- * auto-darken the canvas, and no `prefers-color-scheme` rules are emitted.
+ * Emails are always light. Color-scheme is forced to `light only` so inboxes
+ * do not auto-darken the canvas, and the same light-pinning override pass the
+ * Owl pipeline uses re-asserts every inline light color under a
+ * `prefers-color-scheme: dark` media query, stamps data-ogsc/ogsb for Outlook,
+ * and emits the `u + .body` Gmail blend-mode rules.
  */
 import { marked } from 'marked';
 import { fluidifyEmailHtml } from '$lib/email/fluidify-email-html';
+import { parseDocument, serialize } from '$lib/email/owl/parser';
+import { normalizeDocument } from '$lib/email/owl/normalize';
+import { applyLightOverride } from '$lib/email/owl/light-override';
 import type { TEditorBlock, TEditorConfiguration, Padding } from './types';
 
 type BlockStyle = {
@@ -285,16 +291,16 @@ function renderEmailLayout(document: TEditorConfiguration, block: TEditorBlock):
 	const textColor = block.data.textColor ?? DEFAULT_TEXT;
 	const font = fontFamilyCss(block.data.fontFamily);
 	const kids = fluidifyEmailHtml(renderChildren(document, childrenIds(block)));
-	return `<!DOCTYPE html>
+	const raw = `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
 <style type="text/css">
-:root{color-scheme:light;}
+:root{color-scheme:light only;}
 html,body{margin:0!important;padding:0!important;width:100%!important;}
 img{max-width:100%!important;height:auto!important;}
 table{border-collapse:collapse;}
@@ -307,18 +313,30 @@ table{border-collapse:collapse;}
 </style>
 <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
 </head>
-<body style="margin:0;padding:0;width:100%;background-color:${escapeAttr(backdrop)};">
-<table role="presentation" class="owl-email-backdrop" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(backdrop)}" style="width:100%;background-color:${escapeAttr(backdrop)};">
+<body class="body" style="margin:0;padding:0;width:100%;background-color:${escapeAttr(backdrop)};background-image:linear-gradient(${escapeAttr(backdrop)},${escapeAttr(backdrop)});">
+<table role="presentation" class="owl-email-backdrop" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(backdrop)}" style="width:100%;background-color:${escapeAttr(backdrop)};background-image:linear-gradient(${escapeAttr(backdrop)},${escapeAttr(backdrop)});">
 <tr>
-<td align="center" class="owl-email-pad" style="padding:32px 12px;background-color:${escapeAttr(backdrop)};">
-<table role="presentation" class="owl-email-canvas" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(canvas)}" style="margin:0 auto;max-width:600px;width:100%;background-color:${escapeAttr(canvas)};color:${escapeAttr(textColor)};font-family:${escapeAttr(font)};font-size:16px;line-height:1.5;">
-<tr><td style="width:100%;">${kids}</td></tr>
+<td align="center" class="owl-email-pad" style="padding:32px 12px;background-color:${escapeAttr(backdrop)};background-image:linear-gradient(${escapeAttr(backdrop)},${escapeAttr(backdrop)});">
+<table role="presentation" class="owl-email-canvas" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${escapeAttr(canvas)}" style="margin:0 auto;max-width:600px;width:100%;background-color:${escapeAttr(canvas)};background-image:linear-gradient(${escapeAttr(canvas)},${escapeAttr(canvas)});color:${escapeAttr(textColor)};font-family:${escapeAttr(font)};font-size:16px;line-height:1.5;">
+<tr><td style="width:100%;">
+<div class="gmail-blend-screen"><div class="gmail-blend-difference">
+${kids}
+</div></div>
+</td></tr>
 </table>
 </td>
 </tr>
 </table>
 </body>
 </html>`;
+
+	// The same light-pinning override the Owl pipeline runs: adds the
+	// prefers-color-scheme media rules, data-ogsc/ogsb stamps and Gmail blend
+	// CSS, all derived from the rendered inline light colors.
+	const doc = parseDocument(raw);
+	normalizeDocument(doc);
+	applyLightOverride(doc, {});
+	return serialize(doc);
 }
 
 export function renderBlock(document: TEditorConfiguration, blockId: string): string {

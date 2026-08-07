@@ -8,7 +8,12 @@ import { OWL, OWL_CLASS, type OwlIssue } from './format';
 import { parseStyleDecls } from './style';
 
 const GMAIL_STYLE_LIMIT = 16 * 1024;
-const INERT_CLASS_PREFIXES = new Set([OWL_CLASS.stack]);
+const INERT_CLASS_PREFIXES = new Set([
+	OWL_CLASS.stack,
+	OWL_CLASS.gmailBlendScreen,
+	OWL_CLASS.gmailBlendDifference,
+	`${OWL_CLASS.lightOverride}-`,
+]);
 
 function hasText(el: { textContent?: string | null }): boolean {
 	return Boolean(el.textContent?.trim());

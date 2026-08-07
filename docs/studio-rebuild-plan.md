@@ -14,9 +14,13 @@ Rebuild the Owl studio into a genuine AI-assisted email template builder. The ed
 ## Decisions (already settled, do not reopen)
 
 - **No iframes, no shadow DOM.** Preview = a plain Svelte `<div>`. Compile emits body markup + inline styles only; the app's own container-scoped CSS handles resets, mobile stacking, and selection.
-- **Emails are always light.** The compiler pins `color-scheme: light` in
-  `<head>` and the base CSS, and never emits `@media (prefers-color-scheme)`
-  blocks or `data-owl-dark-*` markup — so previews and inboxes render
+- **Emails are always light.** The compiler pins `color-scheme: light only` in
+  `<head>` and the base CSS, then runs a light-pinning override pass that
+  re-asserts every inline light color under `@media (prefers-color-scheme)`
+  with `!important`, stamps `data-ogsc`/`data-ogsb` for Outlook, and emits
+  `u + .body` Gmail blend-mode CSS plus `gmail-blend-screen` /
+  `gmail-blend-difference` wrappers (content inside `class="body"`). It never
+  emits `data-owl-dark-*` markup — so previews and inboxes render
   deterministically and can never blacken. Preview injects **body innerHTML
   only** into the div preview; head content is never rendered.
 - **Right panel = property inspector, not curated presets.** It reads the actual CSS properties from the section HTML as editable rows:

@@ -27,6 +27,8 @@ export const OWL = {
 	boolean: 'data-owl-boolean',
 	/** Marks the compiled base-CSS container in <head>. */
 	baseCss: 'data-owl-base-css',
+	/** Marks the compiler-owned light-pinning dark-mode override CSS in <head>. */
+	lightCss: 'data-owl-light-css',
 	/** Comment anchor where sections are spliced in (without braces). */
 	sectionsAnchor: 'owl:sections',
 	/** Comment anchor for the preheader (fallback when no element present). */
@@ -37,6 +39,12 @@ export const OWL = {
 export const OWL_CLASS = {
 	/** Stacking class for mobile (authored in components). */
 	stack: 'owl-stack',
+	/** Light-pin class on elements with inline colors (derived from data-owl-id). */
+	lightOverride: 'owll',
+	/** Gmail blend-mode wrapper (white-on-color sections survive Gmail's forced dark). */
+	gmailBlendScreen: 'gmail-blend-screen',
+	/** Inner Gmail blend-mode wrapper (pair with gmailBlendScreen). */
+	gmailBlendDifference: 'gmail-blend-difference',
 } as const;
 
 export const OWL_SLOT_TYPES = ['text', 'url', 'image', 'color', 'boolean'] as const;

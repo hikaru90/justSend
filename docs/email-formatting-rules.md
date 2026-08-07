@@ -92,6 +92,15 @@ Runtime copy for AI prompts: `src/lib/server/email-formatting-rules.ts` (keep in
 - Match link color to surrounding text in muted areas so the footer stays quiet.
 - Logo and CTA links should not show underlines.
 
+## Dark mode (always light)
+
+- Emails are always light-only: never author dark-mode variants, `@media (prefers-color-scheme: dark)` overrides, `color-scheme: dark`, or `data-owl-dark` / `*-dark` markup.
+- Keep the compiler-owned dark-mode override scaffold intact when editing:
+  - `<style data-owl-light-css>` (holds the light-pinning media rules + Gmail blend CSS)
+  - `class="body"` on the `<body>` and the `gmail-blend-screen` / `gmail-blend-difference` wrapper divs
+  - `owll-*` classes and `data-ogsc` / `data-ogsb` attributes
+- Choose light colors so they survive a forced dark transform: white/light fills (`#ffffff`, `#faf9f7`) with dark text (`#262626`, `#1a1a1a`) — the compiler re-asserts them.
+
 ## Tracking & hygiene
 
 - If using an open-tracking pixel, keep it 1×1 and visually hidden (`display: none !important` plus max width/height 1px).

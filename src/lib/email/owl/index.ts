@@ -11,4 +11,5 @@ export { compileOwlHtml } from './compile';
 export { composeEmailHtml } from './shell';
 export { extractSlots, applySlotValues, slotsFromFragment } from './slots';
 export { applyTokens } from './tokens';
+export { applyLightOverride } from './light-override';
 export { lintDocument } from './lint';

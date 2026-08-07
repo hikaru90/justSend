@@ -31,13 +31,13 @@ function designTokensForTeam(teamId: number): Record<string, string> {
 }
 
 const OWL_PRESERVE_RULE =
-	'Preserve every data-owl-component and data-owl-role="section" marker on section root elements so the studio can split the email back into sections.';
+	'Preserve every data-owl-component and data-owl-role="section" marker on section root elements so the studio can split the email back into sections. Preserve the dark-mode override scaffold: the data-owl-light-css style, class="body", gmail-blend-screen/gmail-blend-difference wrappers, owll-* classes, and data-ogsc/data-ogsb attributes.';
 
 const OWL_ELEMENT_PRESERVE_RULE =
-	'Preserve the data-owl-id attribute on the root element you edit so the studio can patch it back into the template. Keep all other data-owl-* attributes on that element and its descendants.';
+	'Preserve the data-owl-id attribute on the root element you edit so the studio can patch it back into the template. Keep all other data-owl-* attributes on that element and its descendants, plus the dark-mode override scaffold (owll-* classes, data-ogsc/data-ogsb).';
 
 const OWL_SECTION_PRESERVE_RULE =
-	'Preserve data-owl-component and data-owl-role="section" on the section root element. Preserve every data-owl-id on elements you keep so the studio can re-select them.';
+	'Preserve data-owl-component and data-owl-role="section" on the section root element. Preserve every data-owl-id on elements you keep so the studio can re-select them, plus the dark-mode override scaffold (owll-* classes, data-ogsc/data-ogsb).';
 
 function parseScope(value: unknown): ComponentPiScope {
 	return value === 'section' ? 'section' : 'element';

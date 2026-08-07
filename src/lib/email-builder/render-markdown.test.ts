@@ -31,7 +31,7 @@ describe('Text block markdown', () => {
 
 	it('renders markdown formatting in Text blocks', () => {
 		const html = renderEmailHtml(doc);
-		expect(html).toMatch(/<(strong|b)>/);
+		expect(html).toMatch(/<(strong|b)\b/);
 		expect(html).toContain('href="https://example.com"');
 		expect(html).toContain('{{firstName}}');
 	});
