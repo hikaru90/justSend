@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	addHexColor,
-	applyPreviewColorScheme,
 	buildDesignColorOptions,
 	extractDesignTokens,
 	hexForColorInput,
 	orderDesignColorOptions,
 	parseDesignTokenMap,
-	pickEmailLogos,
+	pickEmailLogo,
 	removeHexColor,
 	replaceHexColor,
 	renderSvelteComponentPreview,
@@ -164,83 +163,21 @@ describe('renderSvelteComponentPreview', () => {
 	});
 });
 
-describe('pickEmailLogos', () => {
-	it('pairs light and dark logos deterministically', () => {
+describe('pickEmailLogo', () => {
+	it('skips dark-named logos and picks the light one deterministically', () => {
 		const logos = [
 			{ id: 'z', name: 'Primary Logo dark', filename: 'logo-dark-whole.svg' },
 			{ id: 'a', name: 'Primary Logo', filename: 'logo-whole.svg' },
 		];
-		const pair = pickEmailLogos(logos);
-		expect(pair?.light.id).toBe('a');
-		expect(pair?.dark.id).toBe('z');
+		expect(pickEmailLogo(logos)?.id).toBe('a');
 	});
 
-	it('falls back dark to light when only one logo exists', () => {
-		const logos = [{ id: '1', name: 'Primary Logo', filename: 'logo.svg' }];
-		const pair = pickEmailLogos(logos);
-		expect(pair?.light.id).toBe('1');
-		expect(pair?.dark.id).toBe('1');
+	it('falls back to the first logo when only dark variants exist', () => {
+		const logos = [{ id: 'z', name: 'Primary Logo dark', filename: 'logo-dark.svg' }];
+		expect(pickEmailLogo(logos)?.id).toBe('z');
 	});
 
 	it('returns undefined for empty list', () => {
-		expect(pickEmailLogos([])).toBeUndefined();
-	});
-});
-
-describe('applyPreviewColorScheme', () => {
-	const html = `
-<style>
-body { background: #fff; color: #111; }
-@media (prefers-color-scheme: dark) {
-  body { background: #111; color: #fff; }
-}
-</style>
-<img class="logo-light" src="/light.svg" />
-<img class="logo-dark" src="/dark.svg" />
-`;
-
-	it('strips dark media queries in light mode', () => {
-		const out = applyPreviewColorScheme(html, 'light');
-		expect(out).not.toContain('prefers-color-scheme');
-		expect(out).not.toContain('background: #111');
-		expect(out).toContain('background: #fff');
-		expect(out).toContain('.logo-dark{display:none!important}');
-		expect(out).toContain('color-scheme:light');
-	});
-
-	it('unwraps dark media queries in dark mode', () => {
-		const out = applyPreviewColorScheme(html, 'dark');
-		expect(out).not.toContain('prefers-color-scheme');
-		expect(out).toContain('background: #111');
-		expect(out).toContain('.logo-light{display:none!important}');
-		expect(out).toContain('color-scheme:dark');
-	});
-
-	it('darkens light inline backgrounds and lightens dark text (client auto-darken)', () => {
-		const email = `<body style="background-color:#F5F5F5;color:#262626" bgcolor="#F5F5F5">
-<table bgcolor="#FFFFFF" style="background-color:#FFFFFF;color:#111111">
-<a style="background-color:#000000;color:#FFFFFF">CTA</a>
-</table></body>`;
-		const out = applyPreviewColorScheme(email, 'dark');
-		expect(out).toContain('background-color:#101010');
-		expect(out).toContain('background-color:#0c0c0c');
-		expect(out).toContain('bgcolor="#101010"');
-		expect(out).toContain('bgcolor="#0c0c0c"');
-		expect(out).toContain('color:#d9d9d9');
-		expect(out).toContain('color:#eeeeee');
-		// Dark CTA fill / light label stay put
-		expect(out).toContain('background-color:#000000');
-		expect(out).toContain('color:#FFFFFF');
-	});
-
-	it('darkens white CTA cell backgrounds like real inbox clients', () => {
-		const cta = `<td style="border: 2px solid #000000; background-color: #ffffff; padding: 14px 32px;">
-<a href="#" style="color: #000000; text-decoration: none;">Click →</a>
-</td>`;
-		const out = applyPreviewColorScheme(cta, 'dark');
-		expect(out).not.toContain('background-color: #ffffff');
-		expect(out).not.toContain('background-color:#ffffff');
-		expect(out.toLowerCase()).toMatch(/background-color:\s*#0c0c0c/);
-		expect(out.toLowerCase()).toMatch(/color:\s*#ffffff/);
+		expect(pickEmailLogo([])).toBeUndefined();
 	});
 });

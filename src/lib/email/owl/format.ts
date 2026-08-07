@@ -19,22 +19,12 @@ export const OWL = {
 	slotType: 'data-owl-slot-type',
 	/** Human label for the slot (drives the Content panel / AI prompts). */
 	slotLabel: 'data-owl-slot-label',
-	/** Per-element dark-mode inline style. */
-	darkStyle: 'data-owl-dark-style',
 	/** Design-token reference, resolved to literals at compile time. */
 	token: 'data-owl-token',
-	/** Dark-variant token reference, resolved before dark emission. */
-	darkToken: 'data-owl-dark-token',
-	/** Content-variant marker: light | dark (pair elements that swap via CSS). */
-	variant: 'data-owl-variant',
-	/** Shared id linking a light/dark content pair. */
-	variantGroup: 'data-owl-variant-group',
 	/** Marks the element whose text content is the preheader. */
 	preheader: 'data-owl-preheader',
 	/** Marks a region gated by a boolean slot (hidden when slot is false). */
 	boolean: 'data-owl-boolean',
-	/** Marks the compiled dark-CSS container in <head>. */
-	darkCss: 'data-owl-dark-css',
 	/** Marks the compiled base-CSS container in <head>. */
 	baseCss: 'data-owl-base-css',
 	/** Comment anchor where sections are spliced in (without braces). */
@@ -45,17 +35,8 @@ export const OWL = {
 
 /** Class prefixes emitted by the compiler (stable, derived from data-owl-id). */
 export const OWL_CLASS = {
-	/** Dark-mode override class prefix: owld-<data-owl-id>. */
-	darkOverride: 'owld',
 	/** Stacking class for mobile (authored in components). */
 	stack: 'owl-stack',
-	/** Light content-variant class (shown by default; hidden in dark media). */
-	light: 'owl-light',
-	/** Dark content-variant class (hidden by default; shown in dark media). */
-	dark: 'owl-dark',
-	/** Legacy logo pair aliases — treated as owl-light / owl-dark. */
-	logoLight: 'logo-light',
-	logoDark: 'logo-dark',
 } as const;
 
 export const OWL_SLOT_TYPES = ['text', 'url', 'image', 'color', 'boolean'] as const;
@@ -87,8 +68,6 @@ export type OwlCompileContext = {
 	kind?: 'transactional' | 'marketing';
 	/** Preheader override; replaces [data-owl-preheader] text when set. */
 	preheader?: string;
-	/** When 'dark', dark styles are promoted onto inline style (forced preview). */
-	colorScheme?: 'light' | 'dark';
 };
 
 export type OwlCompileResult = {

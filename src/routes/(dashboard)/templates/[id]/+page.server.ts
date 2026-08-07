@@ -20,28 +20,20 @@ import { parseOwlDoc, serializeOwlDoc, parseTemplateStudioSnapshot, serializeTem
 import { STARTERS } from '$lib/email/owl/starters';
 import { relativizeDesignAssetUrls } from '$lib/design-asset-urls';
 import { deleteTemplate, getTemplate, updateTemplate } from '$lib/server/service/template-service';
-import { pickEmailLogos, extractDesignTokens, hexForColorInput, parseDesignTokenMap } from '$lib/design/extractTokens';
+import { pickEmailLogo, extractDesignTokens, hexForColorInput, parseDesignTokenMap } from '$lib/design/extractTokens';
 import { isPiConfigured } from '$lib/server/service/pi-service';
 import type { Actions, PageServerLoad } from './$types';
 
 function logoExtraProps(teamId: number, origin = ''): Record<string, string> {
 	const extra: Record<string, string> = {};
-	const pair = pickEmailLogos(
+	const logo = pickEmailLogo(
 		getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo'),
 	);
-	if (pair) {
+	if (logo) {
 		const base = origin.replace(/\/$/, '');
-		const light = base
-			? `${base}/api/design-asset/${pair.light.id}`
-			: `/api/design-asset/${pair.light.id}`;
-		const dark = base
-			? `${base}/api/design-asset/${pair.dark.id}`
-			: `/api/design-asset/${pair.dark.id}`;
-		extra.logo = light;
-		extra.logo_url = light;
-		extra.logo_light = light;
-		extra.logo_dark = dark;
-		extra.logo_dark_url = dark;
+		const src = base ? `${base}/api/design-asset/${logo.id}` : `/api/design-asset/${logo.id}`;
+		extra.logo = src;
+		extra.logo_url = src;
 	}
 	return extra;
 }
@@ -250,14 +242,12 @@ export const actions: Actions = {
 		const teamId = requireTeamId(locals.teamId);
 		const form = await request.formData();
 		const raw = String(form.get('doc') ?? '');
-		const colorScheme = form.get('colorScheme') === 'dark' ? 'dark' : 'light';
 		const doc = parseOwlDoc(raw);
 		if (!doc) return fail(400, { error: 'Invalid owl document' });
 
 		try {
 			return compileOwlDoc(doc, {
 				origin: url.origin,
-				colorScheme,
 				tokens: designTokensForTeam(teamId),
 			});
 		} catch (e) {

@@ -17,7 +17,6 @@
 	} from '@lucide/svelte';
 	import { cn } from '$lib/utils';
 	import logo from '$lib/assets/owlery.svg';
-	import logoDark from '$lib/assets/owlery-dark.svg';
 	import DomainSwitcher from './DomainSwitcher.svelte';
 	import TeamSwitcher from './TeamSwitcher.svelte';
 
@@ -65,8 +64,7 @@
 >
 	<div class="border-b border-[hsl(var(--sidebar-border))] p-4">
 		<a href="/dashboard" class="flex items-center gap-2.5">
-			<img src={logo} alt="" class="h-8 w-8 dark:hidden" />
-			<img src={logoDark} alt="" class="hidden h-8 w-8 dark:block" />
+			<img src={logo} alt="" class="h-8 w-8" />
 			<span class="text-lg font-semibold tracking-tight">Owlery</span>
 		</a>
 		<div class="mt-3">

@@ -1,9 +1,8 @@
 /**
- * Design-token resolution. Tokens are authored as `data-owl-token` /
- * `data-owl-dark-token` with the syntax `css-property:token-name`. The
- * compiler resolves them to literal values (CSS custom properties do not
- * work in email clients) and leaves the attribute in place so token edits
- * re-apply on the next compile.
+ * Design-token resolution. Tokens are authored as `data-owl-token` with the
+ * syntax `css-property:token-name`. The compiler resolves them to literal
+ * values (CSS custom properties do not work in email clients) and leaves the
+ * attribute in place so token edits re-apply on the next compile.
  */
 import { walkElements, type Document } from './parser';
 import { OWL, type OwlCompileContext, type OwlIssue } from './format';
@@ -40,21 +39,6 @@ export function applyTokens(doc: Document, ctx: OwlCompileContext): OwlIssue[] {
 				code: 'token.unresolved',
 				severity: 'warning',
 				message: `Unresolved token "${el.getAttribute(OWL.token)}".`,
-				owlId: id,
-			});
-		}
-
-		const darkToken = resolve(el, el.getAttribute(OWL.darkToken), tokens);
-		if (darkToken) {
-			el.setAttribute(
-				OWL.darkStyle,
-				mergeStyleDecls(el.getAttribute(OWL.darkStyle), [darkToken], true),
-			);
-		} else if (el.getAttribute(OWL.darkToken)) {
-			issues.push({
-				code: 'token.unresolved',
-				severity: 'warning',
-				message: `Unresolved token "${el.getAttribute(OWL.darkToken)}".`,
 				owlId: id,
 			});
 		}

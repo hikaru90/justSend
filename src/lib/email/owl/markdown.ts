@@ -61,11 +61,6 @@ export type OwlMarkdownOptions = {
 	 * Omit or pass `inherit` to match surrounding text (no browser-blue default).
 	 */
 	linkColor?: string;
-	/**
-	 * Dark-mode link color written to `data-owl-dark-style` so email clients and
-	 * forced-dark preview pick it up. Omit / `inherit` = match surrounding dark text.
-	 */
-	linkColorDark?: string;
 };
 
 const LIGHT_LINK_TOKEN_KEYS = [
@@ -78,17 +73,6 @@ const LIGHT_LINK_TOKEN_KEYS = [
 	'text',
 	'foreground',
 	'body',
-] as const;
-
-const DARK_LINK_TOKEN_KEYS = [
-	'link_dark',
-	'link_color_dark',
-	'primary_dark',
-	'text_dark',
-	'foreground_dark',
-	'body_dark',
-	'text_light',
-	'foreground_light',
 ] as const;
 
 function isHexColor(value: string): boolean {
@@ -110,8 +94,7 @@ export function pickDesignHexToken(
 		const hit = entries.find(([key, value]) => {
 			if (!isHexColor(value)) return false;
 			if (key === name || key.endsWith(`_${name}`)) return true;
-			// brand_primary matches primary; avoid text matching text_dark
-			if (key.startsWith(`${name}_`) && !key.endsWith('_dark')) return true;
+			if (key.startsWith(`${name}_`)) return true;
 			return false;
 		});
 		if (hit) return hit[1].trim();
@@ -120,26 +103,14 @@ export function pickDesignHexToken(
 }
 
 /**
- * Resolve markdown link colors from design.md tokens for the active color scheme.
+ * Resolve the markdown link color from design.md tokens.
  * Falls back to `inherit` (match body text) — never browser default blue.
  */
 export function resolveMarkdownLinkColors(
 	tokens?: Record<string, string>,
-	colorScheme?: 'light' | 'dark',
-): Pick<OwlMarkdownOptions, 'linkColor' | 'linkColorDark'> {
+): Pick<OwlMarkdownOptions, 'linkColor'> {
 	const light = pickDesignHexToken(tokens, LIGHT_LINK_TOKEN_KEYS);
-	const dark = pickDesignHexToken(tokens, DARK_LINK_TOKEN_KEYS);
-
-	if (colorScheme === 'dark') {
-		// Forced dark: paint dark token, else inherit parent dark body color.
-		return { linkColor: dark ?? light ?? 'inherit' };
-	}
-
-	return {
-		linkColor: light ?? 'inherit',
-		// Don't reuse light primary on dark backgrounds when no dark token exists.
-		linkColorDark: dark ?? 'inherit',
-	};
+	return { linkColor: light ?? 'inherit' };
 }
 
 function sanitize(html: string): string {
@@ -167,12 +138,10 @@ function linkInlineStyle(linkColor?: string): string {
 
 /**
  * Email clients need inline styles on body links. Also ensure target/rel for
- * outbound URLs (see email formatting rules). Dark color goes on data-owl-dark-style.
+ * outbound URLs (see email formatting rules).
  */
 function decorateMarkdownLinks(html: string, options?: OwlMarkdownOptions): string {
 	const style = linkInlineStyle(options?.linkColor);
-	const darkColor = options?.linkColorDark?.trim();
-	const darkStyle = darkColor ? `color:${darkColor};` : undefined;
 
 	return html.replace(/<a\b([^>]*)>/gi, (_full, rawAttrs: string) => {
 		let attrs = rawAttrs;
@@ -184,18 +153,6 @@ function decorateMarkdownLinks(html: string, options?: OwlMarkdownOptions): stri
 			});
 		} else {
 			attrs += ` style="${style}"`;
-		}
-
-		if (darkStyle) {
-			if (/\bdata-owl-dark-style\s*=/i.test(attrs)) {
-				attrs = attrs.replace(
-					/\bdata-owl-dark-style\s*=\s*(["'])([\s\S]*?)\1/i,
-					(_s, q: string, existing: string) =>
-						`data-owl-dark-style=${q}${darkStyle}${existing.trim()}${q}`,
-				);
-			} else {
-				attrs += ` data-owl-dark-style="${darkStyle}"`;
-			}
 		}
 
 		if (!/\btarget\s*=/i.test(attrs)) attrs += ' target="_blank"';

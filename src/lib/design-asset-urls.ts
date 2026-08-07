@@ -66,8 +66,8 @@ export function normalizeBareDesignAssetUrlsInHtml(html: string): string {
 
 /**
  * Walk an email-builder block tree and normalize Image `props.url` /
- * Container `style.backgroundImage` (and darkStyle mirrors) when they hold
- * bare asset ids. Returns whether anything changed.
+ * Container `style.backgroundImage` when they hold bare asset ids.
+ * Returns whether anything changed.
  */
 export function normalizeBareDesignAssetUrlsInDocument(
 	doc: Record<string, { type?: string; data?: Record<string, unknown> }>,
@@ -91,10 +91,8 @@ export function normalizeBareDesignAssetUrlsInDocument(
 		if (!data || typeof data !== 'object') continue;
 		const props = data.props as Record<string, unknown> | undefined;
 		const style = data.style as Record<string, unknown> | undefined;
-		const darkStyle = data.darkStyle as Record<string, unknown> | undefined;
 		normalizeField(props, 'url');
 		normalizeField(style, 'backgroundImage');
-		normalizeField(darkStyle, 'backgroundImage');
 	}
 	return changed;
 }

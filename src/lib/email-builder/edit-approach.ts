@@ -13,7 +13,7 @@ export function isEmptyComponentDocument(document: TEditorConfiguration): boolea
 }
 
 const HTML_INSTRUCTION_RE =
-	/\b(raw\s*html|custom\s*html|inline\s*css|markup)\b|@media\b|prefers-color-scheme|\.logo-(light|dark)\b|\bdark\s*[\/&+-]\s*light\b|\blight\s*[\/&+-]\s*dark\b|\bdark\s+and\s+light\b|\blight\s+and\s+dark\b|\bdual[- ]?mode\b/i;
+	/\b(raw\s*html|custom\s*html|inline\s*css|markup)\b|@media\b/i;
 
 const CONTENT_BLOCK_TYPES = new Set([
 	'Heading',
@@ -45,7 +45,7 @@ export function resolveEditApproach(opts: {
  * Infer blocks vs HTML from instruction cues and current component shape.
  *
  * HTML when:
- * - instruction mentions raw/custom HTML, @media, prefers-color-scheme, dark/light dual markup
+ * - instruction mentions raw/custom HTML or @media
  * - document is empty and stored html exists (legacy)
  * - document is empty (create with HTML cues already covered; empty alone stays blocks unless html stored)
  * - document is only Html block(s) with real contents

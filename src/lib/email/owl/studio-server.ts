@@ -57,7 +57,7 @@ export function defaultOwlShell(): string {
  */
 export function compileOwlDoc(
 	doc: OwlDoc,
-	ctx: { origin?: string; colorScheme?: 'light' | 'dark'; tokens?: Record<string, string> } = {},
+	ctx: { origin?: string; tokens?: Record<string, string> } = {},
 ): OwlCompilePreview {
 	const composed = composeEmailHtml(
 		doc.shell,
@@ -66,12 +66,11 @@ export function compileOwlDoc(
 	);
 
 	const parsed = parseDocument(composed.html);
-	const mdColors = resolveMarkdownLinkColors(ctx.tokens, ctx.colorScheme);
+	const mdColors = resolveMarkdownLinkColors(ctx.tokens);
 	applySlotValues(parsed, doc.slotValues, mdColors);
 
 	const result = compileOwlHtml(serialize(parsed), {
 		kind: 'marketing',
-		colorScheme: ctx.colorScheme,
 		tokens: ctx.tokens,
 	});
 

@@ -16,11 +16,9 @@
 		Layers,
 		LoaderCircle,
 		Monitor,
-		Moon,
 		Pencil,
 		Plus,
 		Smartphone,
-		Sun,
 		Trash2,
 		Bookmark,
 		XCircle,
@@ -35,11 +33,6 @@
 	import {
 		applyInspectorPatch,
 		applyShellInspectorPatch,
-		copyDarkStylesToLight as copyDarkStylesToLightInHtml,
-		copyLightStylesToDark as copyLightStylesToDarkInHtml,
-		darkOverridePropSet,
-		effectiveDarkStyleRows,
-		ensureVariantPartner,
 		enumOptions,
 		extractInspector,
 		extractShellInspector,
@@ -50,7 +43,6 @@
 		mintOwlDoc,
 		mintOwlIdsInFragment,
 		nextStylePropertyToAdd,
-		resolveVariantEditTargets,
 		shellCanvasBackgroundColor,
 		shellCanvasCrumb,
 		stylePropertyOptions,
@@ -58,7 +50,6 @@
 		suggestedAttributes,
 		updateSectionHtml,
 		updateShellHtml,
-		variantRoleOf,
 		type AttrRow,
 		type InspectorPatch,
 		type InspectorSnapshot,
@@ -163,8 +154,6 @@
 	let renameDraft = $state('');
 	let renameInputEl = $state<HTMLInputElement | null>(null);
 	let selectedOwlId = $state<string | null>(null);
-	let colorScheme = $state<'light' | 'dark'>('light');
-	let inspectorMode = $state<'light' | 'dark'>('light');
 	let device = $state<'desktop' | 'mobile'>('desktop');
 	let preview = $state<OwlCompilePreview | null>(null);
 	let compileError = $state<string | null>(null);
@@ -195,20 +184,12 @@
 	let issuesOpen = $state(false);
 	let inspector = $state<InspectorSnapshot | null>(null);
 	let styleRows = $state<StyleRow[]>([]);
-	let darkStyleRows = $state<StyleRow[]>([]);
-	let partnerStyleRows = $state<StyleRow[]>([]);
 	let attrRows = $state<AttrRow[]>([]);
-	let partnerAttrRows = $state<AttrRow[]>([]);
-	let partnerSrcDraft = $state('');
-	let partnerAltDraft = $state('');
-	let partnerTextDraft = $state('');
 	let textDraft = $state('');
 	let rawHtmlDraft = $state('');
 	let lightEditOwlId = $state<string | null>(null);
-	let darkEditOwlId = $state<string | null>(null);
 	let styleEditOwlId = $state<string | null>(null);
 	let contentTextFocused = $state(false);
-	let partnerTextFocused = $state(false);
 	let previewRoot = $state<HTMLDivElement | null>(null);
 	let previewScrollEl = $state<HTMLDivElement | null>(null);
 	let hoverMarkedEl: HTMLElement | null = null;
@@ -233,7 +214,7 @@
 	const blockTheme = $derived(resolveBlockTheme(designColors));
 	const emailContainer = $derived(shellCanvasCrumb(currentDoc.shell));
 	const emailContainerColor = $derived(
-		shellCanvasBackgroundColor(currentDoc.shell, colorScheme === 'dark') ?? '#FFFFFF',
+		shellCanvasBackgroundColor(currentDoc.shell) ?? '#FFFFFF',
 	);
 	const selectedIsEmailContainer = $derived(
 		emailContainer !== null && selectedOwlId === emailContainer.owlId,
@@ -243,21 +224,6 @@
 	);
 	const colorComboboxOptions = $derived(buildDesignColorOptions(designColors, designTokens));
 	const cssPropertyOptions = stylePropertyOptions();
-	const darkOverrideProps = $derived(darkOverridePropSet(darkStyleRows));
-	const effectiveDarkRows = $derived(
-		darkEditOwlId
-			? partnerStyleRows.filter((r) => r.prop.trim().toLowerCase() !== 'display')
-			: effectiveDarkStyleRows(styleRows, darkStyleRows),
-	);
-	const inheritedDarkRows = $derived(
-		darkEditOwlId
-			? effectiveDarkRows
-			: styleRows.filter(
-					(r) =>
-						r.prop.trim() &&
-						!darkOverrideProps.has(r.prop.trim().toLowerCase()),
-				),
-	);
 
 	$effect(() => {
 		localDesignSections = [...designSections];
@@ -302,22 +268,8 @@
 
 	$effect(() => {
 		void currentDoc;
-		void colorScheme;
 		scheduleRecompile();
 	});
-
-	function setPreviewColorScheme(next: 'light' | 'dark') {
-		colorScheme = next;
-		if (!selectedSection || !selectedOwlId) return;
-		const targets = resolveVariantEditTargets(selectedSection.html, selectedOwlId);
-		if (!targets?.darkOwlId) return;
-		selectedOwlId = next === 'dark' ? targets.darkOwlId : targets.lightOwlId;
-		inspectorMode = next;
-	}
-
-	function setInspectorMode(next: 'light' | 'dark') {
-		inspectorMode = next;
-	}
 
 	async function recompile() {
 		try {
@@ -328,7 +280,6 @@
 			}
 			const body = new FormData();
 			body.append('doc', serialized);
-			body.append('colorScheme', colorScheme);
 			const res = await fetch(`?/owlCompile`, {
 				method: 'POST',
 				body,
@@ -431,13 +382,11 @@
 		owlId: string,
 		htmlFallback: string,
 		slotName?: string,
-		darkPartner = false,
 		slotType?: string,
 	): string {
 		if (slotName && (!slotType || slotType === 'text')) {
 			// Per-instance key (owlId) wins; slot name is the legacy fallback.
-			const fallbackName = darkPartner ? `${slotName}_dark` : slotName;
-			const value = currentDoc.slotValues[owlId] ?? currentDoc.slotValues[fallbackName];
+			const value = currentDoc.slotValues[owlId] ?? currentDoc.slotValues[slotName];
 			if (typeof value === 'string') {
 				return substitutePreviewPlaceholders(value, testVariables);
 			}
@@ -459,15 +408,12 @@
 	function refreshInspector() {
 		// Selection changed — never leave Content stuck behind a stale focus flag.
 		contentTextFocused = false;
-		partnerTextFocused = false;
 
 		if (!selectedOwlId) {
 			inspector = null;
 			lightEditOwlId = null;
-			darkEditOwlId = null;
 			styleEditOwlId = null;
 			textDraft = '';
-			partnerTextDraft = '';
 			return;
 		}
 
@@ -475,71 +421,30 @@
 		inspector = snap;
 		if (!snap) {
 			lightEditOwlId = null;
-			darkEditOwlId = null;
 			styleEditOwlId = null;
 			textDraft = '';
-			partnerTextDraft = '';
 			return;
 		}
 
 		const editHtml = editHtmlForOwlId(selectedOwlId);
 		if (!editHtml) {
 			lightEditOwlId = null;
-			darkEditOwlId = null;
 			styleEditOwlId = null;
 			textDraft = '';
-			partnerTextDraft = '';
 			return;
 		}
 
-		const targets = isOwlIdInShell(currentDoc, selectedOwlId)
-			? { lightOwlId: selectedOwlId, darkOwlId: null, styleOwlId: selectedOwlId }
-			: resolveVariantEditTargets(editHtml, selectedOwlId);
-		lightEditOwlId = targets?.lightOwlId ?? selectedOwlId;
-		darkEditOwlId = targets?.darkOwlId ?? null;
-		styleEditOwlId = targets?.styleOwlId ?? selectedOwlId;
+		lightEditOwlId = selectedOwlId;
+		styleEditOwlId = selectedOwlId;
 
-		const lightSnap =
-			lightEditOwlId === snap.owlId ? snap : extractForOwlId(lightEditOwlId);
-		const styleSnap =
-			styleEditOwlId === snap.owlId ? snap : extractForOwlId(styleEditOwlId);
-		const darkSnap = darkEditOwlId ? extractForOwlId(darkEditOwlId) : null;
-
-		if (lightSnap) {
-			styleRows = lightSnap.styleRows.map((r) => ({ ...r }));
-			attrRows = lightSnap.attrRows.map((r) => ({ ...r }));
-			textDraft = effectiveContentText(
-				lightEditOwlId!,
-				lightSnap.textContent,
-				lightSnap.slotName ?? snap.slotName,
-				false,
-				lightSnap.slotType ?? snap.slotType,
-			);
-		} else {
-			textDraft = '';
-		}
-		if (styleSnap) {
-			darkStyleRows = styleSnap.darkStyleRows.map((r) => ({ ...r }));
-		}
-		if (darkSnap) {
-			partnerAttrRows = darkSnap.attrRows.map((r) => ({ ...r }));
-			partnerStyleRows = darkSnap.styleRows.map((r) => ({ ...r }));
-			partnerSrcDraft = darkSnap.attrRows.find((r) => r.name === 'src')?.value ?? '';
-			partnerAltDraft = darkSnap.attrRows.find((r) => r.name === 'alt')?.value ?? '';
-			partnerTextDraft = effectiveContentText(
-				darkEditOwlId!,
-				darkSnap.textContent,
-				snap.slotName ?? lightSnap?.slotName,
-				true,
-				snap.slotType ?? lightSnap?.slotType,
-			);
-		} else {
-			partnerAttrRows = [];
-			partnerStyleRows = [];
-			partnerSrcDraft = '';
-			partnerAltDraft = '';
-			partnerTextDraft = '';
-		}
+		styleRows = snap.styleRows.map((r) => ({ ...r }));
+		attrRows = snap.attrRows.map((r) => ({ ...r }));
+		textDraft = effectiveContentText(
+			selectedOwlId,
+			snap.textContent,
+			snap.slotName,
+			snap.slotType,
+		);
 		rawHtmlDraft = snap.rawHtml;
 	}
 
@@ -557,7 +462,6 @@
 		void testVariables;
 		selectedOwlId;
 		lightEditOwlId;
-		darkEditOwlId;
 		if (!selectedOwlId || !inspector) return;
 		void tick().then(() => {
 			if (!inspector || !lightEditOwlId) return;
@@ -571,20 +475,7 @@
 						lightEditOwlId,
 						lightSnap.textContent,
 						lightSnap.slotName ?? inspector.slotName,
-						false,
 						lightSnap.slotType ?? inspector.slotType,
-					);
-				}
-			}
-			if (!partnerTextFocused && darkEditOwlId) {
-				const darkSnap = extractForOwlId(darkEditOwlId);
-				if (darkSnap) {
-					partnerTextDraft = effectiveContentText(
-						darkEditOwlId,
-						darkSnap.textContent,
-						inspector.slotName,
-						true,
-						inspector.slotType,
 					);
 				}
 			}
@@ -751,7 +642,6 @@
 	function selectOwlId(owlId: string, sectionId?: string | null, el?: HTMLElement | null) {
 		selectedOwlId = owlId;
 		selectedMarkedEl = el ?? null;
-		inspectorMode = colorScheme;
 		if (isOwlIdInShell(currentDoc, owlId)) {
 			selectedId = null;
 		} else if (sectionId) {
@@ -773,7 +663,6 @@
 		selectedOwlId = emailContainer.owlId;
 		selectedMarkedEl = null;
 		selectedId = null;
-		inspectorMode = colorScheme;
 		void tick().then(() => {
 			hoverMarkedEl = null;
 			breadcrumbHoverOwlId = null;
@@ -798,15 +687,6 @@
 		if (nextHtml === null) return;
 		currentDoc = updateSectionHtml(currentDoc, section.id, nextHtml);
 		refreshInspector();
-	}
-
-	function partnerAttrRowsWithMedia(): AttrRow[] {
-		const rows = partnerAttrRows.filter((r) => r.name !== 'src' && r.name !== 'alt');
-		return [
-			...rows,
-			{ name: 'src', value: partnerSrcDraft },
-			{ name: 'alt', value: partnerAltDraft },
-		];
 	}
 
 	function handlePreviewClick(e: MouseEvent) {
@@ -850,41 +730,9 @@
 		applyToOwlId(lightEditOwlId, { styleRows });
 	}
 
-	function applyDarkStyleRows() {
-		if (!styleEditOwlId) return;
-		applyToOwlId(styleEditOwlId, { darkStyleRows });
-	}
-
 	function applyAttrRows() {
 		if (!lightEditOwlId) return;
 		applyToOwlId(lightEditOwlId, { attrRows });
-	}
-
-	function applyPartnerAttrRows() {
-		if (!darkEditOwlId) return;
-		applyToOwlId(darkEditOwlId, { attrRows: partnerAttrRowsWithMedia() });
-	}
-
-	function applyPartnerSrc() {
-		if (!darkEditOwlId) return;
-		applyToOwlId(darkEditOwlId, { attrRows: partnerAttrRowsWithMedia() });
-	}
-
-	function applyPartnerText() {
-		if (!darkEditOwlId) return;
-		if (isTextSlot(inspector) && inspector?.slotName) {
-			setSlot(darkEditOwlId, partnerTextDraft);
-			return;
-		}
-		applyToOwlId(darkEditOwlId, { textContent: partnerTextDraft });
-	}
-
-	function addDarkPartner() {
-		if (!selectedSection || !selectedOwlId) return;
-		const nextHtml = ensureVariantPartner(selectedSection.html, selectedOwlId, 'dark');
-		if (nextHtml === null) return;
-		currentDoc = updateSectionHtml(currentDoc, selectedSection.id, nextHtml);
-		refreshInspector();
 	}
 
 	function applyTextDraft() {
@@ -909,111 +757,36 @@
 
 	function prefillStyleValue(
 		prop: string,
-		dark: boolean,
 		theme: BlockTheme,
 		forEmailContainer = false,
 	): string {
 		const p = prop.trim().toLowerCase();
-		if (p === 'color') return dark ? theme.darkText : theme.text;
+		if (p === 'color') return theme.text;
 		if (p === 'background-color') {
-			if (forEmailContainer) return dark ? theme.darkCanvas : theme.canvas;
-			return dark ? theme.darkCanvas : theme.canvas;
+			return theme.canvas;
 		}
-		if (p === 'border-color' || p === 'outline-color') return dark ? theme.darkMuted : theme.muted;
+		if (p === 'border-color' || p === 'outline-color') return theme.muted;
 		return '';
 	}
 
-	function colorOptionsForProp(prop: string, dark: boolean): DesignColorOption[] {
-		const recommended = prefillStyleValue(prop, dark, blockTheme, selectedIsEmailContainer);
+	function colorOptionsForProp(prop: string): DesignColorOption[] {
+		const recommended = prefillStyleValue(prop, blockTheme, selectedIsEmailContainer);
 		return orderDesignColorOptions(colorComboboxOptions, recommended);
 	}
 
-	function handleStylePropChange(row: StyleRow, dark: boolean) {
+	function handleStylePropChange(row: StyleRow) {
 		if (isColorStyleProp(row.prop)) {
-			row.value = prefillStyleValue(row.prop, dark, blockTheme, selectedIsEmailContainer);
+			row.value = prefillStyleValue(row.prop, blockTheme, selectedIsEmailContainer);
 		}
-		if (dark) applyDarkStyleRows();
-		else applyStyleRows();
+		applyStyleRows();
 	}
 
 	function addStyleRow() {
 		const prop = nextStylePropertyToAdd(styleRows);
 		styleRows = [
 			...styleRows,
-			{ prop, value: prefillStyleValue(prop, false, blockTheme, selectedIsEmailContainer) },
+			{ prop, value: prefillStyleValue(prop, blockTheme, selectedIsEmailContainer) },
 		];
-	}
-
-	function addDarkStyleRow() {
-		const prop = nextStylePropertyToAdd(darkStyleRows);
-		darkStyleRows = [
-			...darkStyleRows,
-			{ prop, value: prefillStyleValue(prop, true, blockTheme, selectedIsEmailContainer) },
-		];
-	}
-
-	function copyLightStylesToDark() {
-		if (!styleEditOwlId) return;
-		const editHtml = editHtmlForOwlId(styleEditOwlId);
-		if (!editHtml) return;
-		let html = editHtml;
-		const flushed = isOwlIdInShell(currentDoc, styleEditOwlId)
-			? applyShellPatch(styleEditOwlId, { styleRows })
-			: applyInspectorPatch(html, styleEditOwlId, { styleRows });
-		if (flushed) html = flushed;
-		const result = copyLightStylesToDarkInHtml(html, styleEditOwlId);
-		if (!result) return;
-		if (isOwlIdInShell(currentDoc, styleEditOwlId)) {
-			currentDoc = updateShellHtml(currentDoc, result.html);
-		} else {
-			const sectionId = findSectionIdForOwlId(currentDoc, styleEditOwlId);
-			if (!sectionId) return;
-			currentDoc = updateSectionHtml(currentDoc, sectionId, result.html);
-		}
-		darkStyleRows = result.darkStyleRows.map((r) => ({ ...r }));
-		refreshInspector();
-	}
-
-	function copyDarkStylesToLight() {
-		if (!lightEditOwlId) return;
-		const editHtml = editHtmlForOwlId(lightEditOwlId);
-		if (!editHtml) return;
-		let html = editHtml;
-		const flushed = isOwlIdInShell(currentDoc, lightEditOwlId)
-			? applyShellPatch(lightEditOwlId, { darkStyleRows })
-			: applyInspectorPatch(html, lightEditOwlId, { darkStyleRows });
-		if (flushed) html = flushed;
-		const result = copyDarkStylesToLightInHtml(html, lightEditOwlId);
-		if (!result) return;
-		if (isOwlIdInShell(currentDoc, lightEditOwlId)) {
-			currentDoc = updateShellHtml(currentDoc, result.html);
-		} else {
-			const sectionId = findSectionIdForOwlId(currentDoc, lightEditOwlId);
-			if (!sectionId) return;
-			currentDoc = updateSectionHtml(currentDoc, sectionId, result.html);
-		}
-		styleRows = result.styleRows.map((r) => ({ ...r }));
-		refreshInspector();
-	}
-
-	function copyLightContentToDark() {
-		if (!selectedSection || !lightEditOwlId || !darkEditOwlId) return;
-		const lightSnap = extractInspector(selectedSection.html, lightEditOwlId);
-		if (!lightSnap) return;
-		applyToOwlId(darkEditOwlId, {
-			textContent: lightSnap.textContent,
-			attrRows: lightSnap.attrRows.map((r) => ({ ...r })),
-		});
-	}
-
-	function copyDarkContentToLight() {
-		if (!selectedSection || !lightEditOwlId || !darkEditOwlId) return;
-		const darkSnap = extractInspector(selectedSection.html, darkEditOwlId);
-		if (!darkSnap) return;
-		applyToOwlId(lightEditOwlId, {
-			textContent: darkSnap.textContent,
-			attrRows: darkSnap.attrRows.map((r) => ({ ...r })),
-		});
 	}
 
 	function addAttrRow() {
@@ -1938,17 +1711,6 @@
 				><Smartphone class="size-3.5" />Mobile</button>
 			</div>
 			<div class="flex items-center gap-2">
-				<button
-					type="button"
-					class="flex items-center gap-1 rounded-md border border-[hsl(var(--border))] px-2 py-1 text-xs"
-					onclick={() => setPreviewColorScheme(colorScheme === 'dark' ? 'light' : 'dark')}
-				>
-					{#if colorScheme === 'dark'}
-						<Moon class="size-3.5" />Dark
-					{:else}
-						<Sun class="size-3.5" />Light
-					{/if}
-				</button>
 				{#if errorCount > 0 || warningCount > 0}
 					<button
 						type="button"
@@ -2010,7 +1772,6 @@
 						bind:this={previewRoot}
 						class="owl-preview-root"
 						data-viewport={device}
-						data-color-scheme={colorScheme}
 						onclick={handlePreviewClick}
 						role="presentation"
 					>
@@ -2047,31 +1808,6 @@
 
 		{#if inspector}
 			<div class="mb-4 space-y-4 border-b border-[hsl(var(--border))] pb-4">
-				<div class="flex items-center gap-1 rounded-md border border-[hsl(var(--border))] p-0.5">
-					<button
-						type="button"
-						class="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs {inspectorMode ===
-						'light'
-							? 'bg-[hsl(var(--secondary))]'
-							: ''}"
-						onclick={() => setInspectorMode('light')}
-					>
-						<Sun class="size-3.5" />
-						Light
-					</button>
-					<button
-						type="button"
-						class="flex flex-1 items-center justify-center gap-1 rounded px-2 py-1.5 text-xs {inspectorMode ===
-						'dark'
-							? 'bg-[hsl(var(--secondary))]'
-							: ''}"
-						onclick={() => setInspectorMode('dark')}
-					>
-						<Moon class="size-3.5" />
-						Dark
-					</button>
-				</div>
-
 				{#if selectedIsEmailContainer}
 					<p class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]">
 						<strong class="font-medium text-[hsl(var(--foreground))]">Email container</strong> wraps all
@@ -2080,19 +1816,8 @@
 				{/if}
 
 				<p class="text-xs text-[hsl(var(--muted-foreground))]">
-					Inspector tabs edit light vs dark for this element. Use the preview toggle above to check
-					rendering.
+					Edits apply directly to this element. The preview always renders in light mode.
 				</p>
-
-				{#if inspector.variantRole || darkEditOwlId}
-					<p class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]">
-						Selected
-						<span class="font-medium text-[hsl(var(--foreground))]">{inspector.variantRole ?? 'light'} variant</span>
-						{#if darkEditOwlId}
-							· paired with {inspector.variantRole === 'light' ? 'dark' : 'light'} alternate
-						{/if}
-					</p>
-				{/if}
 
 				{#if inspector.breadcrumbs.length > 0 && !selectedIsEmailContainer}
 					<nav class="flex flex-wrap gap-1 text-xs text-[hsl(var(--muted-foreground))]">
@@ -2131,21 +1856,10 @@
 					</nav>
 				{/if}
 
-				{#if inspectorMode === 'light'}
-					<div>
-						<div class="mb-1 flex items-center justify-between gap-2">
-							<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">Content</p>
-							{#if inspector.variantPartner || darkEditOwlId}
-								<button
-									type="button"
-									class="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-									onclick={copyDarkContentToLight}
-								>
-									<Copy class="size-3" />
-									Copy from dark
-								</button>
-							{/if}
-						</div>
+				<div>
+					<div class="mb-1 flex items-center justify-between gap-2">
+						<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">Content</p>
+					</div>
 						{#if inspector.slotName}
 							<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
 								Slot <code class="text-[0.65rem]">{inspector.slotName}</code>
@@ -2171,18 +1885,9 @@
 					<div>
 						<div class="mb-1 flex items-center justify-between gap-2">
 							<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">Styles</p>
-							<button
-								type="button"
-								class="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] disabled:opacity-40"
-								disabled={darkStyleRows.length === 0}
-								onclick={copyDarkStylesToLight}
-							>
-								<Copy class="size-3" />
-								Copy from dark
-							</button>
 						</div>
 						<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-							Inline styles on this element (always visible in light mode).
+							Inline styles on this element.
 						</p>
 						<div class="space-y-1.5">
 							{#each styleRows as row, index (index)}
@@ -2191,13 +1896,13 @@
 									<StylePropertyCombobox
 										bind:value={row.prop}
 										options={cssPropertyOptions}
-										onchange={() => handleStylePropChange(row, false)}
+										onchange={() => handleStylePropChange(row)}
 									/>
 									{#if kind === 'color'}
 										<StyleColorCombobox
 											bind:value={row.value}
-											options={colorOptionsForProp(row.prop, false)}
-											fallback={prefillStyleValue(row.prop, false, blockTheme, selectedIsEmailContainer)}
+											options={colorOptionsForProp(row.prop)}
+											fallback={prefillStyleValue(row.prop, blockTheme, selectedIsEmailContainer)}
 											onchange={applyStyleRows}
 										/>
 									{:else if kind === 'enum'}
@@ -2259,274 +1964,6 @@
 						</div>
 						<Button size="sm" variant="outline" class="mt-2" onclick={addAttrRow}>Add attribute</Button>
 					</div>
-				{:else}
-					{#if !darkEditOwlId}
-						<div>
-							<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">Content</p>
-							{#if inspector.slotName}
-								<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-									Slot <code class="text-[0.65rem]">{inspector.slotName}</code>
-									({inspector.slotType}) — use the slot editor below when available.
-								</p>
-							{/if}
-							<textarea
-								rows="2"
-								bind:value={textDraft}
-								placeholder="Enter text…"
-								onfocus={() => (contentTextFocused = true)}
-								onblur={() => (contentTextFocused = false)}
-								onchange={applyTextDraft}
-								class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
-							></textarea>
-							{#if isTextSlot(inspector)}
-								<p class="mt-1 text-[0.65rem] text-[hsl(var(--muted-foreground))]">
-									Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
-								</p>
-							{/if}
-						</div>
-					{/if}
-					{#if inheritedDarkRows.length > 0}
-						<div>
-							<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">
-								{darkEditOwlId ? 'Shared layout' : 'Inherited from light'}
-							</p>
-							<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-								{#if darkEditOwlId}
-									Layout and sizing on the dark variant element — kept in sync when you edit the
-									Light tab.
-								{:else}
-									These light-mode styles also apply in dark mode unless you add an override
-									below.
-								{/if}
-							</p>
-							<div class="space-y-1.5">
-								{#each inheritedDarkRows as row (row.prop)}
-									<div
-										class="flex flex-wrap gap-1 rounded border border-dashed border-[hsl(var(--border))] px-1 py-1 opacity-80"
-									>
-										<span class="px-1 py-1 font-mono text-xs text-[hsl(var(--muted-foreground))]"
-											>{row.prop}</span
-										>
-										<span class="min-w-0 flex-1 px-1 py-1 font-mono text-xs">{row.value}</span>
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/if}
-
-					<div>
-						<div class="mb-1 flex items-center justify-between gap-2">
-							<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">Dark overrides</p>
-							<button
-								type="button"
-								class="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] disabled:opacity-40"
-								disabled={styleRows.length === 0}
-								onclick={copyLightStylesToDark}
-							>
-								<Copy class="size-3" />
-								Copy from light
-							</button>
-						</div>
-						<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-							{#if darkEditOwlId}
-								Optional color or spacing overrides for this element in dark mode. Layout above
-								comes from the Light tab.
-							{:else}
-								CSS overrides for this same element in dark mode (padding, colors, etc.). Applied
-								via
-								<code class="text-[0.65rem]">@media (prefers-color-scheme: dark)</code>. Switch
-								the preview to Dark to check the result.
-							{/if}
-						</p>
-						{#if effectiveDarkRows.length > 0 && darkStyleRows.length === 0 && !darkEditOwlId}
-							<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-								No overrides — dark mode uses the inherited light styles listed above.
-							</p>
-						{/if}
-						<div class="space-y-1.5">
-							{#each darkStyleRows as row, index (index)}
-								{@const kind = styleRowKind(row.prop)}
-								<div class="flex flex-wrap gap-1">
-									<StylePropertyCombobox
-										bind:value={row.prop}
-										options={cssPropertyOptions}
-										onchange={() => handleStylePropChange(row, true)}
-									/>
-									{#if kind === 'color'}
-										<StyleColorCombobox
-											bind:value={row.value}
-											options={colorOptionsForProp(row.prop, true)}
-											fallback={prefillStyleValue(row.prop, true, blockTheme, selectedIsEmailContainer)}
-											onchange={applyDarkStyleRows}
-										/>
-									{:else if kind === 'enum'}
-										<select
-											bind:value={row.value}
-											onchange={applyDarkStyleRows}
-											class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 text-xs"
-										>
-											{#each enumOptions(row.prop) as opt (opt)}
-												<option value={opt}>{opt}</option>
-											{/each}
-										</select>
-									{:else}
-										<input
-											bind:value={row.value}
-											onchange={applyDarkStyleRows}
-											class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
-										/>
-									{/if}
-									<button
-										type="button"
-										class="px-1 text-xs text-[hsl(var(--muted-foreground))]"
-										onclick={() => {
-											darkStyleRows = darkStyleRows.filter((_, j) => j !== index);
-											applyDarkStyleRows();
-										}}
-									>×</button>
-								</div>
-							{/each}
-						</div>
-						<Button size="sm" variant="outline" class="mt-2" onclick={addDarkStyleRow}>
-							Add override
-						</Button>
-					</div>
-
-					{#if darkEditOwlId}
-						<div>
-							<div class="mb-1 flex items-center justify-between gap-2">
-								<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">
-									Dark variant
-									<span class="font-normal">(&lt;{inspector?.tag === 'img' ? 'img' : inspector?.variantPartner?.tag ?? 'element'}&gt;)</span>
-								</p>
-								<button
-									type="button"
-									class="flex shrink-0 items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-									onclick={copyLightContentToDark}
-								>
-									<Copy class="size-3" />
-									Copy from light
-								</button>
-							</div>
-							<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-								Optional swap: a different image or text shown in dark mode instead of the light
-								version (e.g. a white logo). Style overrides above apply to both unless you change
-								them separately.
-							</p>
-							{#if inspector?.tag === 'img' || inspector?.variantPartner?.tag === 'img'}
-								<div class="mb-2 space-y-1.5">
-									<label class="block text-xs text-[hsl(var(--muted-foreground))]" for="partner-src"
-										>Image src</label
-									>
-									<input
-										id="partner-src"
-										bind:value={partnerSrcDraft}
-										onchange={applyPartnerSrc}
-										class="w-full rounded border border-[hsl(var(--input))] bg-transparent px-2 py-1 font-mono text-xs"
-									/>
-									{#if imageAssets.length > 0 || logoAssets.length > 0}
-										<div class="grid grid-cols-3 gap-2">
-											{#each [...logoAssets, ...imageAssets] as asset (asset.id)}
-												<button
-													type="button"
-													class="rounded-md border p-1.5 {partnerSrcDraft === designAssetPath(asset.id)
-														? 'border-[hsl(var(--ring))]'
-														: 'border-[hsl(var(--border))]'}"
-													onclick={() => {
-														partnerSrcDraft = designAssetPath(asset.id);
-														applyPartnerSrc();
-													}}
-												>
-													<img
-														src={designAssetPath(asset.id)}
-														alt={asset.name}
-														class="h-12 w-full object-contain"
-													/>
-												</button>
-											{/each}
-										</div>
-									{/if}
-									<label class="block text-xs text-[hsl(var(--muted-foreground))]" for="partner-alt"
-										>Alt text</label
-									>
-									<input
-										id="partner-alt"
-										bind:value={partnerAltDraft}
-										onchange={applyPartnerSrc}
-										class="w-full rounded border border-[hsl(var(--input))] bg-transparent px-2 py-1 text-xs"
-									/>
-								</div>
-							{:else}
-								<textarea
-									rows="2"
-									bind:value={partnerTextDraft}
-									placeholder="Enter text…"
-									onfocus={() => (partnerTextFocused = true)}
-									onblur={() => (partnerTextFocused = false)}
-									onchange={applyPartnerText}
-									class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
-								></textarea>
-							{/if}
-						</div>
-
-						<div>
-							<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">
-								Alternate content attributes
-							</p>
-							<div class="space-y-1.5">
-								{#each partnerAttrRows as row, index (index)}
-									<div class="flex gap-1">
-										<input
-											bind:value={row.name}
-											onchange={applyPartnerAttrRows}
-											class="w-20 shrink-0 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
-										/>
-										<input
-											bind:value={row.value}
-											onchange={applyPartnerAttrRows}
-											class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
-										/>
-										<button
-											type="button"
-											class="px-1 text-xs"
-											onclick={() => {
-												partnerAttrRows = partnerAttrRows.filter((_, j) => j !== index);
-												applyPartnerAttrRows();
-											}}
-										>×</button>
-									</div>
-								{/each}
-							</div>
-							<Button
-								size="sm"
-								variant="outline"
-								class="mt-2"
-								onclick={() => {
-									const tag = inspector?.variantPartner?.tag ?? 'img';
-									const suggested = suggestedAttributes(tag).find(
-										(a) => !partnerAttrRows.some((r) => r.name === a),
-									);
-									partnerAttrRows = [...partnerAttrRows, { name: suggested ?? '', value: '' }];
-								}}
-							>
-								Add attribute
-							</Button>
-						</div>
-					{:else}
-						<div
-							class="rounded-md border border-dashed border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-3"
-						>
-							<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-								Need a different image or text in dark mode? Add an alternate element (a
-								<code class="text-[0.65rem]">partner</code>) that swaps in when the preview or
-								recipient is in dark mode — e.g. a light logo vs a white logo. Style overrides above
-								work without a partner.
-							</p>
-							<Button size="sm" variant="outline" onclick={addDarkPartner}>Add alternate content</Button>
-						</div>
-					{/if}
-				{/if}
-
 				<div>
 					<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">HTML source</p>
 					<textarea
@@ -2565,14 +2002,14 @@
 							? 'border border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/20 p-2'
 							: ''}"
 					>
-						<label class="block text-xs font-medium" for={`slot-${selectedSection.id}-${slot.name}`}>
+						<label class="block text-xs font-medium" for={`slot-${selectedSection?.id}-${slot.name}`}>
 							{slot.label ?? slot.name}
 							<span class="font-normal text-[hsl(var(--muted-foreground))]">· {slot.type}</span>
 							{#if slot.owlId && inspector}
 								<button
 									type="button"
 									class="ml-1 font-normal text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:underline"
-									onclick={() => selectOwlId(slot.owlId, selectedSection.id)}
+									onclick={() => selectOwlId(slot.owlId, selectedSection?.id ?? '')}
 								>
 									(select element)
 								</button>
@@ -2580,7 +2017,7 @@
 						</label>
 					{#if slot.type === 'text'}
 						<textarea
-							id={`slot-${selectedSection.id}-${slot.name}`}
+							id={`slot-${selectedSection?.id}-${slot.name}`}
 							rows="3"
 							value={typeof value === 'string' ? value : ''}
 							oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
@@ -2721,7 +2158,7 @@
 					rows="4"
 					bind:value={piEditDraft}
 					disabled={piEditBusy}
-					placeholder="e.g. Use the dark logo variant, add a second CTA below the hero, tighten footer spacing, match brand primary on buttons."
+					placeholder="e.g. Add a second CTA below the hero, tighten footer spacing, match brand primary on buttons."
 					class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm"
 					onkeydown={(e) => {
 						if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -2863,10 +2300,6 @@
 		cursor: default;
 	}
 
-	.owl-preview-root[data-color-scheme='dark'] {
-		color-scheme: dark;
-	}
-
 	/* Body links: never fall back to browser blue in the dashboard preview. */
 	.owl-preview-root :global(a[href]) {
 		color: inherit;
@@ -2885,18 +2318,6 @@
 	.owl-preview-root :global(.logo-dark),
 	.owl-preview-root :global(.owl-dark) {
 		display: none !important;
-	}
-
-	.owl-preview-root[data-color-scheme='dark'] :global(.logo-light),
-	.owl-preview-root[data-color-scheme='dark'] :global(.owl-light) {
-		display: none !important;
-	}
-
-	.owl-preview-root[data-color-scheme='dark'] :global(.logo-dark),
-	.owl-preview-root[data-color-scheme='dark'] :global(.owl-dark) {
-		display: block !important;
-		max-height: none !important;
-		overflow: visible !important;
 	}
 
 	.owl-preview-root[data-viewport='mobile'] :global(.owl-stack) {

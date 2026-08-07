@@ -6,7 +6,7 @@ Rules distilled from `email-example.html` (Cursor / Customer.io marketing email)
 > See [Owl HTML v1 — Format Specification](./owl-html.md) for the format,
 > annotations, and compiler contract. The rules below are the visual/typographic
 > guidelines; the `.owl` module encodes the structural ones (preheader filler,
-> banned tags, unsubscribe, dark mode, mobile stacking).
+> banned tags, unsubscribe, mobile stacking).
 
 Runtime copy for AI prompts: `src/lib/server/email-formatting-rules.ts` (keep in sync with this file).
 
@@ -57,7 +57,6 @@ Runtime copy for AI prompts: `src/lib/server/email-formatting-rules.ts` (keep in
 - Logo link: `text-decoration: none; display: inline-block`.
 - Give logos an explicit `width` (example: ~93px header, ~42px footer).
 - Always include meaningful `alt` text.
-- If supporting dark/light inboxes, provide logo variants and toggle with `display: none` / `display: block` rather than relying on CSS filters alone.
 
 ## Images
 

@@ -248,8 +248,8 @@ describe('buildPiDesignWorkspaceFiles', () => {
 		expect(files[0].content).toContain('assets/logo/asset1-logo.png');
 		expect(files[0].content).toContain('http://localhost:5173/api/design-asset/asset1');
 		expect(files[0].content).toContain('Light logo');
-		expect(files[0].content).toContain('[logo/light]');
-		expect(files[0].content).toContain('[logo/dark]');
+		expect(files[0].content).toContain('[logo] Light logo → http://localhost:5173/api/design-asset/asset1');
+		expect(files[0].content).toContain('[logo] Dark logo → http://localhost:5173/api/design-asset/asset2');
 		expect(files[0].content).toContain('http://localhost:5173/api/design-asset/asset2');
 	});
 
@@ -389,7 +389,7 @@ describe('readPiEmailTree', () => {
 });
 
 describe('formatDesignAssetsForPrompt', () => {
-	it('labels light and dark logo embed URLs', () => {
+	it('lists every logo with the [logo] embed URL', () => {
 		const text = formatDesignAssetsForPrompt(
 			[
 				{ id: 'l1', kind: 'logo', name: 'Brand', filename: 'logo.png' },
@@ -398,8 +398,8 @@ describe('formatDesignAssetsForPrompt', () => {
 			],
 			'https://owlery.test',
 		);
-		expect(text).toContain('[logo/light] Brand → https://owlery.test/api/design-asset/l1');
-		expect(text).toContain('[logo/dark] Brand dark → https://owlery.test/api/design-asset/d1');
+		expect(text).toContain('[logo] Brand → https://owlery.test/api/design-asset/l1');
+		expect(text).toContain('[logo] Brand dark → https://owlery.test/api/design-asset/d1');
 		expect(text).toContain('[image] Hero → https://owlery.test/api/design-asset/h1');
 	});
 });

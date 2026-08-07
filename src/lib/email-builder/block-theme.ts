@@ -10,13 +10,6 @@ export type BlockTheme = {
 	muted: string;
 	canvas: string;
 	backdrop: string;
-	/** Dark-mode defaults stored on new blocks / empty docs (not derived at render). */
-	darkCanvas: string;
-	darkBackdrop: string;
-	darkText: string;
-	darkPrimary: string;
-	darkOnPrimary: string;
-	darkMuted: string;
 };
 
 const DEFAULT_THEME: BlockTheme = {
@@ -26,12 +19,6 @@ const DEFAULT_THEME: BlockTheme = {
 	muted: '#CCCCCC',
 	canvas: '#FFFFFF',
 	backdrop: '#F5F5F5',
-	darkCanvas: '#1a1a1a',
-	darkBackdrop: '#0a0a0a',
-	darkText: '#f2f2f2',
-	darkPrimary: '#FFFFFF',
-	darkOnPrimary: '#111111',
-	darkMuted: '#555555',
 };
 
 function normalizeHex(hex: string): string {
@@ -65,29 +52,6 @@ function isNearBlack(hex: string): boolean {
 	return luminance(hex) < 0.12;
 }
 
-function formatHex(r: number, g: number, b: number): string {
-	return (
-		'#' +
-		[r, g, b]
-			.map((c) =>
-				Math.max(0, Math.min(255, Math.round(c)))
-					.toString(16)
-					.padStart(2, '0'),
-			)
-			.join('')
-	);
-}
-
-/** Darken a light hex toward near-black for dark-mode canvas/backdrop defaults. */
-function darkenForDarkMode(hex: string, targetLuma: number): string {
-	const n = normalizeHex(hex);
-	if (!n) return formatHex(Math.round(targetLuma * 255), Math.round(targetLuma * 255), Math.round(targetLuma * 255));
-	const L = luminance(n);
-	if (L <= targetLuma + 0.05) return n;
-	const v = Math.round(targetLuma * 255);
-	return formatHex(v, v, v);
-}
-
 /** Derive a usable block theme from design.md color tokens (first colors win). */
 export function resolveBlockTheme(colors: string[] | null | undefined): BlockTheme {
 	const normalized = (colors ?? []).map(normalizeHex).filter(Boolean);
@@ -116,24 +80,6 @@ export function resolveBlockTheme(colors: string[] | null | undefined): BlockThe
 		normalized.find((c) => c !== canvas && luminance(c) > 0.7 && luminance(c) < 0.95) ??
 		DEFAULT_THEME.backdrop;
 
-	const darkText = isNearWhite(lightest) ? lightest : DEFAULT_THEME.darkText;
-	const darkCanvas = darkenForDarkMode(canvas, 0.1);
-	const darkBackdrop = darkenForDarkMode(backdrop, 0.04);
-	// Prefer a light brand accent as dark-mode primary when available; else invert contrast.
-	const darkPrimary =
-		normalized.find((c) => !isNearBlack(c) && luminance(c) > 0.5 && c !== canvas) ??
-		(luminance(primary) > 0.45 ? primary : DEFAULT_THEME.darkPrimary);
-	const darkOnPrimary = contrastOn(darkPrimary);
-	const darkMuted =
-		normalized.find(
-			(c) =>
-				c !== darkPrimary &&
-				c !== darkText &&
-				!isNearWhite(c) &&
-				luminance(c) > 0.15 &&
-				luminance(c) < 0.55,
-		) ?? DEFAULT_THEME.darkMuted;
-
 	return {
 		primary,
 		onPrimary: contrastOn(primary),
@@ -141,12 +87,6 @@ export function resolveBlockTheme(colors: string[] | null | undefined): BlockThe
 		muted,
 		canvas,
 		backdrop,
-		darkCanvas,
-		darkBackdrop,
-		darkText,
-		darkPrimary,
-		darkOnPrimary,
-		darkMuted,
 	};
 }
 
@@ -154,7 +94,6 @@ export function resolveBlockTheme(colors: string[] | null | undefined): BlockThe
 export function applyBlockTheme(block: TEditorBlock, theme: BlockTheme | null | undefined): TEditorBlock {
 	if (!theme) return block;
 	const style = { ...(block.data.style ?? {}) } as Record<string, unknown>;
-	const darkStyle = { ...(block.data.darkStyle ?? {}) } as Record<string, unknown>;
 	const props = { ...(block.data.props ?? {}) } as Record<string, unknown>;
 
 	switch (block.type) {
@@ -164,7 +103,6 @@ export function applyBlockTheme(block: TEditorBlock, theme: BlockTheme | null | 
 				data: {
 					...block.data,
 					style: { ...style, color: theme.text },
-					darkStyle: { ...darkStyle, color: theme.darkText },
 				},
 			};
 		case 'Text':
@@ -173,7 +111,6 @@ export function applyBlockTheme(block: TEditorBlock, theme: BlockTheme | null | 
 				data: {
 					...block.data,
 					style: { ...style, color: theme.text, fontWeight: style.fontWeight ?? 'normal' },
-					darkStyle: { ...darkStyle, color: theme.darkText },
 				},
 			};
 		case 'Button':
@@ -185,8 +122,6 @@ export function applyBlockTheme(block: TEditorBlock, theme: BlockTheme | null | 
 						...props,
 						buttonBackgroundColor: theme.primary,
 						buttonTextColor: theme.onPrimary,
-						buttonBackgroundColorDark: theme.darkPrimary,
-						buttonTextColorDark: theme.darkOnPrimary,
 					},
 				},
 			};
@@ -198,7 +133,6 @@ export function applyBlockTheme(block: TEditorBlock, theme: BlockTheme | null | 
 					props: {
 						...props,
 						lineColor: theme.muted,
-						lineColorDark: theme.darkMuted,
 					},
 				},
 			};
@@ -245,9 +179,6 @@ export function themeEmptyDocument(
 				backdropColor: theme.backdrop,
 				canvasColor: theme.canvas,
 				textColor: theme.text,
-				darkBackdropColor: theme.darkBackdrop,
-				darkCanvasColor: theme.darkCanvas,
-				darkTextColor: theme.darkText,
 			},
 		},
 	};

@@ -53,7 +53,6 @@ Rules distilled from \`email-example.html\` (Cursor / Customer.io marketing emai
 - Logo link: \`text-decoration: none; display: inline-block\`.
 - Give logos an explicit \`width\` (example: ~93px header, ~42px footer).
 - Always include meaningful \`alt\` text.
-- If supporting dark/light inboxes, provide logo variants and toggle with \`display: none\` / \`display: block\` rather than relying on CSS filters alone.
 
 ## Images
 

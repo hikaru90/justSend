@@ -71,7 +71,7 @@ describe('inferEditApproach re-export', () => {
 	it('is available via design workspace context surface', () => {
 		expect(
 			inferEditApproach({
-				instruction: 'custom html dark and light button',
+				instruction: 'custom html CTA button',
 				document: EMPTY_DOCUMENT,
 			}),
 		).toBe('html');
@@ -79,7 +79,7 @@ describe('inferEditApproach re-export', () => {
 });
 
 describe('formatDesignAssetsForPrompt', () => {
-	it('labels light and dark logo embed URLs', () => {
+	it('lists every logo with the [logo] embed URL', () => {
 		const text = formatDesignAssetsForPrompt(
 			[
 				{ id: 'l1', kind: 'logo', name: 'Brand', filename: 'logo.png' },
@@ -88,8 +88,8 @@ describe('formatDesignAssetsForPrompt', () => {
 			],
 			'https://owlery.test',
 		);
-		expect(text).toContain('[logo/light] Brand → https://owlery.test/api/design-asset/l1');
-		expect(text).toContain('[logo/dark] Brand dark → https://owlery.test/api/design-asset/d1');
+		expect(text).toContain('[logo] Brand → https://owlery.test/api/design-asset/l1');
+		expect(text).toContain('[logo] Brand dark → https://owlery.test/api/design-asset/d1');
 		expect(text).toContain('[image] Hero → https://owlery.test/api/design-asset/h1');
 	});
 });
@@ -185,16 +185,16 @@ describe('buildDesignWorkspaceUserPrompt', () => {
 			},
 		};
 
-		const prompt = buildDesignWorkspaceUserPrompt(ctx, 'Use the dark logo variant');
+		const prompt = buildDesignWorkspaceUserPrompt(ctx, 'Use the brand logo in the header');
 		expect(prompt).toContain('Mode: edit');
 		expect(prompt).toContain('MINIMAL DIFF');
 		expect(prompt).toContain('# Brand');
 		expect(prompt).toContain('Email Formatting Rules');
-		expect(prompt).toContain('[logo/dark]');
+		expect(prompt).toContain('[logo] Brand → https://owlery.test/api/design-asset/l1');
 		expect(prompt).toContain('### Footer');
 		expect(prompt).toContain('## Current document');
 		expect(prompt).toContain('"img1"');
-		expect(prompt).toContain('Use the dark logo variant');
+		expect(prompt).toContain('Use the brand logo in the header');
 	});
 });
 

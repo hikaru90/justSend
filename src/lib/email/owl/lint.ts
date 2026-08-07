@@ -1,21 +1,14 @@
 /**
  * Static email-compatibility lint. Produces issues but never throws — the
  * compiler always emits output. Rules are grounded in caniemail.org support
- * data (style block size, Gmail auto-darkness, alt/href hygiene).
+ * data (style block size, alt/href hygiene).
  */
 import { walkElements, type Document } from './parser';
 import { OWL, OWL_CLASS, type OwlIssue } from './format';
 import { parseStyleDecls } from './style';
 
 const GMAIL_STYLE_LIMIT = 16 * 1024;
-const INERT_CLASS_PREFIXES = new Set([
-	`${OWL_CLASS.darkOverride}-`,
-	OWL_CLASS.stack,
-	OWL_CLASS.light,
-	OWL_CLASS.dark,
-	OWL_CLASS.logoLight,
-	OWL_CLASS.logoDark,
-]);
+const INERT_CLASS_PREFIXES = new Set([OWL_CLASS.stack]);
 
 function hasText(el: { textContent?: string | null }): boolean {
 	return Boolean(el.textContent?.trim());
@@ -100,8 +93,7 @@ export function lintDocument(doc: Document, renderedHtml?: string): OwlIssue[] {
 			}
 		}
 
-		// Body copy should be legible after Gmail's forced dark-mode inversion.
-		// The 14px threshold keeps muted footer text quiet (it is intentional).
+		// Muted footer text below 14px is intentional and easy to miss; warn.
 		if (hasText(el)) {
 			const fontSize = parseStyleDecls(el.getAttribute('style')).find(([p]) => p === 'font-size');
 			if (fontSize) {

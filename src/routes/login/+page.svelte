@@ -3,7 +3,6 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import Card from '$lib/components/ui/Card.svelte';
 	import logo from '$lib/assets/owlery.svg';
-	import logoDark from '$lib/assets/owlery-dark.svg';
 
 	let { data } = $props();
 
@@ -34,8 +33,7 @@
 
 <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
 	<a href="/" class="flex flex-col items-center gap-2">
-		<img src={logo} alt="" class="h-12 w-12 dark:hidden" />
-		<img src={logoDark} alt="" class="hidden h-12 w-12 dark:block" />
+		<img src={logo} alt="" class="h-12 w-12" />
 		<span class="text-lg font-semibold tracking-tight">Owlery</span>
 	</a>
 	<Card

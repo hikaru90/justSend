@@ -15,19 +15,19 @@ describe('inferEditApproach', () => {
 		b1: { type: 'Button', data: { props: { text: 'Go', url: 'https://x' } } },
 	};
 
-	it('picks html for raw/custom html and dark-light cues', () => {
+	it('picks html for raw/custom html and media-query cues', () => {
 		expect(
-			inferEditApproach({ instruction: 'raw html dark/light CTA button', document: withButton }),
+			inferEditApproach({ instruction: 'raw html CTA button', document: withButton }),
 		).toBe('html');
 		expect(
 			inferEditApproach({
-				instruction: 'Add @media prefers-color-scheme styles',
+				instruction: 'Add @media queries for mobile stacking',
 				document: withButton,
 			}),
 		).toBe('html');
 		expect(
 			inferEditApproach({
-				instruction: 'Use .logo-dark and .logo-light',
+				instruction: 'Use inline CSS in the markup',
 				document: withButton,
 			}),
 		).toBe('html');

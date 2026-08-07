@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
 import { replaceVariables } from '$lib/server/service/email-service';
-import { pickEmailLogos } from '$lib/design/extractTokens';
+import { pickEmailLogo } from '$lib/design/extractTokens';
 import { getDesignSystemBundle } from '$lib/server/service/design-system-service';
 import { getTemplate } from '$lib/server/service/template-service';
 import type { RequestHandler } from './$types';
@@ -18,17 +18,13 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 
 		const origin = url.origin;
 		const variables: Record<string, string> = {};
-		const pair = pickEmailLogos(
+		const logo = pickEmailLogo(
 			getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo'),
 		);
-		if (pair) {
-			const light = `${origin}/api/design-asset/${pair.light.id}`;
-			const dark = `${origin}/api/design-asset/${pair.dark.id}`;
-			variables.logo = light;
-			variables.logo_url = light;
-			variables.logo_light = light;
-			variables.logo_dark = dark;
-			variables.logo_dark_url = dark;
+		if (logo) {
+			const src = `${origin}/api/design-asset/${logo.id}`;
+			variables.logo = src;
+			variables.logo_url = src;
 		}
 
 		const html = replaceVariables(template.html, variables);

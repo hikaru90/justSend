@@ -7,7 +7,7 @@
  * are rejected against the allowed set extracted from the document.
  */
 import { relativizeDesignAssetUrls } from '$lib/design-asset-urls';
-import { pickEmailLogos, parseDesignTokenMap } from '$lib/design/extractTokens';
+import { pickEmailLogo, parseDesignTokenMap } from '$lib/design/extractTokens';
 import { EMAIL_FORMATTING_RULES } from '../email-formatting-rules';
 import { env } from '../env';
 import { slotsFromFragment } from '$lib/email/owl/slots';
@@ -175,14 +175,11 @@ function designContextBlocks(input: BuildInput): string {
 					.join('\n\n');
 
 	const logoAssets = input.assets.filter((a) => a.kind === 'logo');
-	const logoPair = pickEmailLogos(logoAssets);
+	const primaryLogo = pickEmailLogo(logoAssets);
 	const nonLogoAssets = input.assets.filter((a) => a.kind !== 'logo');
 
-	const logoBlock = logoPair
-		? [
-				`- [logo/light] ${logoPair.light.name} → /api/design-asset/${logoPair.light.id}`,
-				`- [logo/dark] ${logoPair.dark.name} → /api/design-asset/${logoPair.dark.id}`,
-			].join('\n')
+	const logoBlock = primaryLogo
+		? `- [logo] ${primaryLogo.name} → /api/design-asset/${primaryLogo.id}`
 		: '(no logos)';
 
 	const otherAssetBlock =
@@ -336,14 +333,11 @@ export async function generateOwlScaffold(opts: OwlAiOptions): Promise<OwlAiResu
 	const scaffold = parseScaffoldJson(raw, expectedSlots);
 
 	const logoAssets = bundle.assets.filter((a) => a.kind === 'logo');
-	const logoPair = pickEmailLogos(logoAssets);
-	if (logoPair) {
-		const light = `/api/design-asset/${logoPair.light.id}`;
-		const dark = `/api/design-asset/${logoPair.dark.id}`;
-		if (!scaffold.slots.logo_url) scaffold.slots.logo_url = light;
-		if (!scaffold.slots.logo) scaffold.slots.logo = light;
-		if (!scaffold.slots.logo_dark_url) scaffold.slots.logo_dark_url = dark;
-		if (!scaffold.slots.logo_dark) scaffold.slots.logo_dark = dark;
+	const primaryLogo = pickEmailLogo(logoAssets);
+	if (primaryLogo) {
+		const src = `/api/design-asset/${primaryLogo.id}`;
+		if (!scaffold.slots.logo_url) scaffold.slots.logo_url = src;
+		if (!scaffold.slots.logo) scaffold.slots.logo = src;
 	}
 	for (const [key, value] of Object.entries(scaffold.slots)) {
 		if (typeof value === 'string') scaffold.slots[key] = relativizeDesignAssetUrls(value);
@@ -510,13 +504,10 @@ export function buildOwlComposeMessages(input: {
 					.join('\n');
 
 	const logoAssets = (input.assets ?? []).filter((a) => a.kind === 'logo');
-	const logoPair = pickEmailLogos(logoAssets);
+	const primaryLogo = pickEmailLogo(logoAssets);
 	const nonLogoAssets = (input.assets ?? []).filter((a) => a.kind !== 'logo');
-	const logoBlock = logoPair
-		? [
-				`- [logo/light] ${logoPair.light.name} → /api/design-asset/${logoPair.light.id}`,
-				`- [logo/dark] ${logoPair.dark.name} → /api/design-asset/${logoPair.dark.id}`,
-			].join('\n')
+	const logoBlock = primaryLogo
+		? `- [logo] ${primaryLogo.name} → /api/design-asset/${primaryLogo.id}`
 		: '(no logos)';
 	const otherAssetBlock =
 		nonLogoAssets.length === 0
@@ -674,16 +665,13 @@ export async function generateOwlCompose(opts: OwlComposeOptions): Promise<OwlCo
 	const parsed = parseComposeJson(raw, allowedKeys);
 	const doc = assembleOwlDocFromCompose(parsed, opts.catalog, opts.shellHtml);
 
-	// Apply logo defaults
+	// Apply logo default
 	const logoAssets = bundle.assets.filter((a) => a.kind === 'logo');
-	const logoPair = pickEmailLogos(logoAssets);
-	if (logoPair) {
-		const light = `/api/design-asset/${logoPair.light.id}`;
-		const dark = `/api/design-asset/${logoPair.dark.id}`;
-		if (!doc.slotValues.logo_url) doc.slotValues.logo_url = light;
-		if (!doc.slotValues.logo) doc.slotValues.logo = light;
-		if (!doc.slotValues.logo_dark_url) doc.slotValues.logo_dark_url = dark;
-		if (!doc.slotValues.logo_dark) doc.slotValues.logo_dark = dark;
+	const primaryLogo = pickEmailLogo(logoAssets);
+	if (primaryLogo) {
+		const src = `/api/design-asset/${primaryLogo.id}`;
+		if (!doc.slotValues.logo_url) doc.slotValues.logo_url = src;
+		if (!doc.slotValues.logo) doc.slotValues.logo = src;
 	}
 	for (const [key, value] of Object.entries(doc.slotValues)) {
 		if (typeof value === 'string') doc.slotValues[key] = relativizeDesignAssetUrls(value);

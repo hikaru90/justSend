@@ -10,7 +10,6 @@
 	import { inferEditApproach, type EditApproach } from './edit-approach';
 	import { resolveBlockTheme, themeEmptyDocument } from './block-theme';
 	import {
-		applyPreviewColorScheme,
 		substitutePreviewPlaceholders,
 	} from '$lib/design/extractTokens';
 	import BuilderCanvas from './BuilderCanvas.svelte';
@@ -291,10 +290,7 @@
 	}
 
 	const previewHtml = $derived(
-		applyPreviewColorScheme(
-			substitutePreviewPlaceholders(renderEmailHtml(editor.document), previewOverrides),
-			editor.colorScheme,
-		),
+		substitutePreviewPlaceholders(renderEmailHtml(editor.document), previewOverrides),
 	);
 </script>
 
@@ -372,26 +368,14 @@
 					</button>
 				</div>
 				{#if editor.tab === 'preview' || editor.tab === 'editor'}
-					<div
-						class="flex rounded border border-[hsl(var(--border))] text-xs"
-						role="group"
-						aria-label="Color scheme"
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						onclick={() => (editor.inspectorOpen = !editor.inspectorOpen)}
 					>
-						<button
-							type="button"
-							class="px-2 py-1 {editor.colorScheme === 'light' ? 'bg-[hsl(var(--secondary))]' : ''}"
-							onclick={() => (editor.colorScheme = 'light')}
-						>
-							Light
-						</button>
-						<button
-							type="button"
-							class="px-2 py-1 {editor.colorScheme === 'dark' ? 'bg-[hsl(var(--secondary))]' : ''}"
-							onclick={() => (editor.colorScheme = 'dark')}
-						>
-							Dark
-						</button>
-					</div>
+						{editor.inspectorOpen ? 'Hide inspector' : 'Show inspector'}
+					</Button>
 				{/if}
 				<Button
 					type="button"
@@ -412,11 +396,7 @@
 
 	<div class="flex min-h-[420px] flex-col sm:min-h-[640px] lg:flex-row">
 		<div
-			class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto {(editor.tab === 'preview' ||
-				editor.tab === 'editor') &&
-			editor.colorScheme === 'dark'
-				? 'bg-[#0a0a0a]'
-				: 'bg-[#f5f5f5]'}"
+			class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f5f5f5]"
 		>
 			{#if editor.tab === 'editor'}
 				<div
@@ -432,15 +412,12 @@
 						? 'mx-auto w-full max-w-[min(100%,370px)]'
 						: 'w-full'}"
 				>
-					<iframe
-						title="Email preview"
-						class="block min-h-[480px] w-full max-w-full rounded border border-[hsl(var(--border))] sm:min-h-[600px] {editor.colorScheme ===
-						'dark'
-							? 'bg-[#111]'
-							: 'bg-white'}"
-						sandbox="allow-same-origin"
-						srcdoc={previewHtml}
-					></iframe>
+				<iframe
+					title="Email preview"
+					class="block min-h-[480px] w-full max-w-full rounded border border-[hsl(var(--border))] bg-white sm:min-h-[600px]"
+					sandbox="allow-same-origin"
+					srcdoc={previewHtml}
+				></iframe>
 				</div>
 			{:else if editor.tab === 'html'}
 				<pre
@@ -506,7 +483,7 @@
 						</div>
 						<p class="text-xs text-[hsl(var(--muted-foreground))]">
 							{#if aiApproach === 'html'}
-								Raw HTML — custom markup, dark/light CTAs, media queries.
+								Raw HTML — custom markup, CTA styling, media queries.
 							{:else}
 								Blocks — Heading, Text, Button, Image, slots.
 							{/if}
@@ -604,12 +581,12 @@
 							disabled={aiEditing}
 							placeholder={aiApproach === 'html'
 								? aiMode === 'validate'
-									? 'e.g. Check dark/light markup and asset URLs'
-									: 'e.g. Dark/light CTA button with prefers-color-scheme'
+									? 'e.g. Check markup and asset URLs'
+									: 'e.g. CTA button with your brand primary color'
 								: aiMode === 'validate'
 									? 'e.g. Check logos, spacing, and slots against the design system'
 									: aiMode === 'edit'
-										? 'e.g. Use the dark logo variant in the header'
+										? 'e.g. Use the brand logo in the header'
 										: 'e.g. Hero with logo, headline, and primary CTA'}
 							rows="3"
 							class="w-full resize-y rounded-md border border-[hsl(var(--border))] bg-white px-3 py-2 text-sm text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:ring-1 focus:ring-[hsl(var(--ring))] focus:outline-none disabled:opacity-50"

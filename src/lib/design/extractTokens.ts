@@ -322,193 +322,24 @@ export function removeHexColor(md: string, hex: string): string {
 	return kept.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
-export type EmailLogoPair<T> = {
-	light: T;
-	dark: T;
-};
-
 export function isDarkLogoAsset(asset: { name: string; filename: string }): boolean {
 	return /dark/i.test(asset.name) || /dark/i.test(asset.filename);
 }
 
 /**
- * Deterministic light/dark logo pairing for email.
- * Classifies by name/filename (`dark` → dark; otherwise light), stable-sorts by name then id.
- * If only one logo exists, both slots point at it.
+ * Deterministic light logo pick for email.
+ * Skips assets named/filed as dark variants; otherwise falls back to the first
+ * logo stable-sorted by name then id.
  */
-export function pickEmailLogos<T extends { id: string; name: string; filename: string }>(
+export function pickEmailLogo<T extends { id: string; name: string; filename: string }>(
 	logos: T[],
-): EmailLogoPair<T> | undefined {
+): T | undefined {
 	if (logos.length === 0) return undefined;
 
 	const sorted = [...logos].sort(
 		(a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
 	);
-	const light = sorted.find((a) => !isDarkLogoAsset(a)) ?? sorted[0];
-	const dark = sorted.find((a) => isDarkLogoAsset(a)) ?? light;
-	return { light, dark };
-}
-
-/**
- * Force light/dark for in-app preview (OS prefers-color-scheme cannot be toggled on {@html}).
- * Rewrites a copy only — never mutate stored template HTML.
- *
- * Dark mode:
- * 1. Unwrap author / renderer `@media (prefers-color-scheme: dark)` rules so stored
- *    dark colors (`.owl-email-*` + `.owl-block-*` with `!important`) apply immediately.
- * 2. Run `simulateClientAutoDarken` as a fallback for legacy Html / unmarked inline
- *    styles. Stored dark `!important` rules win over these heuristic rewrites.
- * 3. Swap logo classes and force `color-scheme`.
- */
-export function applyPreviewColorScheme(html: string, scheme: 'light' | 'dark'): string {
-	const darkMediaRe = /@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)\s*\{/gi;
-
-	let result =
-		scheme === 'dark'
-			? unwrapPrefersColorSchemeBlocks(html, darkMediaRe, 'keep')
-			: unwrapPrefersColorSchemeBlocks(html, darkMediaRe, 'strip');
-
-	if (scheme === 'dark') {
-		result = simulateClientAutoDarken(result);
-		result +=
-			'<style data-owlery-preview-scheme>:root{color-scheme:dark!important}.logo-light{display:none!important}.logo-dark{display:block!important}</style>';
-	} else {
-		result +=
-			'<style data-owlery-preview-scheme>:root{color-scheme:light!important}.logo-dark{display:none!important}.logo-light{display:block!important}</style>';
-	}
-
-	return result;
-}
-
-function parseHexRgb(hex: string): [number, number, number] | null {
-	let h = hex.slice(1);
-	if (h.length === 3)
-		h = h
-			.split('')
-			.map((c) => c + c)
-			.join('');
-	if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
-	return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-
-function relativeLuminance(rgb: [number, number, number]): number {
-	const lin = (c: number) => {
-		const s = c / 255;
-		return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-	};
-	return 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
-}
-
-function formatHex(r: number, g: number, b: number): string {
-	return (
-		'#' +
-		[r, g, b]
-			.map((c) =>
-				Math.max(0, Math.min(255, Math.round(c)))
-					.toString(16)
-					.padStart(2, '0'),
-			)
-			.join('')
-	);
-}
-
-/** Near-white / light gray backgrounds → dark (Gmail / Apple Mail-ish). */
-function darkenLightBackground(hex: string): string {
-	const rgb = parseHexRgb(hex);
-	if (!rgb) return hex;
-	const L = relativeLuminance(rgb);
-	if (L < 0.55) return hex;
-	const v = Math.round(12 + (1 - L) * 48);
-	return formatHex(v, v, v);
-}
-
-/** Dark / muted text → light. Leave mid/brand colors alone. */
-function lightenDarkForeground(hex: string): string {
-	const rgb = parseHexRgb(hex);
-	if (!rgb) return hex;
-	const L = relativeLuminance(rgb);
-	if (L > 0.45) return hex;
-	return formatHex(255 - rgb[0], 255 - rgb[1], 255 - rgb[2]);
-}
-
-/**
- * Approximate inbox auto-darkening for inline styles / bgcolor.
- * Does not touch images or already-dark accents.
- * Exported so the editor canvas can match Preview / real clients for Html blocks.
- */
-export function simulateClientAutoDarken(html: string): string {
-	let out = html.replace(
-		/\bbgcolor\s*=\s*(["']?)(#[0-9a-fA-F]{3,8})\1/gi,
-		(_, q: string, hex: string) => {
-			return `bgcolor=${q}${darkenLightBackground(hex)}${q}`;
-		},
-	);
-
-	out = out.replace(
-		/style\s*=\s*("([^"]*)"|'([^']*)')/gi,
-		(full, _quoted: string, dbl?: string, sgl?: string) => {
-			const quote = dbl != null ? '"' : "'";
-			const style = dbl ?? sgl ?? '';
-			const next = style
-				.replace(
-					/(background(?:-color)?\s*:\s*)(#[0-9a-fA-F]{3,8})\b/gi,
-					(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex),
-				)
-				.replace(
-					/(border(?:-(?:top|right|bottom|left))?(?:-color)?\s*:\s*[^;#]*?)(#[0-9a-fA-F]{3,8})\b/gi,
-					(_m, prefix: string, hex: string) => prefix + darkenLightBackground(hex),
-				)
-				.replace(
-					/(?<![\w-])color\s*:\s*(#[0-9a-fA-F]{3,8})\b/gi,
-					(_m, hex: string) => `color:${lightenDarkForeground(hex)}`,
-				);
-			return `style=${quote}${next}${quote}`;
-		},
-	);
-
-	return out;
-}
-
-/**
- * Walk CSS-ish text and either strip or unwrap `@media (prefers-color-scheme: dark) { ... }` blocks.
- * Handles nested braces.
- */
-function unwrapPrefersColorSchemeBlocks(
-	html: string,
-	mediaStartRe: RegExp,
-	mode: 'keep' | 'strip',
-): string {
-	let out = '';
-	let i = 0;
-	const re = new RegExp(mediaStartRe.source, mediaStartRe.flags);
-
-	while (i < html.length) {
-		re.lastIndex = i;
-		const match = re.exec(html);
-		if (!match) {
-			out += html.slice(i);
-			break;
-		}
-
-		out += html.slice(i, match.index);
-		const bodyStart = match.index + match[0].length;
-		let depth = 1;
-		let j = bodyStart;
-		while (j < html.length && depth > 0) {
-			const ch = html[j];
-			if (ch === '{') depth++;
-			else if (ch === '}') depth--;
-			j++;
-		}
-		const body = html.slice(bodyStart, j - 1);
-		if (mode === 'keep') {
-			out += body;
-		}
-		// mode === 'strip': omit media query and body
-		i = j;
-	}
-
-	return out;
+	return sorted.find((a) => !isDarkLogoAsset(a)) ?? sorted[0];
 }
 
 const PLACEHOLDER_LOGO =
@@ -554,9 +385,6 @@ export function previewSampleValues(overrides?: Record<string, string>): Record<
 		unsubscribe_label: 'Unsubscribe',
 		logo: PLACEHOLDER_LOGO,
 		logo_url: PLACEHOLDER_LOGO,
-		logo_light: PLACEHOLDER_LOGO,
-		logo_dark: PLACEHOLDER_LOGO,
-		logo_dark_url: PLACEHOLDER_LOGO,
 		image: PLACEHOLDER_IMAGE,
 		image_url: PLACEHOLDER_IMAGE,
 		year: String(new Date().getFullYear()),

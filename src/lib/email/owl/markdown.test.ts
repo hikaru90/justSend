@@ -32,13 +32,13 @@ describe('owl markdown', () => {
 		expect(html).toContain('text-decoration:underline');
 	});
 
-	it('writes data-owl-dark-style for dark link color', () => {
+	it('writes brand link color inline', () => {
 		const html = renderOwlMarkdown('[Go](https://example.com)', 'p', {
 			linkColor: '#c45c26',
-			linkColorDark: '#f2f2f2',
 		});
 		expect(html).toContain('color:#c45c26');
-		expect(html).toContain('data-owl-dark-style="color:#f2f2f2;"');
+		expect(html).toContain('text-decoration:underline');
+		expect(html).not.toContain('data-owl-dark-style');
 	});
 
 	it('unwraps a single paragraph for block hosts', () => {
@@ -73,13 +73,12 @@ describe('owl markdown', () => {
 			{
 				text: 'Welcome **{{firstName}}** — [learn more](https://example.com)',
 			},
-			{ linkColor: '#123456', linkColorDark: '#eeeeee' },
+			{ linkColor: '#123456' },
 		);
 		const html = serialize(doc);
 		expect(html).toMatch(/<(strong|b)>\{\{firstName\}\}<\/(strong|b)>/);
 		expect(html).toContain('href="https://example.com"');
 		expect(html).toContain('color:#123456');
-		expect(html).toContain('data-owl-dark-style="color:#eeeeee;"');
 		expect(html).toContain('text-decoration:underline');
 		expect(html).not.toContain('**{{firstName}}**');
 	});
@@ -95,21 +94,15 @@ describe('owl markdown', () => {
 });
 
 describe('resolveMarkdownLinkColors', () => {
-	it('picks primary / link tokens for light and dark', () => {
-		expect(
-			resolveMarkdownLinkColors({ primary: '#c45c26', link_dark: '#f5e6d3' }, 'light'),
-		).toEqual({ linkColor: '#c45c26', linkColorDark: '#f5e6d3' });
-		expect(
-			resolveMarkdownLinkColors({ primary: '#c45c26', text_dark: '#f2f2f2' }, 'dark'),
-		).toEqual({ linkColor: '#f2f2f2' });
+	it('picks primary / link tokens', () => {
+		expect(resolveMarkdownLinkColors({ primary: '#c45c26', link_dark: '#f5e6d3' })).toEqual({
+			linkColor: '#c45c26',
+		});
 	});
 
 	it('inherits when design system has no link/primary token', () => {
-		expect(resolveMarkdownLinkColors({}, 'light')).toEqual({
-			linkColor: 'inherit',
-			linkColorDark: 'inherit',
-		});
-		expect(resolveMarkdownLinkColors(undefined, 'dark')).toEqual({ linkColor: 'inherit' });
+		expect(resolveMarkdownLinkColors({})).toEqual({ linkColor: 'inherit' });
+		expect(resolveMarkdownLinkColors(undefined)).toEqual({ linkColor: 'inherit' });
 	});
 
 	it('pickDesignHexToken matches suffix keys', () => {
@@ -118,10 +111,10 @@ describe('resolveMarkdownLinkColors', () => {
 });
 
 describe('compileOwlDoc markdown links follow design tokens', () => {
-	it('uses design primary in light and inherits dark style for dark scheme', () => {
+	it('uses design primary for links', () => {
 		const text = starterByKey('text')!.html;
 		const doc: OwlDoc = {
-			version: 1,
+			owl: 'v1',
 			shell: defaultOwlShell(),
 			preheader: '',
 			sections: [{ id: newSectionId(), key: 'text', label: 'Text', html: text }],
@@ -130,15 +123,9 @@ describe('compileOwlDoc markdown links follow design tokens', () => {
 			},
 		};
 
-		const light = compileOwlDoc(doc, { tokens: { primary: '#c45c26' }, colorScheme: 'light' });
-		expect(light.html).toContain('color:#c45c26');
-		expect(light.html).toContain('data-owl-dark-style="color:inherit;"');
-
-		const dark = compileOwlDoc(doc, {
-			tokens: { primary: '#c45c26', text_dark: '#f2f2f2' },
-			colorScheme: 'dark',
-		});
-		expect(dark.html).toContain('color:#f2f2f2');
-		expect(dark.html).not.toMatch(/href="https:\/\/example\.com"[^>]*color:#c45c26/i);
+		const compiled = compileOwlDoc(doc, { tokens: { primary: '#c45c26' } });
+		expect(compiled.html).toContain('color:#c45c26');
+		expect(compiled.html).toMatch(/href="https:\/\/example\.com"[^>]*color:#c45c26/i);
+		expect(compiled.html).not.toContain('data-owl-dark-style');
 	});
 });

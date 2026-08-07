@@ -2,9 +2,8 @@
  * Table-based email HTML renderer for TEditorConfiguration documents.
  * Plain TypeScript + marked for Text markdown — no third-party email SDK.
  *
- * Light colors are inlined on elements. Dark colors are stored on the document
- * and emitted as `@media (prefers-color-scheme: dark)` rules with `!important`
- * targeting stable `.owl-block-<id>` classes (plus layout canvas/backdrop).
+ * Emails are always light. Color-scheme is forced to light so inboxes do not
+ * auto-darken the canvas, and no `prefers-color-scheme` rules are emitted.
  */
 import { marked } from 'marked';
 import { fluidifyEmailHtml } from '$lib/email/fluidify-email-html';
@@ -69,10 +68,6 @@ function childrenIds(block: TEditorBlock | undefined): string[] {
 
 function styleOf(block: TEditorBlock): BlockStyle {
 	return (block.data.style as BlockStyle | undefined) ?? {};
-}
-
-function darkStyleOf(block: TEditorBlock): BlockStyle {
-	return (block.data.darkStyle as BlockStyle | undefined) ?? {};
 }
 
 function blockClass(blockId: string): string {
@@ -280,124 +275,30 @@ function renderColumns(document: TEditorConfiguration, block: TEditorBlock, bloc
 </div>`;
 }
 
-/**
- * Collect CSS rules for stored dark-mode colors.
- * Rules use !important so they override inline light styles in dark clients / preview.
- */
-function collectDarkOverrides(document: TEditorConfiguration): string {
-	const rules: string[] = [];
-
-	for (const [id, block] of Object.entries(document)) {
-		if (!block || block.type === 'EmailLayout') continue;
-		const cls = blockClass(id);
-		const dark = darkStyleOf(block);
-		const props = (block.data.props ?? {}) as Record<string, unknown>;
-
-		switch (block.type) {
-			case 'Heading': {
-				const color = typeof dark.color === 'string' && dark.color ? dark.color : null;
-				if (color) {
-					rules.push(`.${cls}-fg{color:${escapeAttr(color)}!important;}`);
-				}
-				break;
-			}
-			case 'Text': {
-				const color = typeof dark.color === 'string' && dark.color ? dark.color : null;
-				if (color) {
-					rules.push(`.${cls}{color:${escapeAttr(color)}!important;}`);
-				}
-				break;
-			}
-			case 'Button': {
-				const bg =
-					typeof props.buttonBackgroundColorDark === 'string' && props.buttonBackgroundColorDark
-						? props.buttonBackgroundColorDark
-						: null;
-				const fg =
-					typeof props.buttonTextColorDark === 'string' && props.buttonTextColorDark
-						? props.buttonTextColorDark
-						: null;
-				const parts: string[] = [];
-				if (bg) parts.push(`background-color:${escapeAttr(bg)}!important`);
-				if (fg) parts.push(`color:${escapeAttr(fg)}!important`);
-				if (parts.length) rules.push(`.${cls}-btn{${parts.join(';')};}`);
-				break;
-			}
-			case 'Divider': {
-				const line =
-					typeof props.lineColorDark === 'string' && props.lineColorDark
-						? props.lineColorDark
-						: null;
-				if (line) {
-					rules.push(`.${cls}-line{border-top-color:${escapeAttr(line)}!important;}`);
-				}
-				break;
-			}
-			case 'Container':
-			case 'ColumnsContainer': {
-				const parts: string[] = [];
-				if (typeof dark.backgroundColor === 'string' && dark.backgroundColor) {
-					parts.push(`background-color:${escapeAttr(dark.backgroundColor)}!important`);
-				}
-				if (typeof dark.borderColor === 'string' && dark.borderColor) {
-					parts.push(`border-color:${escapeAttr(dark.borderColor)}!important`);
-				}
-				if (parts.length) {
-					rules.push(`.${cls},.${cls}-cell{${parts.join(';')};}`);
-				}
-				if (typeof dark.overlayColor === 'string' && dark.overlayColor) {
-					rules.push(
-						`.${cls}-overlay{background-color:${escapeAttr(dark.overlayColor)}!important;}`,
-					);
-				}
-				break;
-			}
-			default:
-				break;
-		}
-	}
-
-	return rules.join('');
-}
-
-const DEFAULT_DARK_BACKDROP = '#0a0a0a';
-const DEFAULT_DARK_CANVAS = '#1a1a1a';
-const DEFAULT_DARK_TEXT = '#f2f2f2';
+const DEFAULT_BACKDROP = '#F5F5F5';
+const DEFAULT_CANVAS = '#FFFFFF';
+const DEFAULT_TEXT = '#262626';
 
 function renderEmailLayout(document: TEditorConfiguration, block: TEditorBlock): string {
-	const backdrop = block.data.backdropColor ?? '#F5F5F5';
-	const canvas = block.data.canvasColor ?? '#FFFFFF';
-	const textColor = block.data.textColor ?? '#262626';
-	// Never fall back to light colors here — that would emit light !important rules in
-	// dark mode and block client / preview auto-darken (everything looks white).
-	const darkBackdrop = block.data.darkBackdropColor || DEFAULT_DARK_BACKDROP;
-	const darkCanvas = block.data.darkCanvasColor || DEFAULT_DARK_CANVAS;
-	const darkText = block.data.darkTextColor || DEFAULT_DARK_TEXT;
+	const backdrop = block.data.backdropColor ?? DEFAULT_BACKDROP;
+	const canvas = block.data.canvasColor ?? DEFAULT_CANVAS;
+	const textColor = block.data.textColor ?? DEFAULT_TEXT;
 	const font = fontFamilyCss(block.data.fontFamily);
 	const kids = fluidifyEmailHtml(renderChildren(document, childrenIds(block)));
-	const blockDarkCss = collectDarkOverrides(document);
 	return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <style type="text/css">
-:root{color-scheme:light dark;supported-color-schemes:light dark;}
+:root{color-scheme:light;}
 html,body{margin:0!important;padding:0!important;width:100%!important;}
 img{max-width:100%!important;height:auto!important;}
 table{border-collapse:collapse;}
 .owl-email-pad{padding:32px 12px;}
-.logo-dark{display:none!important;max-height:0!important;overflow:hidden!important;}
-@media (prefers-color-scheme:dark){
-.logo-light{display:none!important;max-height:0!important;overflow:hidden!important;}
-.logo-dark{display:block!important;max-height:none!important;overflow:visible!important;}
-body,.owl-email-backdrop,td.owl-email-pad{background-color:${escapeAttr(darkBackdrop)}!important;}
-.owl-email-canvas{background-color:${escapeAttr(darkCanvas)}!important;color:${escapeAttr(darkText)}!important;}
-${blockDarkCss}
-}
 @media only screen and (max-width:620px){
 .owl-email-pad{padding:16px 8px!important;}
 .owl-email-canvas{width:100%!important;max-width:100%!important;}
@@ -449,82 +350,3 @@ export function renderBlock(document: TEditorConfiguration, blockId: string): st
 	}
 }
 
-/**
- * Promote stored dark colors onto the light fields so the editor canvas / leaf
- * renderer can show the dark variant with inline styles (no media query).
- * Does not mutate the source document.
- * When dark layout fields are unset, uses dark defaults (never light) so the
- * canvas matches exported dark CSS / client expectations.
- */
-export function promoteDarkColors(document: TEditorConfiguration): TEditorConfiguration {
-	const next: TEditorConfiguration = {};
-	for (const [id, block] of Object.entries(document)) {
-		if (!block) continue;
-		if (block.type === 'EmailLayout') {
-			next[id] = {
-				...block,
-				data: {
-					...block.data,
-					backdropColor: block.data.darkBackdropColor || DEFAULT_DARK_BACKDROP,
-					canvasColor: block.data.darkCanvasColor || DEFAULT_DARK_CANVAS,
-					textColor: block.data.darkTextColor || DEFAULT_DARK_TEXT,
-				},
-			};
-			continue;
-		}
-
-		const dark = darkStyleOf(block);
-		const style = { ...styleOf(block) } as Record<string, unknown>;
-		const props = { ...(block.data.props ?? {}) } as Record<string, unknown>;
-		let changed = false;
-
-		if (typeof dark.color === 'string' && dark.color) {
-			style.color = dark.color;
-			changed = true;
-		}
-		if (typeof dark.backgroundColor === 'string' && dark.backgroundColor) {
-			style.backgroundColor = dark.backgroundColor;
-			changed = true;
-		}
-		if (typeof dark.borderColor === 'string' && dark.borderColor) {
-			style.borderColor = dark.borderColor;
-			changed = true;
-		}
-		if (typeof dark.overlayColor === 'string' && dark.overlayColor) {
-			style.overlayColor = dark.overlayColor;
-			changed = true;
-		}
-
-		if (block.type === 'Button') {
-			if (typeof props.buttonBackgroundColorDark === 'string' && props.buttonBackgroundColorDark) {
-				props.buttonBackgroundColor = props.buttonBackgroundColorDark;
-				changed = true;
-			}
-			if (typeof props.buttonTextColorDark === 'string' && props.buttonTextColorDark) {
-				props.buttonTextColor = props.buttonTextColorDark;
-				changed = true;
-			}
-		}
-		if (block.type === 'Divider') {
-			if (typeof props.lineColorDark === 'string' && props.lineColorDark) {
-				props.lineColor = props.lineColorDark;
-				changed = true;
-			}
-		}
-
-		if (!changed) {
-			next[id] = block;
-			continue;
-		}
-
-		next[id] = {
-			...block,
-			data: {
-				...block.data,
-				style,
-				props,
-			},
-		};
-	}
-	return next;
-}

@@ -66,13 +66,15 @@ describe('studio: compileOwlDoc', () => {
 		expect(absolute.html).not.toContain('src="/api/design-asset/abc123"');
 	});
 
-	it('forced-dark compile inlines dark values', () => {
+	it('compiles light-only without colorScheme option', () => {
 		const doc = shellDoc();
 		const cta = starterByKey('cta-button')!;
 		doc.sections.push({ id: newSectionId(), key: cta.key, label: cta.name, html: cta.html });
 
-		const { html } = compileOwlDoc(doc, { colorScheme: 'dark' });
-		expect(html).toContain('background-color:#1a3a6e');
+		const { html } = compileOwlDoc(doc);
+		expect(html).toContain('name="color-scheme" content="light"');
+		expect(html).not.toContain('prefers-color-scheme');
+		expect(html).not.toContain('data-owl-dark');
 	});
 });
 

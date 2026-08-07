@@ -16,12 +16,12 @@ const LABELS: Record<string, { name: string; role: 'shell' | 'section'; descript
 	'base-layout': {
 		name: 'Base layout',
 		role: 'shell',
-		description: 'Full document shell: backdrop, 620px canvas, preheader, dark-mode support.',
+		description: 'Full document shell: backdrop, 620px canvas, preheader.',
 	},
 	'logo-header': {
 		name: 'Logo header',
 		role: 'section',
-		description: 'Brand logo with light/dark variants.',
+		description: 'Brand logo at the top, left-aligned.',
 	},
 	heading: {
 		name: 'Heading',

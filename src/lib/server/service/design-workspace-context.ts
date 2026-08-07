@@ -6,7 +6,7 @@
  * always gets the same brand library: design.md, formatting rules, assets,
  * peer components, and the target artifact — with mode-specific instructions.
  */
-import { pickEmailLogos } from '$lib/design/extractTokens';
+import { pickEmailLogo } from '$lib/design/extractTokens';
 import {
 	inferEditApproach,
 	isEmptyComponentDocument,
@@ -39,7 +39,7 @@ export type DesignAssetPromptRef = {
 };
 
 /**
- * Prompt-ready asset catalog with explicit light/dark logo URLs.
+ * Prompt-ready asset catalog with the primary light logo URL.
  * Shared by OpenRouter prompts and Pi HTML workspace README.
  */
 export function formatDesignAssetsForPrompt(
@@ -51,16 +51,15 @@ export function formatDesignAssetsForPrompt(
 
 	const logos = assets.filter((a) => a.kind === 'logo');
 	const others = assets.filter((a) => a.kind !== 'logo');
-	const pair = pickEmailLogos(logos);
+	const primary = pickEmailLogo(logos);
 	const lines: string[] = [];
 
-	if (pair) {
-		lines.push('Logos (use these exact embed URLs for logo/image swaps):');
-		lines.push(`- [logo/light] ${pair.light.name} → ${base}/api/design-asset/${pair.light.id}`);
-		lines.push(`- [logo/dark] ${pair.dark.name} → ${base}/api/design-asset/${pair.dark.id}`);
-		const pairedIds = new Set([pair.light.id, pair.dark.id]);
+	if (primary) {
+		lines.push('Logo (use this exact embed URL for logo/image swaps):');
+		lines.push(`- [logo] ${primary.name} → ${base}/api/design-asset/${primary.id}`);
+		const primaryId = primary.id;
 		for (const a of logos) {
-			if (!pairedIds.has(a.id)) {
+			if (a.id !== primaryId) {
 				lines.push(`- [logo] ${a.name} → ${base}/api/design-asset/${a.id}`);
 			}
 		}
@@ -194,7 +193,7 @@ export function modeInstructionRules(mode: DesignWorkspaceMode): string {
 				'Mode: VALIDATE',
 				'- Do not redesign or rewrite the component.',
 				'- Check the current document/slots against design.md, formatting rules, assets, and peer patterns.',
-				'- Fix ONLY concrete problems (broken/missing asset URLs, wrong light/dark logo, invalid structure, missing required slots).',
+				'- Fix ONLY concrete problems (broken/missing asset URLs, wrong logo, invalid structure, missing required slots).',
 				'- If everything is fine, return the current document and slots unchanged.',
 				'- Prefer the smallest possible fix when something is wrong.',
 			].join('\n');

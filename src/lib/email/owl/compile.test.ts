@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { compileOwlHtml, composeEmailHtml, promoteDarkStyles, slotsFromFragment } from './index';
-import { parseDocument, serialize, parseFragment, walkElements } from './parser';
-import { OWL, OWL_CLASS } from './format';
+import { compileOwlHtml, composeEmailHtml, slotsFromFragment } from './index';
+import { parseDocument, serialize } from './parser';
 import { applySlotValues } from './slots';
 import { STARTERS, starterByKey } from './starters';
 
@@ -9,7 +8,7 @@ const SHELL = starterByKey('base-layout')!.html;
 
 const SAMPLE_SECTION = `<table role="presentation" data-owl-component="cta-button" width="100%" cellpadding="0" cellspacing="0" border="0">
 <tbody><tr><td style="padding:16px 24px;">
-<a href="https://example.com" style="display:inline-block;background-color:#0A2540;color:#FFFFFF;padding:12px 24px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:bold;" data-owl-slot="cta_text" data-owl-slot-type="text" data-owl-dark-style="background-color:#1a3a6e;color:#FFFFFF;">Get started</a>
+<a href="https://example.com" style="display:inline-block;background-color:#0A2540;color:#FFFFFF;padding:12px 24px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:bold;" data-owl-slot="cta_text" data-owl-slot-type="text">Get started</a>
 </td></tr></tbody></table>`;
 
 describe('owl: determinism & idempotency', () => {
@@ -79,31 +78,18 @@ describe('owl: compose + compile end-to-end', () => {
 	});
 });
 
-describe('owl: dark mode', () => {
-	it('emits stable classes, media rules, and data-og* mirrors', () => {
+describe('owl: light-only output', () => {
+	it('emits light color-scheme metas and no dark media/markup', () => {
 		const composed = composeEmailHtml(SHELL, [SAMPLE_SECTION]).html;
 		const { html } = compileOwlHtml(composed);
 
-		expect(html).toContain('@media (prefers-color-scheme:dark)');
-		expect(html).toContain(`.${OWL_CLASS.darkOverride}-`);
-		expect(html).toContain('data-ogsc="#FFFFFF"');
-		expect(html).toContain('data-ogsb="#1a3a6e"');
-		// backdrop dark override present
-		expect(html).toContain('background-color:#0a0a0a!important');
-		// color-scheme meta kept
-		expect(html).toContain('name="color-scheme"');
-	});
-
-	it('promoteDarkStyles produces a forced-dark preview', () => {
-		const composed = composeEmailHtml(SHELL, [SAMPLE_SECTION]).html;
-		const doc = parseDocument(composed);
-		promoteDarkStyles(doc);
-		const html = serialize(doc);
-		// dark values are now inline, dark-css media block emptied
-		expect(html).toContain('background-color:#1a3a6e');
-		expect(html).not.toContain(`[data-owl-dark-css]:not([data-owl-dark-css=""])`);
-		expect(html).not.toContain('.owld-w');
-		expect(html).not.toContain('data-owl-dark-style');
+		expect(html).toContain('name="color-scheme" content="light"');
+		expect(html).toContain('name="supported-color-schemes" content="light"');
+		expect(html).toContain('color-scheme:light');
+		expect(html).not.toContain('prefers-color-scheme');
+		expect(html).not.toContain('data-owl-dark');
+		expect(html).not.toContain('data-ogsc');
+		expect(html).not.toContain('data-ogsb');
 	});
 });
 
@@ -158,50 +144,44 @@ describe('owl: slots', () => {
 	});
 });
 
-describe('owl: light/dark content pairs', () => {
-	it('base CSS hides owl-dark and swaps under prefers-color-scheme', () => {
-		expect(SHELL).toContain('.owl-dark,.logo-dark{display:none');
-		expect(SHELL).toMatch(
-			/@media \(prefers-color-scheme:dark\)\{[\s\S]*\.owl-light,\.logo-light/,
-		);
-		expect(SHELL).toMatch(
-			/@media \(prefers-color-scheme:dark\)\{[\s\S]*\.owl-dark,\.logo-dark\{display:block/,
-		);
+describe('owl: image slots (light-only)', () => {
+	it('base shell CSS has no dark swap rules', () => {
+		expect(SHELL).not.toContain('.owl-dark');
+		expect(SHELL).not.toContain('.logo-dark');
+		expect(SHELL).not.toContain('prefers-color-scheme');
+		expect(SHELL).toContain('color-scheme:light');
 	});
 
-	it('hero starter ships owl-light/owl-dark pair with shared group', () => {
+	it('hero starter ships a single image slot', () => {
 		const hero = starterByKey('hero-image')!.html;
-		expect(hero).toContain('data-owl-variant-group="hero"');
-		expect(hero).toContain('class="owl-light"');
-		expect(hero).toContain('class="owl-dark"');
 		expect(hero).toContain('data-owl-slot="hero"');
-		// only the light img owns the slot
+		expect(hero).not.toContain('owl-dark');
+		expect(hero).not.toContain('owl-light');
 		expect(hero.match(/data-owl-slot="hero"/g)?.length).toBe(1);
 	});
 
-	it('syncs image src onto dark partner when filling light slot', () => {
+	it('fills the image slot once (no dark partner)', () => {
 		const frag = starterByKey('hero-image')!.html;
 		const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${frag}</body></html>`);
-		applySlotValues(doc, { hero: 'https://cdn.example/light.png' });
+		applySlotValues(doc, { hero: 'https://cdn.example/hero.png' });
 		const html = serialize(doc);
 		const srcs = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]);
-		expect(srcs.filter((s) => s === 'https://cdn.example/light.png').length).toBe(2);
+		expect(srcs).toEqual(['https://cdn.example/hero.png']);
 	});
 
-	it('fills dark partner independently via <slot>_dark', () => {
+	it('ignores legacy <slot>_dark values', () => {
 		const frag = starterByKey('hero-image')!.html;
 		const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${frag}</body></html>`);
 		applySlotValues(doc, {
-			hero: 'https://cdn.example/light.png',
+			hero: 'https://cdn.example/hero.png',
 			hero_dark: 'https://cdn.example/dark.png',
 		});
 		const html = serialize(doc);
-		expect(html).toContain('src="https://cdn.example/light.png"');
-		expect(html).toContain('src="https://cdn.example/dark.png"');
-		expect(html).not.toMatch(/owl-dark[^>]*src="https:\/\/cdn\.example\/light\.png"/);
+		expect(html).toContain('src="https://cdn.example/hero.png"');
+		expect(html).not.toContain('https://cdn.example/dark.png');
 	});
 
-	it('still syncs legacy logo-light / logo-dark siblings', () => {
+	it('fills the logo slot on the single logo img', () => {
 		const frag = starterByKey('logo-header')!.html;
 		const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${frag}</body></html>`);
 		applySlotValues(doc, { logo: 'https://cdn.example/logo.png' });
@@ -225,6 +205,6 @@ describe('owl: light/dark content pairs', () => {
 		applySlotValues(doc, { hero: '/api/design-asset/5b638723b5fc4c20997f1496' });
 		const html = serialize(doc);
 		expect(html).toContain('src="/api/design-asset/5b638723b5fc4c20997f1496"');
-		expect(html.match(/\/api\/design-asset\/5b638723b5fc4c20997f1496/g)?.length).toBe(2);
+		expect(html.match(/\/api\/design-asset\/5b638723b5fc4c20997f1496/g)?.length).toBe(1);
 	});
 });

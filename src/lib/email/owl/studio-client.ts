@@ -2,39 +2,23 @@
  * Browser-only Owl Studio helpers: id minting, inspector extraction, and
  * patching section fragments. No server imports — safe for Svelte components.
  */
-import { OWL, OWL_CLASS } from './format';
-import { mergeStyleDecls, parseStyleDecls, removeStyleDecls } from './style';
+import { OWL } from './format';
+import { parseStyleDecls } from './style';
 import type { OwlDoc, OwlSection } from './studio';
 
 export type StyleRow = { prop: string; value: string };
 export type AttrRow = { name: string; value: string };
-
-export type VariantPartnerSnapshot = {
-	owlId: string;
-	tag: string;
-	attrRows: AttrRow[];
-	textContent: string;
-	src?: string;
-	alt?: string;
-	variantGroup: string;
-};
 
 export type InspectorSnapshot = {
 	owlId: string;
 	tag: string;
 	breadcrumbs: Array<{ owlId: string; tag: string }>;
 	styleRows: StyleRow[];
-	darkStyleRows: StyleRow[];
 	attrRows: AttrRow[];
 	textContent: string;
 	slotName?: string;
 	slotType?: string;
 	rawHtml: string;
-	/** Opposite light/dark content partner sharing data-owl-variant-group. */
-	variantPartner?: VariantPartnerSnapshot;
-	/** This element's variant role, if any. */
-	variantRole?: 'light' | 'dark';
-	variantGroup?: string;
 };
 
 const EDITABLE_ATTRS = new Set([
@@ -75,45 +59,6 @@ const ENUM_PROPS: Record<string, string[]> = {
 	'font-weight': ['normal', 'bold', '400', '500', '600', '700'],
 	'vertical-align': ['top', 'middle', 'bottom'],
 };
-
-const LIGHT_CLASSES = new Set([OWL_CLASS.light, OWL_CLASS.logoLight]);
-const DARK_CLASSES = new Set([OWL_CLASS.dark, OWL_CLASS.logoDark]);
-
-/** Layout/size props mirrored onto a light/dark content partner (never colors or display). */
-const VARIANT_PARTNER_SYNC_PROPS = new Set([
-	'width',
-	'height',
-	'max-width',
-	'min-width',
-	'max-height',
-	'min-height',
-	'padding',
-	'padding-top',
-	'padding-right',
-	'padding-bottom',
-	'padding-left',
-	'margin',
-	'margin-top',
-	'margin-right',
-	'margin-bottom',
-	'margin-left',
-	'border-radius',
-	'border-width',
-	'font-size',
-	'line-height',
-	'vertical-align',
-	'text-align',
-	'font-weight',
-	'font-family',
-	'letter-spacing',
-	'border',
-	'border-top',
-	'border-bottom',
-	'opacity',
-	'text-decoration',
-]);
-
-const VARIANT_PARTNER_SYNC_ATTRS = new Set(['width', 'height']);
 
 export function styleRowKind(prop: string): 'color' | 'size' | 'enum' | 'text' {
 	const p = prop.toLowerCase();
@@ -354,13 +299,12 @@ function findCanvasTable(body: Element): Element | null {
 	return nested && nested !== shell ? nested : null;
 }
 
-function readBackgroundColor(el: Element, dark: boolean): string | null {
-	const style = dark ? el.getAttribute(OWL.darkStyle) : el.getAttribute('style');
+function readBackgroundColor(el: Element): string | null {
+	const style = el.getAttribute('style');
 	const decls = parseStyleDecls(style);
 	const bg = decls.find(([p]) => p === 'background-color')?.[1];
 	if (bg) return bg;
-	if (!dark) return el.getAttribute('bgcolor');
-	return null;
+	return el.getAttribute('bgcolor');
 }
 
 /** The 620px content column that wraps all sections — the email container. */
@@ -374,11 +318,11 @@ export function shellCanvasCrumb(shellHtml: string): ShellCanvasCrumb | null {
 }
 
 /** Current canvas background-color (for the sidebar color chip). */
-export function shellCanvasBackgroundColor(shellHtml: string, dark = false): string | null {
+export function shellCanvasBackgroundColor(shellHtml: string): string | null {
 	const doc = parseShellDocument(shellHtml);
 	if (!doc?.body) return null;
 	const canvas = findCanvasTable(doc.body);
-	return canvas ? readBackgroundColor(canvas, dark) : null;
+	return canvas ? readBackgroundColor(canvas) : null;
 }
 
 export function updateShellHtml(doc: OwlDoc, shell: string): OwlDoc {
@@ -425,174 +369,17 @@ function textFromElement(el: Element): string {
 	return el.textContent ?? '';
 }
 
-function classListOf(el: Element): string[] {
-	return (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
-}
-
-function hasAnyClass(el: Element, classes: Set<string>): boolean {
-	return classListOf(el).some((c) => classes.has(c));
-}
-
-export function variantRoleOf(el: Element): 'light' | 'dark' | null {
-	const v = el.getAttribute(OWL.variant);
-	if (v === 'light' || v === 'dark') return v;
-	if (hasAnyClass(el, LIGHT_CLASSES)) return 'light';
-	if (hasAnyClass(el, DARK_CLASSES)) return 'dark';
-	return null;
-}
-
-function findPartnerInContainer(
-	container: Element,
-	el: Element,
-	prefer: 'light' | 'dark',
-): Element | null {
-	const group = el.getAttribute(OWL.variantGroup);
-	if (group) {
-		for (const candidate of container.querySelectorAll(`[${OWL.variantGroup}="${group}"]`)) {
-			if (candidate === el) continue;
-			const role = variantRoleOf(candidate);
-			if (role === prefer) return candidate;
-		}
-	}
-	// Legacy logo sibling fallback
-	if (prefer === 'dark' && hasAnyClass(el, LIGHT_CLASSES)) {
-		const parent = el.parentElement;
-		if (!parent) return null;
-		for (const sibling of Array.from(parent.children)) {
-			if (sibling === el) continue;
-			if (sibling.tagName === 'IMG' && hasAnyClass(sibling, DARK_CLASSES)) return sibling;
-		}
-	}
-	return null;
-}
-
-function partnerSnapshot(partner: Element, group: string): VariantPartnerSnapshot {
-	return {
-		owlId: partner.getAttribute(OWL.id) ?? '',
-		tag: partner.tagName.toLowerCase(),
-		attrRows: attrRowsFor(partner),
-		textContent: textFromElement(partner),
-		src: partner.getAttribute('src') ?? undefined,
-		alt: partner.getAttribute('alt') ?? undefined,
-		variantGroup: group,
-	};
-}
-
-/** Mirror layout/size styles (and width/height attrs) from a light partner onto its dark sibling. */
-function syncVariantPartnerLayout(
-	container: Element,
-	el: Element,
-	styleRows?: StyleRow[],
-	attrRows?: AttrRow[],
-): void {
-	if (variantRoleOf(el) !== 'light') return;
-	const partner = findPartnerInContainer(container, el, 'dark');
-	if (!partner) return;
-
-	if (styleRows) {
-		const syncDecls = styleRows
-			.filter((r) => {
-				const p = r.prop.trim().toLowerCase();
-				return p && VARIANT_PARTNER_SYNC_PROPS.has(p);
-			})
-			.map((r) => [r.prop.trim().toLowerCase(), r.value.trim()] as [string, string]);
-
-		const partnerStyle = partner.getAttribute('style');
-		const displayDecl = parseStyleDecls(partnerStyle).find(([p]) => p === 'display');
-		const withoutSynced = removeStyleDecls(partnerStyle, [...VARIANT_PARTNER_SYNC_PROPS]);
-		let merged = mergeStyleDecls(withoutSynced, syncDecls, true);
-		if (displayDecl) {
-			merged = mergeStyleDecls(merged, [displayDecl], true);
-		} else if (!parseStyleDecls(merged).some(([p]) => p === 'display')) {
-			merged = mergeStyleDecls(merged, [['display', 'none']], true);
-		}
-		if (merged) partner.setAttribute('style', merged);
-		else partner.removeAttribute('style');
-	}
-
-	if (attrRows) {
-		for (const row of attrRows) {
-			const name = row.name.trim().toLowerCase();
-			if (!VARIANT_PARTNER_SYNC_ATTRS.has(name)) continue;
-			if (row.value === '') partner.removeAttribute(name);
-			else partner.setAttribute(name, row.value);
-		}
-	}
-}
-
-/** Light base styles plus dark overrides — what actually applies in dark mode (single element). */
-export function effectiveDarkStyleRows(lightRows: StyleRow[], overrideRows: StyleRow[]): StyleRow[] {
-	const overrideProps = new Set(
-		overrideRows.map((r) => r.prop.trim().toLowerCase()).filter(Boolean),
-	);
-	const inherited = lightRows.filter(
-		(r) => r.prop.trim() && !overrideProps.has(r.prop.trim().toLowerCase()),
-	);
-	return [...inherited.map((r) => ({ ...r })), ...overrideRows.map((r) => ({ ...r }))];
-}
-
-export function darkOverridePropSet(overrideRows: StyleRow[]): Set<string> {
-	return new Set(overrideRows.map((r) => r.prop.trim().toLowerCase()).filter(Boolean));
-}
-
-export type VariantEditTargets = {
-	lightOwlId: string;
-	darkOwlId: string | null;
-	/** Element that owns `data-owl-dark-style` overrides (usually the light slot owner). */
-	styleOwlId: string;
-};
-
-/** Map a selected variant element to stable light/dark edit targets for the inspector. */
-export function resolveVariantEditTargets(
-	sectionHtml: string,
-	owlId: string,
-): VariantEditTargets | null {
-	const snap = extractInspector(sectionHtml, owlId);
-	if (!snap) return null;
-	if (snap.variantRole === 'light' && snap.variantPartner) {
-		return {
-			lightOwlId: snap.owlId,
-			darkOwlId: snap.variantPartner.owlId,
-			styleOwlId: snap.owlId,
-		};
-	}
-	if (snap.variantRole === 'dark' && snap.variantPartner) {
-		return {
-			lightOwlId: snap.variantPartner.owlId,
-			darkOwlId: snap.owlId,
-			styleOwlId: snap.variantPartner.owlId,
-		};
-	}
-	return { lightOwlId: snap.owlId, darkOwlId: null, styleOwlId: snap.owlId };
-}
-
 function inspectorSnapshotFor(el: Element, container: Element): InspectorSnapshot {
-	const role = variantRoleOf(el);
-	const group = el.getAttribute(OWL.variantGroup) ?? undefined;
-	let variantPartner: VariantPartnerSnapshot | undefined;
-	if (role) {
-		const prefer = role === 'light' ? 'dark' : 'light';
-		const partner = findPartnerInContainer(container, el, prefer);
-		if (partner) {
-			const g = group ?? partner.getAttribute(OWL.variantGroup) ?? 'pair';
-			variantPartner = partnerSnapshot(partner, g);
-		}
-	}
-
 	return {
 		owlId: el.getAttribute(OWL.id) ?? '',
 		tag: el.tagName.toLowerCase(),
 		breadcrumbs: breadcrumbChain(el, container),
 		styleRows: styleToRows(el.getAttribute('style')),
-		darkStyleRows: styleToRows(el.getAttribute(OWL.darkStyle)),
 		attrRows: attrRowsFor(el),
 		textContent: textFromElement(el),
 		slotName: el.getAttribute(OWL.slot) ?? undefined,
 		slotType: el.getAttribute(OWL.slotType) ?? undefined,
 		rawHtml: el.outerHTML,
-		variantPartner,
-		variantRole: role ?? undefined,
-		variantGroup: group,
 	};
 }
 
@@ -615,19 +402,13 @@ export function extractShellInspector(shellHtml: string, owlId: string): Inspect
 
 export type InspectorPatch = {
 	styleRows?: StyleRow[];
-	darkStyleRows?: StyleRow[];
 	attrRows?: AttrRow[];
 	textContent?: string;
 	rawHtml?: string;
-	partnerAttrRows?: AttrRow[];
-	partnerTextContent?: string;
-	partnerSrc?: string;
-	partnerAlt?: string;
 };
 
 function stripTokenRefs(el: Element) {
 	el.removeAttribute(OWL.token);
-	el.removeAttribute(OWL.darkToken);
 }
 
 function applyAttrRowsTo(el: Element, rows: AttrRow[]) {
@@ -665,32 +446,6 @@ function extractFromEditableHtml(html: string, owlId: string): InspectorSnapshot
 	return extractInspector(html, owlId) ?? extractShellInspector(html, owlId);
 }
 
-/** Copy inline `style` declarations onto `data-owl-dark-style` for the same element. */
-export function copyLightStylesToDark(
-	html: string,
-	owlId: string,
-): { html: string; darkStyleRows: StyleRow[] } | null {
-	const snap = extractFromEditableHtml(html, owlId);
-	if (!snap) return null;
-	const darkStyleRows = snap.styleRows.map((r) => ({ ...r }));
-	const next = applyEditableHtmlPatch(html, owlId, { darkStyleRows });
-	if (!next) return null;
-	return { html: next, darkStyleRows };
-}
-
-/** Copy `data-owl-dark-style` declarations onto inline `style` for the same element. */
-export function copyDarkStylesToLight(
-	html: string,
-	owlId: string,
-): { html: string; styleRows: StyleRow[] } | null {
-	const snap = extractFromEditableHtml(html, owlId);
-	if (!snap) return null;
-	const styleRows = snap.darkStyleRows.map((r) => ({ ...r }));
-	const next = applyEditableHtmlPatch(html, owlId, { styleRows });
-	if (!next) return null;
-	return { html: next, styleRows };
-}
-
 function applyInspectorPatchToElement(
 	el: Element,
 	container: Element,
@@ -712,41 +467,14 @@ function applyInspectorPatchToElement(
 		if (style) el.setAttribute('style', style);
 		else el.removeAttribute('style');
 		stripTokenRefs(el);
-		syncVariantPartnerLayout(container, el, patch.styleRows);
-	}
-
-	if (patch.darkStyleRows !== undefined) {
-		const dark = rowsToStyle(patch.darkStyleRows);
-		if (dark) el.setAttribute(OWL.darkStyle, dark);
-		else el.removeAttribute(OWL.darkStyle);
-		stripTokenRefs(el);
 	}
 
 	if (patch.attrRows !== undefined) {
 		applyAttrRowsTo(el, patch.attrRows);
-		syncVariantPartnerLayout(container, el, undefined, patch.attrRows);
 	}
 
 	if (patch.textContent !== undefined) {
 		applyTextTo(el, patch.textContent);
-	}
-
-	const needsPartner =
-		patch.partnerAttrRows !== undefined ||
-		patch.partnerTextContent !== undefined ||
-		patch.partnerSrc !== undefined ||
-		patch.partnerAlt !== undefined;
-
-	if (needsPartner) {
-		const role = variantRoleOf(el);
-		const prefer = role === 'dark' ? 'light' : 'dark';
-		const partner = findPartnerInContainer(container, el, prefer);
-		if (partner) {
-			if (patch.partnerAttrRows !== undefined) applyAttrRowsTo(partner, patch.partnerAttrRows);
-			if (patch.partnerTextContent !== undefined) applyTextTo(partner, patch.partnerTextContent);
-			if (patch.partnerSrc !== undefined) partner.setAttribute('src', patch.partnerSrc);
-			if (patch.partnerAlt !== undefined) partner.setAttribute('alt', patch.partnerAlt);
-		}
 	}
 }
 
@@ -775,90 +503,6 @@ export function applyShellInspectorPatch(
 	if (!el) return null;
 	applyInspectorPatchToElement(el, doc.body, patch, owlId);
 	return serializeShellDocument(doc, shellHtml);
-}
-
-/**
- * Ensure the selected element has an opposite owl-dark (or owl-light) partner.
- * Clones an <img> (or generic element) as a sibling with matching dimensions.
- * Returns the updated section HTML, or null if nothing to do / failure.
- */
-export function ensureVariantPartner(
-	sectionHtml: string,
-	owlId: string,
-	preferPartner: 'dark' | 'light' = 'dark',
-): string | null {
-	const wrapped = wrapFragment(sectionHtml);
-	if (!wrapped) return null;
-	const { container } = wrapped;
-	const el = container.querySelector(`[${OWL.id}="${owlId}"]`);
-	if (!el) return null;
-
-	const existing = findPartnerInContainer(container, el, preferPartner);
-	if (existing) return container.innerHTML;
-
-	let group = el.getAttribute(OWL.variantGroup);
-	if (!group) {
-		group = `vg-${owlId}`;
-		el.setAttribute(OWL.variantGroup, group);
-	}
-
-	const lightClass = preferPartner === 'dark' ? OWL_CLASS.light : OWL_CLASS.dark;
-	const darkClass = preferPartner === 'dark' ? OWL_CLASS.dark : OWL_CLASS.light;
-	const lightVariant = preferPartner === 'dark' ? 'light' : 'dark';
-	const darkVariant = preferPartner === 'dark' ? 'dark' : 'light';
-
-	// Mark the source as the light (or opposite) side.
-	if (!variantRoleOf(el)) {
-		addClassLocal(el, lightClass);
-		el.setAttribute(OWL.variant, lightVariant);
-	} else if (!el.getAttribute(OWL.variant)) {
-		el.setAttribute(OWL.variant, lightVariant);
-	}
-
-	const partner = el.cloneNode(true) as Element;
-	// Fresh id
-	const nextId = `w${maxOwlIdCounter(container.innerHTML) + 1}`;
-	partner.setAttribute(OWL.id, nextId);
-	partner.setAttribute(OWL.variantGroup, group);
-	partner.setAttribute(OWL.variant, darkVariant);
-	// Swap classes
-	removeClassesLocal(partner, [...LIGHT_CLASSES, ...DARK_CLASSES]);
-	addClassLocal(partner, darkClass);
-	// Dark partner starts hidden via inline style (base CSS also hides it)
-	const style = partner.getAttribute('style') ?? '';
-	const withoutDisplay = style
-		.split(';')
-		.map((s) => s.trim())
-		.filter((s) => s && !s.toLowerCase().startsWith('display:'))
-		.join('; ');
-	partner.setAttribute(
-		'style',
-		withoutDisplay
-			? `${withoutDisplay}; display:none;`
-			: 'display:none;',
-	);
-	// Clear slot on partner so only the light element owns the slot
-	partner.removeAttribute(OWL.slot);
-	partner.removeAttribute(OWL.slotType);
-	partner.removeAttribute(OWL.slotLabel);
-
-	el.parentElement?.insertBefore(partner, el.nextSibling);
-	return container.innerHTML;
-}
-
-function addClassLocal(el: Element, cls: string) {
-	const current = classListOf(el);
-	if (!current.includes(cls)) {
-		current.push(cls);
-		el.setAttribute('class', current.join(' '));
-	}
-}
-
-function removeClassesLocal(el: Element, classes: Iterable<string>) {
-	const ban = new Set(classes);
-	const next = classListOf(el).filter((c) => !ban.has(c));
-	if (next.length) el.setAttribute('class', next.join(' '));
-	else el.removeAttribute('class');
 }
 
 export function updateSectionHtml(doc: OwlDoc, sectionId: string, html: string): OwlDoc {

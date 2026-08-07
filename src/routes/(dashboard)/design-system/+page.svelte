@@ -23,7 +23,7 @@
 		addHexColor,
 		extractDesignTokens,
 		hexForColorInput,
-		pickEmailLogos,
+		pickEmailLogo,
 		removeHexColor,
 		replaceHexColor,
 		renderSvelteComponentPreview,
@@ -101,15 +101,11 @@
 
 	const previewPropOverrides = $derived.by((): Record<string, string> => {
 		const overrides: Record<string, string> = {};
-		const pair = pickEmailLogos(logoAssets);
-		if (pair) {
-			const light = assetUrl(pair.light.id);
-			const dark = assetUrl(pair.dark.id);
-			overrides.logo = light;
-			overrides.logo_url = light;
-			overrides.logo_light = light;
-			overrides.logo_dark = dark;
-			overrides.logo_dark_url = dark;
+		const logo = pickEmailLogo(logoAssets);
+		if (logo) {
+			const src = assetUrl(logo.id);
+			overrides.logo = src;
+			overrides.logo_url = src;
 		}
 		const heroImage = imageAssets[0] ?? logoAssets[0];
 		if (heroImage) {

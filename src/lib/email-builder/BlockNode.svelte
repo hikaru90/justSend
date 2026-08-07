@@ -3,11 +3,8 @@
 	import { EDITOR_KEY } from './context';
 	import type { EmailEditorState } from './editor-state.svelte';
 	import { getBlockChildrenIds } from './editor-state.svelte';
-	import { promoteDarkColors, renderBlockInnerHtml } from './render';
-	import {
-		simulateClientAutoDarken,
-		substitutePreviewPlaceholders,
-	} from '$lib/design/extractTokens';
+	import { renderBlockInnerHtml } from './render';
+	import { substitutePreviewPlaceholders } from '$lib/design/extractTokens';
 	import { LIBRARY_KEY, EmailBuilderLibrary } from './library-context.svelte';
 	import BlockChildren from './BlockChildren.svelte';
 	import BlockWrapper from './BlockWrapper.svelte';
@@ -17,10 +14,7 @@
 	const editor = getContext<EmailEditorState>(EDITOR_KEY);
 	const library = getContext<EmailBuilderLibrary>(LIBRARY_KEY);
 
-	/** Document with dark colors promoted when previewing/editing the dark variant. */
-	const displayDocument = $derived(
-		editor.colorScheme === 'dark' ? promoteDarkColors(editor.document) : editor.document,
-	);
+	const displayDocument = $derived(editor.document);
 	const block = $derived(displayDocument[blockId]);
 
 	const leafHtml = $derived.by(() => {
@@ -36,11 +30,6 @@
 			renderBlockInnerHtml(displayDocument, blockId),
 			library.previewOverrides,
 		);
-		// Html / legacy inline colors have no stored dark fields — match Preview + inbox
-		// auto-darken so #ffffff does not stay white while Dark is selected.
-		if (editor.colorScheme === 'dark') {
-			html = simulateClientAutoDarken(html);
-		}
 		return html;
 	});
 

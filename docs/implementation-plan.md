@@ -13,7 +13,7 @@ Pre-send quality checks so operators can catch broken links, spam-trigger patter
 
 1. **Link checker** — crawl rendered HTML for `a[href]` / image `src`; report broken, relative, missing unsubscribe, and suspicious URLs.
 2. **Spam scoring** — heuristic / rule-based score (and optional external scorer later) on subject + HTML/text; surface top findings in the UI.
-3. **Client previews** — multi-client / viewport previews (Litmus-style). Start with local approximations (desktop/mobile WebKit-ish iframe + dark/light); evaluate paid APIs (Litmus, Email on Acid, Paragon) as an optional integration rather than a hard dependency.
+3. **Client previews** — multi-client / viewport previews (Litmus-style). Start with local approximations (desktop/mobile WebKit-ish iframe); evaluate paid APIs (Litmus, Email on Acid, Paragon) as an optional integration rather than a hard dependency.
 
 ### Suggested phasing
 
@@ -21,7 +21,7 @@ Pre-send quality checks so operators can catch broken links, spam-trigger patter
 |-------|-------------|
 | **1 — Link checker** | Service that takes template/campaign HTML (post-variable render where possible), returns a structured report; UI on template + campaign detail; block or warn on critical failures. |
 | **2 — Spam heuristics** | Local rules (ALL CAPS subject, too many `!`, image-only body, short link domains, missing plain text, etc.) + score; store last run on template/campaign. |
-| **3 — Preview pack** | Desktop / mobile / dark-mode preview tabs using existing render pipeline; optional “send test to me” already exists — keep it as the ground-truth path. |
+| **3 — Preview pack** | Desktop / mobile preview tabs using existing render pipeline; optional “send test to me” already exists — keep it as the ground-truth path. |
 | **4 — External clients (optional)** | Pluggable provider for real Gmail/Outlook/Apple Mail screenshots when API keys are configured. |
 
 ### Touchpoints

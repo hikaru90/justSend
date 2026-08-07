@@ -1,7 +1,7 @@
 /**
  * compileOwlHtml — the single, pure, deterministic pipeline:
  *
- *   parse → heal → normalize → tokens → dark → preheader → fluidify → lint
+ *   parse → heal → normalize → tokens → preheader → fluidify → lint
  *
  * Guarantees:
  *  - Same input bytes -> byte-identical output (enforced by tests).
@@ -12,13 +12,10 @@ import { parseDocument, serialize, spliceRawAtComment, walkElements, type Docume
 import { healDocument } from './heal';
 import { normalizeDocument } from './normalize';
 import { applyTokens } from './tokens';
-import { applyDarkStyles, promoteDarkStyles } from './dark';
 import { extractSlots } from './slots';
 import { lintDocument } from './lint';
 import { fluidifyEmailHtml } from '$lib/email/fluidify-email-html';
 import { OWL, OWL_FILLER, type OwlCompileContext, type OwlCompileResult, type OwlIssue } from './format';
-
-export { promoteDarkStyles };
 
 function setPreheader(doc: Document, preheader: string, issues: OwlIssue[]): void {
 	const el = doc.querySelector(`[${OWL.preheader}]`);
@@ -56,7 +53,6 @@ export function compileOwlHtml(sourceHtml: string, ctx: OwlCompileContext = {}):
 	normalizeDocument(doc);
 
 	issues.push(...applyTokens(doc, ctx));
-	issues.push(...applyDarkStyles(doc, ctx));
 
 	if (ctx.preheader !== undefined) setPreheader(doc, ctx.preheader, issues);
 
