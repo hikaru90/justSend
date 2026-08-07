@@ -219,6 +219,7 @@ export async function inferDesignSystemFromUrl(
 		],
 		{
 			signal: opts.signal,
+			teamId: opts.teamId,
 			stream: true,
 			onDelta: (delta, chars) => {
 				emit({ stage: 'delta', delta, chars });
@@ -324,6 +325,7 @@ export async function reapplyDesignSystemToComponent(
 		],
 		{
 			signal: opts.signal,
+			teamId: opts.teamId,
 			stream: true,
 			onDelta: (delta, chars) => {
 				emit({ stage: 'delta', delta, chars });

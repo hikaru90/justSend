@@ -205,6 +205,8 @@ export const teams = sqliteTable('teams', {
 	isVerified: integer('is_verified', { mode: 'boolean' }).notNull().default(false),
 	dailyEmailLimit: integer('daily_email_limit').notNull().default(10000),
 	isBlocked: integer('is_blocked', { mode: 'boolean' }).notNull().default(false),
+	/** Encrypted OpenRouter API key when the team uses BYOK instead of platform AI credits. */
+	openrouterApiKey: text('openrouter_api_key'),
 	...timestamps,
 });
 

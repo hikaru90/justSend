@@ -1,0 +1,14 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "0001_team_openrouter_api_key",
+  "prevId": "0000_init",
+  "tables": {},
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  }
+}

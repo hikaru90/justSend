@@ -123,7 +123,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			previewFrom: domain ? `preview@${domain.name}` : null,
 			domainVerified: domain?.status === 'SUCCESS',
 			userEmail: locals.user?.email ?? null,
-			piConfigured: isPiConfigured(),
+			piConfigured: isPiConfigured(teamId),
 			assetBaseUrl: url.origin,
 		};
 	} catch {

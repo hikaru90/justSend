@@ -317,6 +317,7 @@ export async function generateOwlScaffold(opts: OwlAiOptions): Promise<OwlAiResu
 
 	const raw = await openRouterChat(messages, {
 		signal: opts.signal,
+		teamId: opts.teamId,
 		stream: true,
 		jsonObject: true,
 		onDelta: (delta, chars) => {
@@ -651,6 +652,7 @@ export async function generateOwlCompose(opts: OwlComposeOptions): Promise<OwlCo
 
 	const raw = await openRouterChat(messages, {
 		signal: opts.signal,
+		teamId: opts.teamId,
 		stream: true,
 		jsonObject: true,
 		onDelta: (delta, chars) => {

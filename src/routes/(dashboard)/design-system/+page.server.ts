@@ -31,7 +31,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			...c,
 			parsedSlots: parseComponentSlots(c),
 		})),
-		piConfigured: isPiConfigured(),
+		piConfigured: isPiConfigured(teamId),
 	};
 };
 
