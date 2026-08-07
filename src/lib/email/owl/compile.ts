@@ -1,7 +1,7 @@
 /**
  * compileOwlHtml — the single, pure, deterministic pipeline:
  *
- *   parse → heal → strip-dark → normalize → tokens → light-override → preheader → fluidify → lint
+ *   parse → heal → strip-dark → normalize → tokens → enforce-explicit-colors → light-override → preheader → fluidify → lint
  *
  * Guarantees:
  *  - Same input bytes -> byte-identical output (enforced by tests).
@@ -13,6 +13,7 @@ import { healDocument } from './heal';
 import { stripDarkVariants } from './strip-dark';
 import { normalizeDocument } from './normalize';
 import { applyTokens } from './tokens';
+import { enforceExplicitColors } from './explicit-colors';
 import { applyLightOverride } from './light-override';
 import { extractSlots } from './slots';
 import { lintDocument } from './lint';
@@ -57,6 +58,8 @@ export function compileOwlHtml(sourceHtml: string, ctx: OwlCompileContext = {}):
 	normalizeDocument(doc);
 
 	issues.push(...applyTokens(doc, ctx));
+
+	issues.push(...enforceExplicitColors(doc));
 
 	issues.push(...applyLightOverride(doc, ctx));
 

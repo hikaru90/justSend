@@ -100,6 +100,7 @@ Runtime copy for AI prompts: `src/lib/server/email-formatting-rules.ts` (keep in
   - `class="body"` on the `<body>` and the `gmail-blend-screen` / `gmail-blend-difference` wrapper divs
   - `owll-*` classes and `data-ogsc` / `data-ogsb` attributes
 - Choose light colors so they survive a forced dark transform: white/light fills (`#ffffff`, `#faf9f7`) with dark text (`#262626`, `#1a1a1a`) — the compiler re-asserts them.
+- Every visible element must carry an explicit opaque inline `background-color` and `color`; the compiler enforces this by inheriting from the nearest ancestor. Do not strip inline bg/color when editing — do not rely on cascade. Leave `<img>` and the `gmail-blend-*` wrappers without a background (they must stay transparent).
 
 ## Tracking & hygiene
 
