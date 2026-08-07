@@ -21,13 +21,7 @@ import {
 	type FlowGraph,
 } from './flow-service';
 import { getTemplate } from './template-service';
-import { renderTemplateForSend } from './email-service';
-import { getDesignSystemBundle } from './design-system-service';
-import { parseDesignTokenMap } from '$lib/design/extractTokens';
-
-function designTokensForTeam(teamId: number): Record<string, string> {
-	return parseDesignTokenMap(getDesignSystemBundle(teamId).system?.designMd ?? '');
-}
+import { designTokensForTeam, renderTemplateForSend } from './render-template-for-send';
 
 export type Enrollment = typeof automationEnrollments.$inferSelect;
 

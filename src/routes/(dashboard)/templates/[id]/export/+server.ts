@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { requireTeamId } from '$lib/server/dashboard';
-import { renderTemplateForSend } from '$lib/server/service/email-service';
+import { renderTemplateForSend } from '$lib/server/service/render-template-for-send';
 import { pickEmailLogo, parseDesignTokenMap } from '$lib/design/extractTokens';
 import { getDesignSystemBundle } from '$lib/server/service/design-system-service';
 import { getTemplate } from '$lib/server/service/template-service';
