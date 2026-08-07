@@ -16,8 +16,8 @@ import {
 	cancelEmail,
 	updateEmail,
 	replaceVariables,
-	renderTemplateForSend,
 } from './email-service';
+import { renderTemplateForSend } from './render-template-for-send';
 import { addSuppression } from './suppression-service';
 import { db } from '../db';
 import { emails, queueJobs } from '../db/schema';
