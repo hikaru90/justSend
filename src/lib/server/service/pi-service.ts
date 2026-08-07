@@ -40,7 +40,6 @@ import {
 } from './design-workspace-context';
 import { openRouterChat, openRouterModel } from './openrouter';
 import { installOpenRouterFetchThrottle } from './openrouter-rate-limit';
-import { resolveOpenRouterApiKey } from './team-openrouter-key-service';
 import { assetDiskPath, type DesignAsset } from './design-system-service';
 
 export type { DesignAssetPromptRef, DesignWorkspaceMode };
@@ -56,8 +55,6 @@ export type PiSessionHandle = {
 };
 
 export type SpawnPiSessionOptions = {
-	/** Team whose BYOK key (if any) is used for OpenRouter auth. */
-	teamId?: number;
 	/** Working directory for the session. Default: process.cwd() */
 	cwd?: string;
 	/** Override model id (OpenRouter). Default: PI_MODEL ?? OPENROUTER_MODEL */
@@ -432,7 +429,7 @@ type PiRegistryEntry = PiSessionHandle;
 
 const registry = new Map<string, PiRegistryEntry>();
 
-const runtimeByApiKey = new Map<string, Promise<ModelRuntime>>();
+let runtimePromise: Promise<ModelRuntime> | null = null;
 
 /** Initial + retries: first attempt, then up to 3 more on 429 / rate-limit. */
 const PI_RATE_LIMIT_RETRIES = 3;
@@ -571,10 +568,10 @@ export function resolvePiConfigured(input: {
 	return Boolean(input.openRouterApiKey?.trim());
 }
 
-export function isPiConfigured(teamId?: number): boolean {
+export function isPiConfigured(): boolean {
 	return resolvePiConfigured({
 		piEnabled: env.PI_ENABLED,
-		openRouterApiKey: resolveOpenRouterApiKey(teamId) ?? undefined,
+		openRouterApiKey: env.OPENROUTER_API_KEY,
 	});
 }
 
@@ -590,10 +587,10 @@ export function resolvePiWorkRoot(): string {
 	return resolve(process.cwd(), env.PI_AGENT_DIR, '..', 'work');
 }
 
-export async function createPiRuntime(openRouterApiKey: string): Promise<ModelRuntime> {
-	if (!openRouterApiKey.trim()) {
+export async function createPiRuntime(): Promise<ModelRuntime> {
+	if (!isPiConfigured()) {
 		throw new Error(
-			'Pi is not configured (set OPENROUTER_API_KEY, add a team key, or PI_ENABLED=false to disable)',
+			'Pi is not configured (set OPENROUTER_API_KEY, or PI_ENABLED=false to disable)',
 		);
 	}
 
@@ -607,36 +604,27 @@ export async function createPiRuntime(openRouterApiKey: string): Promise<ModelRu
 		modelsPath: join(agentDir, 'models.json'),
 	});
 
-	await modelRuntime.setRuntimeApiKey('openrouter', openRouterApiKey.trim());
+	await modelRuntime.setRuntimeApiKey('openrouter', env.OPENROUTER_API_KEY!);
 	return modelRuntime;
 }
 
-async function getSharedRuntime(openRouterApiKey: string): Promise<ModelRuntime> {
-	const cacheKey = openRouterApiKey.trim();
-	let runtimePromise = runtimeByApiKey.get(cacheKey);
+async function getSharedRuntime(): Promise<ModelRuntime> {
 	if (!runtimePromise) {
-		runtimePromise = createPiRuntime(cacheKey).catch((err) => {
-			runtimeByApiKey.delete(cacheKey);
+		runtimePromise = createPiRuntime().catch((err) => {
+			runtimePromise = null;
 			throw err;
 		});
-		runtimeByApiKey.set(cacheKey, runtimePromise);
 	}
 	return runtimePromise;
 }
 
-/** Reset cached runtimes (tests / after auth changes). */
+/** Reset cached runtime (tests / after auth changes). */
 export function resetPiRuntimeCache(): void {
-	runtimeByApiKey.clear();
+	runtimePromise = null;
 }
 
 export async function spawnPiSession(opts: SpawnPiSessionOptions = {}): Promise<PiSessionHandle> {
-	const apiKey = resolveOpenRouterApiKey(opts.teamId);
-	if (!apiKey) {
-		throw new Error(
-			'Pi is not configured (set OPENROUTER_API_KEY, add a team key, or PI_ENABLED=false to disable)',
-		);
-	}
-	const modelRuntime = await getSharedRuntime(apiKey);
+	const modelRuntime = await getSharedRuntime();
 	const modelId = getPiModelId(opts.modelId);
 	const model = modelRuntime.getModel('openrouter', modelId);
 	if (!model) {
@@ -1076,7 +1064,7 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 	});
 	emit({ type: 'step', message: 'Starting Pi…' });
 
-	handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir, teamId: input.teamId });
+	handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
 		const entry = registry.get(handle.id);
 		if (entry) {
 			entry.workDir = workDir;
@@ -1290,11 +1278,7 @@ export async function editTemplateTreeWithPi(
 	});
 	emit({ type: 'step', message: 'Starting Pi…' });
 
-	const handle = await spawnPiSession({
-		purpose: 'email-tree-edit',
-		cwd: workDir,
-		teamId: input.teamId,
-	});
+	const handle = await spawnPiSession({ purpose: 'email-tree-edit', cwd: workDir });
 	const onAbort = () => {
 		void handle.session.abort().catch(() => undefined);
 	};
@@ -1461,7 +1445,6 @@ export async function editComponentTreeWithPi(
 		],
 		{
 			signal: input.signal,
-			teamId: input.teamId,
 			stream: true,
 			jsonObject: true,
 			onDelta: (delta) => emit({ type: 'text', delta }),

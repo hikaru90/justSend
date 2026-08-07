@@ -46,7 +46,7 @@ function parseScope(value: unknown): ComponentPiScope {
 export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const teamId = requireTeamId(locals.teamId);
 
-	if (!isPiConfigured(teamId)) {
+	if (!isPiConfigured()) {
 		error(400, 'Pi is not configured (OPENROUTER_API_KEY)');
 	}
 
@@ -211,7 +211,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 export const DELETE: RequestHandler = async ({ request, locals }) => {
 	requireTeamId(locals.teamId);
 
-	if (!isPiConfigured(teamId)) {
+	if (!isPiConfigured()) {
 		error(400, 'Pi is not configured (OPENROUTER_API_KEY)');
 	}
 

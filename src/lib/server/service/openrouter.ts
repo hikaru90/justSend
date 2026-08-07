@@ -1,15 +1,10 @@
 import { env } from '../env';
 import { installOpenRouterFetchThrottle, openRouterFetch } from './openrouter-rate-limit';
-import { resolveOpenRouterApiKey } from './team-openrouter-key-service';
 
 export type OpenRouterMessage = { role: 'system' | 'user' | 'assistant'; content: string };
 
 export type OpenRouterChatOpts = {
 	signal?: AbortSignal;
-	/** When set, use the team's BYOK key if present, otherwise platform credits. */
-	teamId?: number;
-	/** Override resolved API key (mainly for tests). */
-	apiKey?: string;
 	/** Default true. When false, waits for full JSON response. */
 	stream?: boolean;
 	/** Force JSON object response (non-stream or stream depending on provider support). */
@@ -78,9 +73,8 @@ export async function openRouterChat(
 	messages: OpenRouterMessage[],
 	opts: OpenRouterChatOpts = {},
 ): Promise<string> {
-	const apiKey = opts.apiKey?.trim() || resolveOpenRouterApiKey(opts.teamId);
-	if (!apiKey) {
-		throw new Error('OpenRouter is not configured (set OPENROUTER_API_KEY or add a team key)');
+	if (!env.OPENROUTER_API_KEY) {
+		throw new Error('OPENROUTER_API_KEY is not configured');
 	}
 
 	const stream = opts.stream !== false;
@@ -98,7 +92,7 @@ export async function openRouterChat(
 	const response = await openRouterFetch(`${env.OPENROUTER_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
 		method: 'POST',
 		headers: {
-			Authorization: `Bearer ${apiKey}`,
+			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
 			'Content-Type': 'application/json',
 			'HTTP-Referer': env.HOST_URL,
 			'X-Title': 'Owlery',
