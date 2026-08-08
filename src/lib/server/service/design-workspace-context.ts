@@ -160,21 +160,26 @@ export function inferDesignWorkspaceMode(opts: {
 	return 'edit';
 }
 
-/** HTML for a library component: prefer stored html, else render from document. */
+/**
+ * HTML for a library component, as prompt/catalog material. Always prefers a
+ * live (non-delivery) render from the block document — the MJML delivery
+ * snapshot stored in `html` carries MSO/VML scaffolding that would flood
+ * prompts; stored html is the fallback for legacy html-only components.
+ */
 export function resolveLibraryComponentHtml(
 	component: Pick<DesignComponent, 'html' | 'document' | 'name'>,
 ): string {
-	const stored = component.html?.trim();
-	if (stored) return stored;
-
 	const document = parseComponentDocument(component);
-	if (!document) return '';
-
-	try {
-		return renderEmailHtml(document).trim();
-	} catch {
-		return '';
+	if (document) {
+		try {
+			return renderEmailHtml(document).trim();
+		} catch {
+			return '';
+		}
 	}
+
+	const stored = component.html?.trim();
+	return stored && !stored.includes('data-owl-mjml') ? stored : '';
 }
 
 export function modeInstructionRules(mode: DesignWorkspaceMode): string {

@@ -117,10 +117,9 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 			subject = replaceVariables(template.subject ?? '', variables ?? {});
 			// Dynamic import keeps the Owl compiler out of the static email-service
 			// graph so list/get email SSR stays light.
-			const { renderTemplateForSend, designTokensForTeam } = await import(
-				'./render-template-for-send'
-			);
-			html = renderTemplateForSend(
+			const { renderTemplateForSend, designTokensForTeam } =
+				await import('./render-template-for-send');
+			html = await renderTemplateForSend(
 				{ content: template.content, html: template.html },
 				{ variables, tokens: designTokensForTeam(teamId) },
 			);

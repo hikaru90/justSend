@@ -1,6 +1,10 @@
 import { error } from '@sveltejs/kit';
-import { applyHtmlToComponentDocument, resolveEditApproach } from '$lib/email-builder/edit-approach';
+import {
+	applyHtmlToComponentDocument,
+	resolveEditApproach,
+} from '$lib/email-builder/edit-approach';
 import { renderEmailHtml } from '$lib/email-builder/render';
+import { renderDeliveredEmailHtml } from '$lib/email-builder/render-delivered';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
 import { requireTeamId } from '$lib/server/dashboard';
@@ -76,8 +80,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				if (approach === 'html') {
 					send({ type: 'step', message: 'Using raw HTML edit…' });
 
+					// Pi edits the editable render — never the MJML delivery snapshot
+					// (MSO/VML scaffolding). Stored html only serves legacy html-only
+					// components without a block document.
 					let sourceHtml = storedHtml;
-					if (!sourceHtml && !isEmptyComponentDocument(document)) {
+					if (!isEmptyComponentDocument(document)) {
 						try {
 							sourceHtml = renderEmailHtml(document);
 						} catch {
@@ -135,7 +142,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 				let html = '';
 				try {
-					html = renderEmailHtml(edited.document);
+					html = await renderDeliveredEmailHtml(edited.document);
 				} catch {
 					html = '';
 				}

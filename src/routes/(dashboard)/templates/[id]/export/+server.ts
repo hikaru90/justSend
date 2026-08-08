@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ locals, params, url }) => {
 			variables.logo_url = src;
 		}
 
-		const html = renderTemplateForSend(
+		const html = await renderTemplateForSend(
 			{ content: template.content, html: template.html },
 			{
 				variables,

@@ -184,8 +184,8 @@ describe('email-service', () => {
 			expect(email.html).not.toContain('DARK-STALE');
 		});
 
-		it('renderTemplateForSend falls back to cached HTML for legacy templates', () => {
-			const html = renderTemplateForSend(
+		it('renderTemplateForSend falls back to cached HTML for legacy templates', async () => {
+			const html = await renderTemplateForSend(
 				{ content: null, html: '<p>Hi {{name}}</p>' },
 				{ variables: { name: 'Ada' } },
 			);

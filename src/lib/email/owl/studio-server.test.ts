@@ -12,6 +12,7 @@ import {
 	replaceElementInFragment,
 } from './studio-server';
 import { emptyOwlDoc, newSectionId, parseOwlDoc, serializeOwlDoc, type OwlDoc } from './studio';
+import { renderOwlMarkupHtml } from './render-doc';
 import { starterByKey } from './starters';
 
 function shellDoc(): OwlDoc {
@@ -19,7 +20,7 @@ function shellDoc(): OwlDoc {
 }
 
 describe('studio: compileOwlDoc', () => {
-	it('composes shell + sections and applies slot values', () => {
+	it('composes shell + sections and applies slot values', async () => {
 		const doc = shellDoc();
 		const cta = starterByKey('cta-button')!;
 		doc.sections.push({
@@ -36,9 +37,9 @@ describe('studio: compileOwlDoc', () => {
 		});
 		doc.slotValues = { cta_text: 'Buy now', cta_url: 'https://example.com/buy' };
 
-		const { html, issues, sectionSlots, sectionHtml } = compileOwlDoc(doc);
+		const { html, issues, sectionSlots, sectionHtml } = await compileOwlDoc(doc);
 
-		expect(html).toContain('<!DOCTYPE html>');
+		expect(html).toMatch(/<!doctype html>/i);
 		expect(html).toContain('Buy now');
 		expect(html).toContain('href="https://example.com/buy"');
 		expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
@@ -52,27 +53,29 @@ describe('studio: compileOwlDoc', () => {
 		expect(sectionHtml[doc.sections[1].id]).toContain('data-owl-component="footer-legal"');
 	});
 
-	it('rewrites design-asset urls to an origin when requested', () => {
+	it('rewrites design-asset urls to an origin when requested', async () => {
 		const doc = shellDoc();
 		const hero = starterByKey('hero-image')!;
 		doc.sections.push({ id: newSectionId(), key: hero.key, label: hero.name, html: hero.html });
 		doc.slotValues = { hero: '/api/design-asset/abc123' };
 
-		const relative = compileOwlDoc(doc);
-		const absolute = compileOwlDoc(doc, { origin: 'http://localhost:5173' });
+		const relative = await compileOwlDoc(doc);
+		const absolute = await compileOwlDoc(doc, { origin: 'http://localhost:5173' });
 
 		expect(relative.html).toContain('src="/api/design-asset/abc123"');
 		expect(absolute.html).toContain('src="http://localhost:5173/api/design-asset/abc123"');
 		expect(absolute.html).not.toContain('src="/api/design-asset/abc123"');
 	});
 
-	it('compiles light-only with a pinned dark-mode override', () => {
+	it('compiles light-only with a pinned dark-mode override', async () => {
 		const doc = shellDoc();
 		const cta = starterByKey('cta-button')!;
 		doc.sections.push({ id: newSectionId(), key: cta.key, label: cta.name, html: cta.html });
 
-		const { html } = compileOwlDoc(doc);
-		expect(html).toContain('name="color-scheme" content="light only"');
+		const { html } = await compileOwlDoc(doc);
+		expect(html).toMatch(
+			/<meta[^>]*content="light only"[^>]*name="color-scheme"|<meta[^>]*name="color-scheme"[^>]*content="light only"/,
+		);
 		expect(html).toContain('@media (prefers-color-scheme:dark)');
 		expect(html).toContain('color:#262626!important');
 		expect(html).not.toContain('data-owl-dark');
@@ -116,7 +119,10 @@ describe('studio: migrateToOwlDoc', () => {
 	it('carries preheader and slot values over from legacy content', () => {
 		const legacy = JSON.stringify({
 			format: 'email-builder',
-			scaffold: { preheader: 'Sneak peek', slots: { cta_text: 'Read more', cta_url: 'https://x.io' } },
+			scaffold: {
+				preheader: 'Sneak peek',
+				slots: { cta_text: 'Read more', cta_url: 'https://x.io' },
+			},
 		});
 		const result = migrateToOwlDoc({ content: legacy });
 		expect(result.migrated).toBe(false);
@@ -148,7 +154,8 @@ describe('studio: mergeEditedHtmlIntoOwlDoc', () => {
 		});
 		doc.slotValues = { cta_text: 'Old label' };
 
-		const edited = compileOwlDoc(doc).html.replace('Old label', 'Start now');
+		// Merge feed = the C1 studio markup (what Pi edits), not the MJML delivery html.
+		const edited = renderOwlMarkupHtml(doc).html.replace('Old label', 'Start now');
 		const merged = mergeEditedHtmlIntoOwlDoc(doc, edited);
 
 		expect(merged.sections).toHaveLength(1);

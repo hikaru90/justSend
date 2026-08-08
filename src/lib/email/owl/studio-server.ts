@@ -48,17 +48,18 @@ export function defaultOwlShell(): string {
 }
 
 /**
- * Compose + compile an OwlDoc. Deterministic; issues are returned alongside
- * output, never thrown. Delegates the compose→slots→compile pipeline to
- * `renderOwlDocHtml` and augments the result with preview-only section
- * metadata. `origin` rewrites `/api/design-asset/...` to absolute URLs for
- * iframe preview; omit it when persisting final HTML.
+ * Compose + compile an OwlDoc to delivery HTML (MJML-wrapped). Deterministic;
+ * issues are returned alongside output, never thrown. Delegates the
+ * compose→slots→compile→deliver pipeline to `renderOwlDocHtml` and augments
+ * the result with preview-only section metadata. `origin` rewrites
+ * `/api/design-asset/...` to absolute URLs for iframe preview; omit it when
+ * persisting final HTML.
  */
-export function compileOwlDoc(
+export async function compileOwlDoc(
 	doc: OwlDoc,
 	ctx: { origin?: string; tokens?: Record<string, string> } = {},
-): OwlCompilePreview {
-	const { html, issues } = renderOwlDocHtml(doc, ctx);
+): Promise<OwlCompilePreview> {
+	const { html, issues } = await renderOwlDocHtml(doc, ctx);
 
 	const sectionSlots: OwlSectionSlots = {};
 	for (const section of doc.sections) {
@@ -157,7 +158,9 @@ function findElementByOwlId(root: Element, owlId: string): Element | null {
 
 /** Outer HTML of the element marked with `owlId` inside a section fragment. */
 function elementOuterHtmlInFragment(fragmentHtml: string, owlId: string): string | null {
-	const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${fragmentHtml}</body></html>`);
+	const doc = parseDocument(
+		`<!DOCTYPE html><html><head></head><body>${fragmentHtml}</body></html>`,
+	);
 	const el = findElementByOwlId(doc.body as Element, owlId);
 	return el ? serialize(el) : null;
 }
@@ -179,7 +182,9 @@ export function replaceElementInFragment(
 	owlId: string,
 	editedHtml: string,
 ): string | null {
-	const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${fragmentHtml}</body></html>`);
+	const doc = parseDocument(
+		`<!DOCTYPE html><html><head></head><body>${fragmentHtml}</body></html>`,
+	);
 	const el = findElementByOwlId(doc.body as Element, owlId);
 	if (!el || !el.parentNode) return null;
 
@@ -219,11 +224,7 @@ export function replaceElementInShell(
 		: serialized.replace(/^<!DOCTYPE html>\n?/i, '');
 }
 
-function importReplacementNodes(
-	doc: Document,
-	editedHtml: string,
-	owlId: string,
-): Node[] | null {
+function importReplacementNodes(doc: Document, editedHtml: string, owlId: string): Node[] | null {
 	const nodes = parseFragment(editedHtml.trim() || '<!-- empty -->');
 	const imported = nodes.map((node) => doc.importNode(node, true));
 	const first = imported.find((n) => (n as Element).tagName) as Element | undefined;
@@ -344,24 +345,25 @@ export function applySectionPiEdit(doc: OwlDoc, sectionId: string, editedHtml: s
 }
 
 /** Read preheader / slot values out of a legacy email-builder content blob. */
-function parseLegacyContent(
-	content: string | null | undefined,
-): { preheader?: string; slotValues: Record<string, string> } {
+function parseLegacyContent(content: string | null | undefined): {
+	preheader?: string;
+	slotValues: Record<string, string>;
+} {
 	if (!content?.trim()) return { slotValues: {} };
 	try {
 		const parsed = JSON.parse(content) as Record<string, unknown>;
 		const preheader =
-			typeof parsed.preheader === 'string' && parsed.preheader
-				? parsed.preheader
-				: undefined;
-		const scaffold = (typeof parsed.scaffold === 'object' && !Array.isArray(parsed.scaffold)
-			? parsed.scaffold
-			: {}) as Record<string, unknown>;
+			typeof parsed.preheader === 'string' && parsed.preheader ? parsed.preheader : undefined;
+		const scaffold = (
+			typeof parsed.scaffold === 'object' && !Array.isArray(parsed.scaffold) ? parsed.scaffold : {}
+		) as Record<string, unknown>;
 		const preheader2 =
 			typeof scaffold.preheader === 'string' && scaffold.preheader ? scaffold.preheader : undefined;
-		const slots = (typeof scaffold.slots === 'object' && !Array.isArray(scaffold.slots)
-			? (scaffold.slots as Record<string, unknown>)
-			: {}) as Record<string, unknown>;
+		const slots = (
+			typeof scaffold.slots === 'object' && !Array.isArray(scaffold.slots)
+				? (scaffold.slots as Record<string, unknown>)
+				: {}
+		) as Record<string, unknown>;
 		const slotValues: Record<string, string> = {};
 		for (const [key, value] of Object.entries(slots)) {
 			if (typeof value === 'string') slotValues[key] = value;

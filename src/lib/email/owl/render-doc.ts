@@ -11,6 +11,7 @@
 import { parseDocument, serialize } from './parser';
 import { composeEmailHtml } from './shell';
 import { compileOwlHtml } from './compile';
+import { deliverOwlHtml } from './deliver';
 import { applySlotValues } from './slots';
 import { resolveMarkdownLinkColors } from './markdown';
 import { rewriteDesignAssetUrls } from '$lib/design-asset-urls';
@@ -34,10 +35,12 @@ export type RenderOwlDocHtmlResult = {
 };
 
 /**
- * Compose + compile an OwlDoc to final HTML. Deterministic; issues are
- * returned alongside output, never thrown.
+ * C1 — compose + compile an OwlDoc to studio markup (pre-MJML). This is the
+ * deterministic fixed-point stage that AI/Pi whole-template edits operate on
+ * and that feeds the MJML delivery stage. Deterministic; issues are returned
+ * alongside output, never thrown.
  */
-export function renderOwlDocHtml(
+export function renderOwlMarkupHtml(
 	doc: OwlDoc,
 	ctx: RenderOwlDocHtmlOptions = {},
 ): RenderOwlDocHtmlResult {
@@ -59,4 +62,19 @@ export function renderOwlDocHtml(
 	const html = ctx.origin ? rewriteDesignAssetUrls(result.html, ctx.origin) : result.html;
 
 	return { html, issues: [...composed.issues, ...result.issues] };
+}
+
+/**
+ * C2 — the delivery render: C1 markup wrapped in MJML (MSO/VML conditionals,
+ * responsive scaffold) and post-processed. This is the html that previews,
+ * saves, exports and every outbound send use.
+ */
+export async function renderOwlDocHtml(
+	doc: OwlDoc,
+	ctx: RenderOwlDocHtmlOptions = {},
+): Promise<RenderOwlDocHtmlResult> {
+	const markup = renderOwlMarkupHtml(doc, ctx);
+	const delivered = await deliverOwlHtml(markup.html);
+	const html = ctx.origin ? rewriteDesignAssetUrls(delivered, ctx.origin) : delivered;
+	return { html, issues: markup.issues };
 }

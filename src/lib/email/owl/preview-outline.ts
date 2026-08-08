@@ -1,18 +1,30 @@
 import { OWL } from './format';
 
+/**
+ * Elements inside the preview iframe belong to the iframe's realm, so
+ * `instanceof HTMLElement` fails for them. Duck-type instead.
+ */
+export function asHtmlElement(n: unknown): HTMLElement | null {
+	if (!n || typeof n !== 'object') return null;
+	const el = n as HTMLElement;
+	if (typeof el.getAttribute !== 'function') return null;
+	if (!el.style || typeof el.style.setProperty !== 'function') return null;
+	return el;
+}
+
 /** Paint targets for row/table elements — mirrors email table structure in the studio. */
 export function highlightTargetsFor(el: HTMLElement): HTMLElement[] {
 	const tag = el.tagName.toLowerCase();
 	if (tag === 'tr') {
-		const cells = [...el.querySelectorAll(':scope > td, :scope > th')].filter(
-			(n): n is HTMLElement => n instanceof HTMLElement,
-		);
+		const cells = [...el.querySelectorAll(':scope > td, :scope > th')]
+			.map(asHtmlElement)
+			.filter((n): n is HTMLElement => n !== null);
 		return cells.length > 0 ? cells : [el];
 	}
 	if (tag === 'tbody' || tag === 'thead' || tag === 'table') {
-		const cells = [...el.querySelectorAll('td, th')].filter(
-			(n): n is HTMLElement => n instanceof HTMLElement,
-		);
+		const cells = [...el.querySelectorAll('td, th')]
+			.map(asHtmlElement)
+			.filter((n): n is HTMLElement => n !== null);
 		return cells.length > 0 ? cells : [el];
 	}
 	return [el];
@@ -25,18 +37,17 @@ export function findPreviewElByOwlId(
 	owlId: string,
 ): HTMLElement | null {
 	const searchRoot = scope ?? root;
-	if (searchRoot instanceof HTMLElement && searchRoot.getAttribute(OWL.id) === owlId) {
-		return searchRoot;
-	}
-	const el = searchRoot.querySelector(`[${OWL.id}="${owlId}"]`);
-	return el instanceof HTMLElement ? el : null;
+	const rootEl = asHtmlElement(searchRoot);
+	if (rootEl && rootEl.getAttribute(OWL.id) === owlId) return rootEl;
+	return asHtmlElement(searchRoot.querySelector(`[${OWL.id}="${owlId}"]`));
 }
 
 export function scrubLegacyInlineOutlines(root: Element): void {
-	for (const el of root.querySelectorAll(
+	for (const candidate of root.querySelectorAll(
 		'[data-owl-hover], [data-owl-selected], [data-owl-prev-outline], [data-owl-prev-shadow], [data-owl-prev-bg]',
 	)) {
-		if (!(el instanceof HTMLElement)) continue;
+		const el = asHtmlElement(candidate);
+		if (!el) continue;
 		el.style.outline = el.getAttribute('data-owl-prev-outline') ?? '';
 		el.style.boxShadow = el.getAttribute('data-owl-prev-shadow') ?? '';
 		el.style.backgroundColor = el.getAttribute('data-owl-prev-bg') ?? '';
@@ -63,8 +74,7 @@ function stashInlineStyles(el: HTMLElement) {
 
 export function paintOutlineTargets(targets: HTMLElement[], kind: 'hover' | 'selected') {
 	const color = kind === 'hover' ? '#6366f1' : '#4f46e5';
-	const glow =
-		kind === 'hover' ? 'rgb(99 102 241 / 0.18)' : 'rgb(79 70 229 / 0.22)';
+	const glow = kind === 'hover' ? 'rgb(99 102 241 / 0.18)' : 'rgb(79 70 229 / 0.22)';
 	const attr = kind === 'hover' ? 'data-owl-hover' : 'data-owl-selected';
 	for (const el of targets) {
 		stashInlineStyles(el);

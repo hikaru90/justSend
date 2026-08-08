@@ -196,7 +196,7 @@ async function executeSendEmail(
 		try {
 			const template = getTemplate(templateId, flow.teamId, flow.domainId);
 			html = absolutizeEmailAssetUrls(
-				renderTemplateForSend(
+				await renderTemplateForSend(
 					{ content: template.content, html: template.html },
 					{
 						variables: {

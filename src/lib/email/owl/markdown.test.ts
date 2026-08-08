@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	pickDesignHexToken,
-	renderOwlMarkdown,
-	resolveMarkdownLinkColors,
-} from './markdown';
+import { pickDesignHexToken, renderOwlMarkdown, resolveMarkdownLinkColors } from './markdown';
 import { applySlotValues } from './slots';
 import { parseDocument, serialize } from './parser';
 import { starterByKey } from './starters';
@@ -111,7 +107,7 @@ describe('resolveMarkdownLinkColors', () => {
 });
 
 describe('compileOwlDoc markdown links follow design tokens', () => {
-	it('uses design primary for links', () => {
+	it('uses design primary for links', async () => {
 		const text = starterByKey('text')!.html;
 		const doc: OwlDoc = {
 			owl: 'v1',
@@ -123,7 +119,7 @@ describe('compileOwlDoc markdown links follow design tokens', () => {
 			},
 		};
 
-		const compiled = compileOwlDoc(doc, { tokens: { primary: '#c45c26' } });
+		const compiled = await compileOwlDoc(doc, { tokens: { primary: '#c45c26' } });
 		expect(compiled.html).toContain('color:#c45c26');
 		expect(compiled.html).toMatch(/href="https:\/\/example\.com"[^>]*color:#c45c26/i);
 		expect(compiled.html).not.toContain('data-owl-dark-style');

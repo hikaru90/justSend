@@ -4,12 +4,12 @@ import { env } from '$lib/server/env';
 import {
 	applyComponentPiEdit,
 	applySectionPiEdit,
-	compileOwlDoc,
 	extractComponentPiFragment,
 	extractSectionPiFragment,
 	mergeEditedHtmlIntoOwlDoc,
 	type ComponentPiScope,
 } from '$lib/email/owl/studio-server';
+import { renderOwlMarkupHtml } from '$lib/email/owl/render-doc';
 import { parseDesignTokenMap } from '$lib/design/extractTokens';
 import { parseOwlDoc, type OwlDoc } from '$lib/email/owl/studio';
 import { getDesignSystemBundle } from '$lib/server/service/design-system-service';
@@ -31,7 +31,7 @@ function designTokensForTeam(teamId: number): Record<string, string> {
 }
 
 const OWL_PRESERVE_RULE =
-	'Preserve every data-owl-component and data-owl-role="section" marker on section root elements so the studio can split the email back into sections. Preserve the dark-mode override scaffold: the data-owl-light-css style, class="body", gmail-blend-screen/gmail-blend-difference wrappers, owll-* classes, and data-ogsc/data-ogsb attributes.';
+	'Preserve every data-owl-component and data-owl-role="section" marker on section root elements so the studio can split the email back into sections. Preserve every data-owl-id on elements you keep so the studio can re-select them. Preserve the dark-mode override scaffold: the data-owl-light-css style, class="body", gmail-blend-screen/gmail-blend-difference wrappers, owll-* classes, and data-ogsc/data-ogsb attributes.';
 
 const OWL_ELEMENT_PRESERVE_RULE =
 	'Preserve the data-owl-id attribute on the root element you edit so the studio can patch it back into the template. Keep all other data-owl-* attributes on that element and its descendants, plus the dark-mode override scaffold (owll-* classes, data-ogsc/data-ogsb).';
@@ -153,7 +153,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 					return;
 				}
 
-				const compiled = compileOwlDoc(doc, {
+				const compiled = renderOwlMarkupHtml(doc, {
 					origin: url.origin,
 					tokens: designTokensForTeam(teamId),
 				});

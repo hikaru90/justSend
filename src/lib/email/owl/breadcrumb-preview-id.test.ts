@@ -14,12 +14,12 @@ function findInSectionScope(scope: Element, owlId: string): HTMLElement | null {
 }
 
 describe('previewElForOwlId querySelector scope bug', () => {
-	it('querySelector misses the section root table id', () => {
+	it('querySelector misses the section root table id', async () => {
 		const text = starterByKey('text')!;
 		let doc = emptyOwlDoc(defaultOwlShell(), 'Preview');
 		doc.sections.push({ id: newSectionId(), key: 'text', label: 'Text', html: text.html });
 		doc = mintOwlDocSections(doc);
-		const { html } = compileOwlDoc(doc, { origin: 'http://localhost' });
+		const { html } = await compileOwlDoc(doc, { origin: 'http://localhost' });
 		const body = extractPreviewBodyInnerHtml(html);
 		const root = document.createElement('div');
 		root.innerHTML = body;
@@ -30,7 +30,7 @@ describe('previewElForOwlId querySelector scope bug', () => {
 		expect(section.matches(`[${OWL.id}="${tableId}"]`)).toBe(true);
 	});
 
-	it('querySelector finds tbody and tr descendants', () => {
+	it('querySelector finds tbody and tr descendants', async () => {
 		const text = starterByKey('text')!;
 		let doc = emptyOwlDoc(defaultOwlShell(), 'Preview');
 		doc.sections.push({ id: newSectionId(), key: 'text', label: 'Text', html: text.html });
@@ -40,7 +40,7 @@ describe('previewElForOwlId querySelector scope bug', () => {
 		const trId = frag.match(/<tr[^>]*data-owl-id="(w\d+)"/)?.[1];
 		expect(tbodyId).toBeDefined();
 		expect(trId).toBeDefined();
-		const { html } = compileOwlDoc(doc, { origin: 'http://localhost' });
+		const { html } = await compileOwlDoc(doc, { origin: 'http://localhost' });
 		const body = extractPreviewBodyInnerHtml(html);
 		const root = document.createElement('div');
 		root.innerHTML = body;

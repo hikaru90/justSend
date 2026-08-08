@@ -24,7 +24,11 @@
 		XCircle,
 	} from '@lucide/svelte';
 	import { designAssetPath } from '$lib/design-asset-urls';
-	import { buildDesignColorOptions, orderDesignColorOptions, substitutePreviewPlaceholders } from '$lib/design/extractTokens';
+	import {
+		buildDesignColorOptions,
+		orderDesignColorOptions,
+		substitutePreviewPlaceholders,
+	} from '$lib/design/extractTokens';
 	import type { DesignColorOption } from '$lib/design/extractTokens';
 	import { resolveBlockTheme, type BlockTheme } from '$lib/email-builder/block-theme';
 	import StyleColorCombobox from '$lib/components/studio/StyleColorCombobox.svelte';
@@ -36,7 +40,6 @@
 		enumOptions,
 		extractInspector,
 		extractShellInspector,
-		extractPreviewBodyInnerHtml,
 		findSectionIdForOwlId,
 		isOwlIdInShell,
 		isColorStyleProp,
@@ -55,7 +58,12 @@
 		type InspectorSnapshot,
 		type StyleRow,
 	} from '$lib/email/owl/studio-client';
-	import { newSectionId, serializeOwlDoc, type OwlDoc, type OwlSection } from '$lib/email/owl/studio';
+	import {
+		newSectionId,
+		serializeOwlDoc,
+		type OwlDoc,
+		type OwlSection,
+	} from '$lib/email/owl/studio';
 	import type { OwlIssue, OwlSlot } from '$lib/email/owl/format';
 	import AiStreamFeed from '$lib/components/ai/AiStreamFeed.svelte';
 	import {
@@ -64,10 +72,7 @@
 		owlProgressToStreamEvent,
 		type AiFeedLine,
 	} from '$lib/ai/stream-feed';
-	import {
-		findPreviewElByOwlId,
-		syncInlinePreviewOutlines,
-	} from '$lib/email/owl/preview-outline';
+	import { findPreviewElByOwlId, syncInlinePreviewOutlines } from '$lib/email/owl/preview-outline';
 
 	type StarterOption = {
 		key: string;
@@ -190,7 +195,8 @@
 	let lightEditOwlId = $state<string | null>(null);
 	let styleEditOwlId = $state<string | null>(null);
 	let contentTextFocused = $state(false);
-	let previewRoot = $state<HTMLDivElement | null>(null);
+	let previewRoot = $state<HTMLElement | null>(null);
+	let previewIframe = $state<HTMLIFrameElement | null>(null);
 	let previewScrollEl = $state<HTMLDivElement | null>(null);
 	let hoverMarkedEl: HTMLElement | null = null;
 	/** Live DOM node from the last preview click — preferred over id re-lookup for outlines. */
@@ -213,9 +219,7 @@
 
 	const blockTheme = $derived(resolveBlockTheme(designColors));
 	const emailContainer = $derived(shellCanvasCrumb(currentDoc.shell));
-	const emailContainerColor = $derived(
-		shellCanvasBackgroundColor(currentDoc.shell) ?? '#FFFFFF',
-	);
+	const emailContainerColor = $derived(shellCanvasBackgroundColor(currentDoc.shell) ?? '#FFFFFF');
 	const selectedIsEmailContainer = $derived(
 		emailContainer !== null && selectedOwlId === emailContainer.owlId,
 	);
@@ -255,7 +259,9 @@
 	});
 
 	const errorCount = $derived(preview?.issues.filter((i) => i.severity === 'error').length ?? 0);
-	const warningCount = $derived(preview?.issues.filter((i) => i.severity === 'warning').length ?? 0);
+	const warningCount = $derived(
+		preview?.issues.filter((i) => i.severity === 'warning').length ?? 0,
+	);
 
 	let compileTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -313,17 +319,11 @@
 		preview ? substitutePreviewPlaceholders(preview.html, testVariables) : '',
 	);
 
-	const previewBodyHtml = $derived(
-		displayHtml ? extractPreviewBodyInnerHtml(displayHtml) : '',
-	);
+	const previewBodyHtml = $derived(displayHtml);
 
-	const selectedSection = $derived(
-		currentDoc.sections.find((s) => s.id === selectedId) ?? null,
-	);
+	const selectedSection = $derived(currentDoc.sections.find((s) => s.id === selectedId) ?? null);
 
-	const selectedSlots = $derived(
-		selectedId ? (preview?.sectionSlots[selectedId] ?? []) : [],
-	);
+	const selectedSlots = $derived(selectedId ? (preview?.sectionSlots[selectedId] ?? []) : []);
 
 	function sectionRootInPreview(sectionId: string): Element | null {
 		if (!previewRoot) return null;
@@ -439,12 +439,7 @@
 
 		styleRows = snap.styleRows.map((r) => ({ ...r }));
 		attrRows = snap.attrRows.map((r) => ({ ...r }));
-		textDraft = effectiveContentText(
-			selectedOwlId,
-			snap.textContent,
-			snap.slotName,
-			snap.slotType,
-		);
+		textDraft = effectiveContentText(selectedOwlId, snap.textContent, snap.slotName, snap.slotType);
 		rawHtmlDraft = snap.rawHtml;
 	}
 
@@ -467,9 +462,7 @@
 			if (!inspector || !lightEditOwlId) return;
 			if (!contentTextFocused) {
 				const lightSnap =
-					lightEditOwlId === inspector.owlId
-						? inspector
-						: extractForOwlId(lightEditOwlId);
+					lightEditOwlId === inspector.owlId ? inspector : extractForOwlId(lightEditOwlId);
 				if (lightSnap) {
 					textDraft = effectiveContentText(
 						lightEditOwlId,
@@ -498,9 +491,8 @@
 
 	$effect(() => {
 		if (!browser) return;
-		const root = previewRoot;
 		const scrollEl = previewScrollEl;
-		if (!root || !scrollEl) return;
+		if (!scrollEl) return;
 		const scroll = scrollEl;
 
 		function pointerInsidePreview(clientX: number, clientY: number): boolean {
@@ -509,30 +501,6 @@
 
 		function clearHover() {
 			hoverMarkedEl = null;
-			syncPreviewOutlines();
-		}
-
-		function onPointerMove(e: PointerEvent) {
-			const rect = scroll.getBoundingClientRect();
-			const inside =
-				e.clientX >= rect.left &&
-				e.clientX <= rect.right &&
-				e.clientY >= rect.top &&
-				e.clientY <= rect.bottom;
-			if (!inside) return;
-			const el = markedElementAtPoint(e.clientX, e.clientY);
-			if (hoverMarkedEl === el) return;
-			hoverMarkedEl = el;
-			syncPreviewOutlines();
-		}
-
-		function onMouseOver(e: MouseEvent) {
-			const target = e.target;
-			if (!(target instanceof HTMLElement) || !scroll.contains(target)) return;
-			const marked = target.closest(`[${OWL.id}]`) as HTMLElement | null;
-			if (!marked || !previewRoot?.contains(marked)) return;
-			if (hoverMarkedEl === marked) return;
-			hoverMarkedEl = marked;
 			syncPreviewOutlines();
 		}
 
@@ -556,15 +524,11 @@
 			clearHover();
 		}
 
-		scroll.addEventListener('pointermove', onPointerMove, { passive: true });
-		scroll.addEventListener('mouseover', onMouseOver, { passive: true });
 		scroll.addEventListener('pointerleave', onPointerLeave);
 		document.addEventListener('pointermove', onDocumentPointerMove, { passive: true });
 		document.addEventListener('pointerdown', onDocumentPointerDown, { passive: true });
 		window.addEventListener('blur', onWindowBlur);
 		return () => {
-			scroll.removeEventListener('pointermove', onPointerMove);
-			scroll.removeEventListener('mouseover', onMouseOver);
 			scroll.removeEventListener('pointerleave', onPointerLeave);
 			document.removeEventListener('pointermove', onDocumentPointerMove);
 			document.removeEventListener('pointerdown', onDocumentPointerDown);
@@ -572,25 +536,38 @@
 		};
 	});
 
-	$effect(() => {
-		if (!browser) return;
-		const scrollEl = previewScrollEl;
-		if (!scrollEl) return;
-		function onScroll() {
-			syncPreviewOutlines();
-		}
-		scrollEl.addEventListener('scroll', onScroll, { passive: true });
-		return () => scrollEl.removeEventListener('scroll', onScroll);
-	});
-
 	function markedElementAtPoint(x: number, y: number): HTMLElement | null {
-		if (!previewRoot) return null;
-		for (const node of document.elementsFromPoint(x, y)) {
-			if (!(node instanceof HTMLElement) || !previewRoot.contains(node)) continue;
-			const marked = node.closest(`[${OWL.id}]`) as HTMLElement | null;
-			if (marked && previewRoot.contains(marked)) return marked;
-		}
-		return null;
+		const iframe = previewIframe;
+		const root = previewRoot;
+		if (!iframe || !root) return null;
+		const doc = root.ownerDocument;
+		const rect = iframe.getBoundingClientRect();
+		if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
+		const hit = doc.elementFromPoint(x - rect.left, y - rect.top);
+		if (!hit) return null;
+		const marked = hit.closest(`[${OWL.id}]`) as HTMLElement | null;
+		return marked && root.contains(marked) ? marked : null;
+	}
+
+	function handlePreviewLoad() {
+		const iframe = previewIframe;
+		const doc = iframe?.contentDocument;
+		if (!iframe || !doc?.body) return;
+		previewRoot = doc.body;
+		doc.addEventListener('mouseover', handleFrameMouseOver, { passive: true });
+		doc.addEventListener('click', handlePreviewClick);
+		void tick().then(() => syncPreviewOutlines());
+	}
+
+	function handleFrameMouseOver(e: MouseEvent) {
+		const root = previewRoot;
+		const target = e.target as Element | null;
+		if (!root || !target || typeof target.closest !== 'function' || !root.contains(target)) return;
+		const marked = target.closest(`[${OWL.id}]`) as HTMLElement | null;
+		if (!marked || !root.contains(marked)) return;
+		if (hoverMarkedEl === marked) return;
+		hoverMarkedEl = marked;
+		syncPreviewOutlines();
 	}
 
 	function previewElForOwlId(owlId: string): HTMLElement | null {
@@ -691,27 +668,26 @@
 
 	function handlePreviewClick(e: MouseEvent) {
 		if (!previewRoot) return;
-		for (const node of document.elementsFromPoint(e.clientX, e.clientY)) {
-			if (!(node instanceof HTMLElement) || !previewRoot.contains(node)) continue;
-			const marked = node.closest(`[${OWL.id}]`) as HTMLElement | null;
-			if (!marked || !previewRoot.contains(marked)) continue;
+		const target = e.target as Element | null;
+		if (!target || typeof target.closest !== 'function' || !previewRoot.contains(target)) return;
+		const marked = target.closest(`[${OWL.id}]`) as HTMLElement | null;
+		if (!marked || !previewRoot.contains(marked)) return;
 
-			e.preventDefault();
-			e.stopPropagation();
-			const owlId = marked.getAttribute(OWL.id)!;
-			let sectionId: string | null = null;
-			if (!isOwlIdInShell(currentDoc, owlId)) {
-				const sectionRoot = marked.closest(`[${OWL.role}="section"]`) as HTMLElement | null;
-				if (sectionRoot && previewRoot.contains(sectionRoot)) {
-					const idx = [...previewRoot.querySelectorAll(`[${OWL.role}="section"]`)].indexOf(
-						sectionRoot,
-					);
-					if (idx >= 0) sectionId = currentDoc.sections[idx]?.id ?? null;
-				}
+		e.preventDefault();
+		e.stopPropagation();
+		const owlId = marked.getAttribute(OWL.id)!;
+		let sectionId: string | null = null;
+		if (!isOwlIdInShell(currentDoc, owlId)) {
+			const sectionRoot = marked.closest(`[${OWL.role}="section"]`) as HTMLElement | null;
+			if (sectionRoot && previewRoot.contains(sectionRoot)) {
+				const idx = [...previewRoot.querySelectorAll(`[${OWL.role}="section"]`)].indexOf(
+					sectionRoot,
+				);
+				if (idx >= 0) sectionId = currentDoc.sections[idx]?.id ?? null;
 			}
-			selectOwlId(owlId, sectionId, marked);
-			return;
 		}
+		selectOwlId(owlId, sectionId, marked);
+		return;
 	}
 
 	function handleIssueClick(issue: OwlIssue) {
@@ -755,11 +731,7 @@
 		}
 	}
 
-	function prefillStyleValue(
-		prop: string,
-		theme: BlockTheme,
-		forEmailContainer = false,
-	): string {
+	function prefillStyleValue(prop: string, theme: BlockTheme, forEmailContainer = false): string {
 		const p = prop.trim().toLowerCase();
 		if (p === 'color') return theme.text;
 		if (p === 'background-color') {
@@ -791,9 +763,7 @@
 
 	function addAttrRow() {
 		const tag = inspector?.tag ?? 'td';
-		const suggested = suggestedAttributes(tag).find(
-			(a) => !attrRows.some((r) => r.name === a),
-		);
+		const suggested = suggestedAttributes(tag).find((a) => !attrRows.some((r) => r.name === a));
 		attrRows = [...attrRows, { name: suggested ?? '', value: '' }];
 	}
 
@@ -833,10 +803,7 @@
 		for (const id of reserved) maxId = Math.max(maxId, Number(id.slice(1)) || 0);
 		const html = mintOwlIdsInFragment(section.html, maxId, reserved);
 		const id = newSectionId();
-		next.sections = [
-			...currentDoc.sections,
-			{ id, key: section.key, label: section.label, html },
-		];
+		next.sections = [...currentDoc.sections, { id, key: section.key, label: section.label, html }];
 		currentDoc = next;
 		selectedId = id;
 		addOpen = false;
@@ -944,7 +911,8 @@
 		if (!res.ok) return null;
 		const result = parseActionResult(await res.text());
 		if (result.type !== 'success' || !result.data || typeof result.data !== 'object') return null;
-		const asset = (result.data as { asset?: { id: string; name: string; kind: 'logo' | 'image' } }).asset;
+		const asset = (result.data as { asset?: { id: string; name: string; kind: 'logo' | 'image' } })
+			.asset;
 		if (!asset?.id) return null;
 		await invalidateAll();
 		return { id: asset.id, name: asset.name, kind: asset.kind };
@@ -1119,7 +1087,7 @@
 				signal: piEditAbort.signal,
 			});
 			if (!res.ok || !res.body) {
-				throw new Error(await res.text().catch(() => '') || `Pi edit failed (${res.status})`);
+				throw new Error((await res.text().catch(() => '')) || `Pi edit failed (${res.status})`);
 			}
 			const reader = res.body.getReader();
 			const decoder = new TextDecoder();
@@ -1296,7 +1264,7 @@
 				signal: componentPiAbort.signal,
 			});
 			if (!res.ok || !res.body) {
-				throw new Error(await res.text().catch(() => '') || `Pi edit failed (${res.status})`);
+				throw new Error((await res.text().catch(() => '')) || `Pi edit failed (${res.status})`);
 			}
 			const reader = res.body.getReader();
 			const decoder = new TextDecoder();
@@ -1520,7 +1488,9 @@
 		</div>
 
 		{#if composeError}
-			<p class="mb-2 rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-2 py-1.5 text-xs text-[hsl(var(--destructive))]">
+			<p
+				class="mb-2 rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-2 py-1.5 text-xs text-[hsl(var(--destructive))]"
+			>
 				{composeError}
 			</p>
 		{:else if composeStatus}
@@ -1528,27 +1498,35 @@
 		{/if}
 
 		{#if addOpen}
-			<div class="mb-3 max-h-72 space-y-1 overflow-auto rounded-md border border-[hsl(var(--border))] p-2">
+			<div
+				class="mb-3 max-h-72 space-y-1 overflow-auto rounded-md border border-[hsl(var(--border))] p-2"
+			>
 				<p class="px-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">Library</p>
 				{#each sectionStarters as starter (starter.key)}
 					<button
 						type="button"
 						class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[hsl(var(--accent))]"
-						onclick={() => addSection({ html: starter.html, key: starter.key, label: starter.name })}
+						onclick={() =>
+							addSection({ html: starter.html, key: starter.key, label: starter.name })}
 					>
 						<span class="block font-medium">{starter.name}</span>
 						{#if starter.description}
-							<span class="block text-xs text-[hsl(var(--muted-foreground))]">{starter.description}</span>
+							<span class="block text-xs text-[hsl(var(--muted-foreground))]"
+								>{starter.description}</span
+							>
 						{/if}
 					</button>
 				{/each}
 				{#if localDesignSections.length > 0}
-					<p class="px-1 pt-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">Saved components</p>
+					<p class="px-1 pt-2 text-xs font-medium text-[hsl(var(--muted-foreground))]">
+						Saved components
+					</p>
 					{#each localDesignSections as section (section.id)}
 						<button
 							type="button"
 							class="w-full rounded px-2 py-1.5 text-left text-sm hover:bg-[hsl(var(--accent))]"
-							onclick={() => addSection({ html: section.html, key: section.id, label: section.name })}
+							onclick={() =>
+								addSection({ html: section.html, key: section.id, label: section.name })}
 						>
 							<span class="block font-medium">{section.name}</span>
 						</button>
@@ -1648,40 +1626,44 @@
 											aria-label="Rename"
 											title="Rename"
 											onclick={() => startRenameSection(section)}
-										><Pencil class="size-3.5" /></button>
+											><Pencil class="size-3.5" /></button
+										>
 										<button
 											type="button"
 											class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] disabled:opacity-30"
 											disabled={i === 0}
 											aria-label="Move up"
 											onclick={() => moveSection(section.id, -1)}
-										><ChevronUp class="size-3.5" /></button>
+											><ChevronUp class="size-3.5" /></button
+										>
 										<button
 											type="button"
 											class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] disabled:opacity-30"
 											disabled={i === currentDoc.sections.length - 1}
 											aria-label="Move down"
 											onclick={() => moveSection(section.id, 1)}
-										><ChevronDown class="size-3.5" /></button>
+											><ChevronDown class="size-3.5" /></button
+										>
 										<button
 											type="button"
 											class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
 											aria-label="Duplicate"
-											onclick={() => duplicateSection(section)}
-										><Copy class="size-3.5" /></button>
+											onclick={() => duplicateSection(section)}><Copy class="size-3.5" /></button
+										>
 										<button
 											type="button"
 											class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))]"
 											aria-label="Save as component"
 											title="Save to library for reuse"
 											onclick={() => openSaveComponent(section)}
-										><Bookmark class="size-3.5" /></button>
+											><Bookmark class="size-3.5" /></button
+										>
 										<button
 											type="button"
 											class="rounded p-1 text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--destructive))]/10 hover:text-[hsl(var(--destructive))]"
 											aria-label="Remove"
-											onclick={() => removeSection(section.id)}
-										><Trash2 class="size-3.5" /></button>
+											onclick={() => removeSection(section.id)}><Trash2 class="size-3.5" /></button
+										>
 									</div>
 								</div>
 							</div>
@@ -1692,7 +1674,9 @@
 		{/if}
 	</section>
 
-	<section class="flex min-w-0 flex-col rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3">
+	<section
+		class="flex min-w-0 flex-col rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3"
+	>
 		<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
 			<div class="flex items-center gap-1 rounded-md border border-[hsl(var(--border))] p-0.5">
 				<button
@@ -1700,15 +1684,15 @@
 					class="flex items-center gap-1 rounded px-2 py-1 text-xs {device === 'desktop'
 						? 'bg-[hsl(var(--secondary))]'
 						: ''}"
-					onclick={() => (device = 'desktop')}
-				><Monitor class="size-3.5" />Desktop</button>
+					onclick={() => (device = 'desktop')}><Monitor class="size-3.5" />Desktop</button
+				>
 				<button
 					type="button"
 					class="flex items-center gap-1 rounded px-2 py-1 text-xs {device === 'mobile'
 						? 'bg-[hsl(var(--secondary))]'
 						: ''}"
-					onclick={() => (device = 'mobile')}
-				><Smartphone class="size-3.5" />Mobile</button>
+					onclick={() => (device = 'mobile')}><Smartphone class="size-3.5" />Mobile</button
+				>
 			</div>
 			<div class="flex items-center gap-2">
 				{#if errorCount > 0 || warningCount > 0}
@@ -1733,7 +1717,9 @@
 		</div>
 
 		{#if issuesOpen && preview?.issues.length}
-			<ul class="mb-2 max-h-40 space-y-1 overflow-auto rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-2 text-xs">
+			<ul
+				class="mb-2 max-h-40 space-y-1 overflow-auto rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 p-2 text-xs"
+			>
 				{#each preview.issues as issue, i (`${issue.code}-${i}`)}
 					<li>
 						<button
@@ -1753,7 +1739,9 @@
 		{/if}
 
 		{#if compileError}
-			<p class="mb-2 rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-3 py-2 text-sm text-[hsl(var(--destructive))]">
+			<p
+				class="mb-2 rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-3 py-2 text-sm text-[hsl(var(--destructive))]"
+			>
 				{compileError}
 			</p>
 		{/if}
@@ -1768,15 +1756,14 @@
 						? 'w-[390px]'
 						: 'w-full max-w-[680px]'}"
 				>
-					<div
-						bind:this={previewRoot}
-						class="owl-preview-root"
-						data-viewport={device}
-						onclick={handlePreviewClick}
-						role="presentation"
-					>
-						{@html previewBodyHtml}
-					</div>
+					<iframe
+						bind:this={previewIframe}
+						title="Email preview"
+						class="owl-preview-iframe"
+						sandbox="allow-same-origin"
+						srcdoc={previewBodyHtml}
+						onload={handlePreviewLoad}
+					></iframe>
 				</div>
 			{:else}
 				<p class="py-16 text-sm text-[hsl(var(--muted-foreground))]">Preview loading…</p>
@@ -1809,9 +1796,11 @@
 		{#if inspector}
 			<div class="mb-4 space-y-4 border-b border-[hsl(var(--border))] pb-4">
 				{#if selectedIsEmailContainer}
-					<p class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]">
-						<strong class="font-medium text-[hsl(var(--foreground))]">Email container</strong> wraps all
-						sections — change <code class="text-[0.65rem]">background-color</code> here.
+					<p
+						class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
+					>
+						<strong class="font-medium text-[hsl(var(--foreground))]">Email container</strong> wraps
+						all sections — change <code class="text-[0.65rem]">background-color</code> here.
 					</p>
 				{/if}
 
@@ -1860,110 +1849,114 @@
 					<div class="mb-1 flex items-center justify-between gap-2">
 						<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">Content</p>
 					</div>
-						{#if inspector.slotName}
-							<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-								Slot <code class="text-[0.65rem]">{inspector.slotName}</code>
-								({inspector.slotType}) — use the slot editor below when available.
-							</p>
-						{/if}
-						<textarea
-							rows="2"
-							bind:value={textDraft}
-							placeholder="Enter text…"
-							onfocus={() => (contentTextFocused = true)}
-							onblur={() => (contentTextFocused = false)}
-							onchange={applyTextDraft}
-							class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
-						></textarea>
-						{#if isTextSlot(inspector)}
-							<p class="mt-1 text-[0.65rem] text-[hsl(var(--muted-foreground))]">
-								Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
-							</p>
-						{/if}
-					</div>
-
-					<div>
-						<div class="mb-1 flex items-center justify-between gap-2">
-							<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">Styles</p>
-						</div>
+					{#if inspector.slotName}
 						<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
-							Inline styles on this element.
+							Slot <code class="text-[0.65rem]">{inspector.slotName}</code>
+							({inspector.slotType}) — use the slot editor below when available.
 						</p>
-						<div class="space-y-1.5">
-							{#each styleRows as row, index (index)}
-								{@const kind = styleRowKind(row.prop)}
-								<div class="flex flex-wrap gap-1">
-									<StylePropertyCombobox
-										bind:value={row.prop}
-										options={cssPropertyOptions}
-										onchange={() => handleStylePropChange(row)}
-									/>
-									{#if kind === 'color'}
-										<StyleColorCombobox
-											bind:value={row.value}
-											options={colorOptionsForProp(row.prop)}
-											fallback={prefillStyleValue(row.prop, blockTheme, selectedIsEmailContainer)}
-											onchange={applyStyleRows}
-										/>
-									{:else if kind === 'enum'}
-										<select
-											bind:value={row.value}
-											onchange={applyStyleRows}
-											class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 text-xs"
-										>
-											{#each enumOptions(row.prop) as opt (opt)}
-												<option value={opt}>{opt}</option>
-											{/each}
-										</select>
-									{:else}
-										<input
-											bind:value={row.value}
-											onchange={applyStyleRows}
-											class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
-										/>
-									{/if}
-									<button
-										type="button"
-										class="px-1 text-xs text-[hsl(var(--muted-foreground))]"
-										onclick={() => {
-											styleRows = styleRows.filter((_, j) => j !== index);
-											applyStyleRows();
-										}}
-									>×</button>
-								</div>
-							{/each}
-						</div>
-						<Button size="sm" variant="outline" class="mt-2" onclick={addStyleRow}>Add property</Button>
-					</div>
+					{/if}
+					<textarea
+						rows="2"
+						bind:value={textDraft}
+						placeholder="Enter text…"
+						onfocus={() => (contentTextFocused = true)}
+						onblur={() => (contentTextFocused = false)}
+						onchange={applyTextDraft}
+						class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2 py-1.5 text-sm"
+					></textarea>
+					{#if isTextSlot(inspector)}
+						<p class="mt-1 text-[0.65rem] text-[hsl(var(--muted-foreground))]">
+							Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
+						</p>
+					{/if}
+				</div>
 
-					<div>
-						<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">Attributes</p>
-						<div class="space-y-1.5">
-							{#each attrRows as row, index (index)}
-								<div class="flex gap-1">
-									<input
-										bind:value={row.name}
-										onchange={applyAttrRows}
-										class="w-20 shrink-0 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
+				<div>
+					<div class="mb-1 flex items-center justify-between gap-2">
+						<p class="text-xs font-medium text-[hsl(var(--muted-foreground))]">Styles</p>
+					</div>
+					<p class="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
+						Inline styles on this element.
+					</p>
+					<div class="space-y-1.5">
+						{#each styleRows as row, index (index)}
+							{@const kind = styleRowKind(row.prop)}
+							<div class="flex flex-wrap gap-1">
+								<StylePropertyCombobox
+									bind:value={row.prop}
+									options={cssPropertyOptions}
+									onchange={() => handleStylePropChange(row)}
+								/>
+								{#if kind === 'color'}
+									<StyleColorCombobox
+										bind:value={row.value}
+										options={colorOptionsForProp(row.prop)}
+										fallback={prefillStyleValue(row.prop, blockTheme, selectedIsEmailContainer)}
+										onchange={applyStyleRows}
 									/>
+								{:else if kind === 'enum'}
+									<select
+										bind:value={row.value}
+										onchange={applyStyleRows}
+										class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 text-xs"
+									>
+										{#each enumOptions(row.prop) as opt (opt)}
+											<option value={opt}>{opt}</option>
+										{/each}
+									</select>
+								{:else}
 									<input
 										bind:value={row.value}
-										onchange={applyAttrRows}
+										onchange={applyStyleRows}
 										class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
 									/>
-									<button
-										type="button"
-										class="px-1 text-xs"
-										onclick={() => {
-											attrRows = attrRows.filter((_, j) => j !== index);
-											applyAttrRows();
-										}}
-									>×</button>
-								</div>
-							{/each}
-						</div>
-						<Button size="sm" variant="outline" class="mt-2" onclick={addAttrRow}>Add attribute</Button>
+								{/if}
+								<button
+									type="button"
+									class="px-1 text-xs text-[hsl(var(--muted-foreground))]"
+									onclick={() => {
+										styleRows = styleRows.filter((_, j) => j !== index);
+										applyStyleRows();
+									}}>×</button
+								>
+							</div>
+						{/each}
 					</div>
+					<Button size="sm" variant="outline" class="mt-2" onclick={addStyleRow}
+						>Add property</Button
+					>
+				</div>
+
+				<div>
+					<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">Attributes</p>
+					<div class="space-y-1.5">
+						{#each attrRows as row, index (index)}
+							<div class="flex gap-1">
+								<input
+									bind:value={row.name}
+									onchange={applyAttrRows}
+									class="w-20 shrink-0 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
+								/>
+								<input
+									bind:value={row.value}
+									onchange={applyAttrRows}
+									class="min-w-0 flex-1 rounded border border-[hsl(var(--input))] bg-transparent px-1 py-1 font-mono text-xs"
+								/>
+								<button
+									type="button"
+									class="px-1 text-xs"
+									onclick={() => {
+										attrRows = attrRows.filter((_, j) => j !== index);
+										applyAttrRows();
+									}}>×</button
+								>
+							</div>
+						{/each}
+					</div>
+					<Button size="sm" variant="outline" class="mt-2" onclick={addAttrRow}
+						>Add attribute</Button
+					>
+				</div>
 				<div>
 					<p class="mb-1 text-xs font-medium text-[hsl(var(--muted-foreground))]">HTML source</p>
 					<textarea
@@ -1980,13 +1973,14 @@
 
 		{#if !selectedSection && !selectedIsShell}
 			<p class="text-sm text-[hsl(var(--muted-foreground))]">
-				Select a section, pick <strong class="font-medium">Email container</strong> in the left list, or
-				click an element in the preview.
+				Select a section, pick <strong class="font-medium">Email container</strong> in the left list,
+				or click an element in the preview.
 			</p>
 		{:else if selectedSlots.length === 0}
 			{#if !inspector}
 				<p class="text-sm text-[hsl(var(--muted-foreground))]">
-					Click an element in the preview to inspect styles, or edit this section in the design system.
+					Click an element in the preview to inspect styles, or edit this section in the design
+					system.
 				</p>
 			{/if}
 		{:else}
@@ -2002,7 +1996,10 @@
 							? 'border border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/20 p-2'
 							: ''}"
 					>
-						<label class="block text-xs font-medium" for={`slot-${selectedSection?.id}-${slot.name}`}>
+						<label
+							class="block text-xs font-medium"
+							for={`slot-${selectedSection?.id}-${slot.name}`}
+						>
 							{slot.label ?? slot.name}
 							<span class="font-normal text-[hsl(var(--muted-foreground))]">· {slot.type}</span>
 							{#if slot.owlId && inspector}
@@ -2015,62 +2012,66 @@
 								</button>
 							{/if}
 						</label>
-					{#if slot.type === 'text'}
-						<textarea
-							id={`slot-${selectedSection?.id}-${slot.name}`}
-							rows="3"
-							value={typeof value === 'string' ? value : ''}
-							oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
-							class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm"
-						></textarea>
-						<p class="text-[0.65rem] text-[hsl(var(--muted-foreground))]">
-							Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
-						</p>
-					{:else if slot.type === 'url'}
-						<Input
-							type="url"
-							value={typeof value === 'string' ? value : ''}
-							oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
-						/>
-					{:else if slot.type === 'image'}
-						<div class="grid grid-cols-3 gap-2">
-							{#each assetKindFor(slot) as asset (asset.id)}
-								<button
-									type="button"
-									class="rounded-md border p-1.5 {value === designAssetPath(asset.id)
-										? 'border-[hsl(var(--ring))]'
-										: 'border-[hsl(var(--border))]'}"
-									onclick={() => setSlot(slot.owlId, designAssetPath(asset.id))}
-								>
-									<img src={designAssetPath(asset.id)} alt={asset.name} class="h-12 w-full object-contain" />
-								</button>
-							{/each}
-						</div>
-					{:else if slot.type === 'color'}
-						<div class="flex items-center gap-2">
-							<input
-								type="color"
-								value={colorFor(slot) ?? '#0A2540'}
+						{#if slot.type === 'text'}
+							<textarea
+								id={`slot-${selectedSection?.id}-${slot.name}`}
+								rows="3"
+								value={typeof value === 'string' ? value : ''}
 								oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
-								class="h-9 w-12 rounded border"
-							/>
+								class="w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-3 py-2 text-sm"
+							></textarea>
+							<p class="text-[0.65rem] text-[hsl(var(--muted-foreground))]">
+								Supports Markdown (e.g. **bold**, *italic*, [links](https://…), lists).
+							</p>
+						{:else if slot.type === 'url'}
 							<Input
-								type="text"
-								value={colorFor(slot) ?? ''}
+								type="url"
+								value={typeof value === 'string' ? value : ''}
 								oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
 							/>
-						</div>
-					{:else if slot.type === 'boolean'}
-						<label class="flex items-center gap-2 text-sm">
-							<input
-								type="checkbox"
-								checked={value === false ? false : true}
-								onchange={(e) => setSlot(slot.owlId, e.currentTarget.checked ? null : false)}
-								class="rounded border"
-							/>
-							Show this block
-						</label>
-					{/if}
+						{:else if slot.type === 'image'}
+							<div class="grid grid-cols-3 gap-2">
+								{#each assetKindFor(slot) as asset (asset.id)}
+									<button
+										type="button"
+										class="rounded-md border p-1.5 {value === designAssetPath(asset.id)
+											? 'border-[hsl(var(--ring))]'
+											: 'border-[hsl(var(--border))]'}"
+										onclick={() => setSlot(slot.owlId, designAssetPath(asset.id))}
+									>
+										<img
+											src={designAssetPath(asset.id)}
+											alt={asset.name}
+											class="h-12 w-full object-contain"
+										/>
+									</button>
+								{/each}
+							</div>
+						{:else if slot.type === 'color'}
+							<div class="flex items-center gap-2">
+								<input
+									type="color"
+									value={colorFor(slot) ?? '#0A2540'}
+									oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
+									class="h-9 w-12 rounded border"
+								/>
+								<Input
+									type="text"
+									value={colorFor(slot) ?? ''}
+									oninput={(e) => setSlot(slot.owlId, e.currentTarget.value)}
+								/>
+							</div>
+						{:else if slot.type === 'boolean'}
+							<label class="flex items-center gap-2 text-sm">
+								<input
+									type="checkbox"
+									checked={value === false ? false : true}
+									onchange={(e) => setSlot(slot.owlId, e.currentTarget.checked ? null : false)}
+									class="rounded border"
+								/>
+								Show this block
+							</label>
+						{/if}
 					</div>
 				{/each}
 			</div>
@@ -2110,8 +2111,11 @@
 
 		{#if hammerTab === 'build'}
 			{#if currentDoc.sections.length > 0}
-				<p class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-2 text-sm">
-					This replaces all {currentDoc.sections.length} current section{currentDoc.sections.length === 1
+				<p
+					class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-2 text-sm"
+				>
+					This replaces all {currentDoc.sections.length} current section{currentDoc.sections
+						.length === 1
 						? ''
 						: 's'} with a fresh template. Save when you are happy with the result.
 				</p>
@@ -2165,8 +2169,7 @@
 							e.preventDefault();
 							void runPiEdit();
 						}
-					}}
-				></textarea>
+					}}></textarea>
 			</div>
 			<AiStreamFeed
 				lines={piEditFeed}
@@ -2218,8 +2221,7 @@
 						e.preventDefault();
 						void runComponentPiEdit();
 					}
-				}}
-			></textarea>
+				}}></textarea>
 		</div>
 		<AiStreamFeed
 			lines={componentPiFeed}
@@ -2248,7 +2250,9 @@
 
 <Modal
 	open={saveOpen}
-	title={saveSection && linkedLibrarySection(saveSection) ? 'Update library component' : 'Save as component'}
+	title={saveSection && linkedLibrarySection(saveSection)
+		? 'Update library component'
+		: 'Save as component'}
 	description="Reuse this section when adding blocks, building from description, or in Pi edits."
 	onClose={closeSaveModal}
 >
@@ -2272,7 +2276,9 @@
 			<p class="text-sm text-[hsl(var(--muted-foreground))]">{saveStatus}</p>
 		{/if}
 		{#if saveError}
-			<p class="rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-3 py-2 text-sm text-[hsl(var(--destructive))]">
+			<p
+				class="rounded-md border border-[hsl(var(--destructive))]/40 bg-[hsl(var(--destructive))]/10 px-3 py-2 text-sm text-[hsl(var(--destructive))]"
+			>
 				{saveError}
 			</p>
 		{/if}
@@ -2291,39 +2297,17 @@
 </Modal>
 
 <style>
-	.owl-preview-root {
-		color-scheme: light;
-		margin: 0;
-		padding: 0;
-		width: 100%;
+	.owl-preview-frame {
 		min-height: 720px;
-		cursor: default;
+		background: #fff;
 	}
 
-	/* Body links: never fall back to browser blue in the dashboard preview. */
-	.owl-preview-root :global(a[href]) {
-		color: inherit;
-	}
-
-	.owl-preview-root :global(table) {
-		border-collapse: collapse;
-	}
-
-	.owl-preview-root :global(img) {
-		max-width: 100%;
-		height: auto;
+	.owl-preview-iframe {
+		display: block;
+		width: 100%;
+		height: 75vh;
+		min-height: 720px;
 		border: 0;
-	}
-
-	.owl-preview-root :global(.logo-dark),
-	.owl-preview-root :global(.owl-dark) {
-		display: none !important;
-	}
-
-	.owl-preview-root[data-viewport='mobile'] :global(.owl-stack) {
-		display: block !important;
-		width: 100% !important;
-		max-width: 100% !important;
 	}
 
 	.owl-thumb-inner {

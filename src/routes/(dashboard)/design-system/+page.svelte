@@ -213,6 +213,9 @@
 	}
 
 	function componentCode(component: { document?: string | null; html: string }): string {
+		// Saved components carry the MJML-delivered html snapshot; fall back to a
+		// live client render for components that were never saved through MJML.
+		if (component.html.trim()) return component.html;
 		if (hasComponentDocument(component)) {
 			return renderEmailHtml(parseComponentDocumentField(component));
 		}
@@ -623,7 +626,10 @@
 							document: cloneDocument(event.document),
 							slots: Array.isArray(event.slots) ? event.slots : args.slots,
 							html: typeof event.html === 'string' ? event.html : undefined,
-							approach: event.approach === 'html' || event.approach === 'blocks' ? event.approach : args.approach,
+							approach:
+								event.approach === 'html' || event.approach === 'blocks'
+									? event.approach
+									: args.approach,
 						};
 					}
 					args.onEvent({
@@ -640,9 +646,10 @@
 				args.onEvent({
 					type,
 					message: event.message ?? event.detail,
-					content: typeof (event as { content?: string }).content === 'string'
-						? (event as { content: string }).content
-						: undefined,
+					content:
+						typeof (event as { content?: string }).content === 'string'
+							? (event as { content: string }).content
+							: undefined,
 					delta: event.delta,
 					tool: event.tool ?? event.toolName,
 					toolCallId: event.toolCallId,
@@ -671,6 +678,12 @@
 	}
 
 	function previewHtml(html: string): string {
+		// MJML-delivered snapshots are trusted (server-compiled from our block
+		// tree) and their MSO/VML conditionals + head styles must survive, so
+		// only substitute placeholders — never sanitize.
+		if (html.includes('data-owl-mjml')) {
+			return substitutePreviewPlaceholders(html, previewPropOverrides);
+		}
 		const body = looksLikeSvelte(html)
 			? renderSvelteComponentPreview(html, previewPropOverrides)
 			: substitutePreviewPlaceholders(html, previewPropOverrides);
@@ -1293,18 +1306,19 @@
 							aria-live="polite">{reapplyStream || 'Waiting for model…'}</pre>
 					{/if}
 					{#if getView(component.id) === 'preview'}
-						{#if hasComponentDocument(component)}
+						{#if component.html.trim()}
+							<iframe
+								title="{component.name} preview"
+								class="component-preview min-h-48 w-full rounded border border-[hsl(var(--border))] bg-white"
+								sandbox="allow-same-origin"
+								srcdoc={previewHtml(component.html)}
+							></iframe>
+						{:else if hasComponentDocument(component)}
 							<iframe
 								title="{component.name} preview"
 								class="component-preview min-h-48 w-full rounded border border-[hsl(var(--border))] bg-white"
 								srcdoc={renderEmailHtml(parseComponentDocumentField(component))}
 							></iframe>
-						{:else if component.html.trim()}
-							<div
-								class="component-preview overflow-visible rounded border border-[hsl(var(--border))] bg-white p-3 text-[#111]"
-							>
-								{@html previewHtml(component.html)}
-							</div>
 						{:else}
 							<p class="text-xs text-[hsl(var(--muted-foreground))]">No preview available.</p>
 						{/if}

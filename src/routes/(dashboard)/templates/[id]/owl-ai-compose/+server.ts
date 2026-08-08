@@ -7,7 +7,10 @@ import {
 } from '$lib/server/service/ai-owl-service';
 import { defaultOwlShell } from '$lib/email/owl/studio-server';
 import { STARTERS } from '$lib/email/owl/starters';
-import { getDesignSystemBundle, listOwlSectionComponents } from '$lib/server/service/design-system-service';
+import {
+	getDesignSystemBundle,
+	listOwlSectionComponents,
+} from '$lib/server/service/design-system-service';
 import type { RequestHandler } from './$types';
 
 function sse(data: Record<string, unknown>): string {
@@ -35,11 +38,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const bundle = getDesignSystemBundle(teamId);
 	// Prefer saved Owl sections; fall back to any component with html for legacy rows.
+	// MJML delivery snapshots (data-owl-mjml) carry MSO/VML scaffolding — never
+	// feed them to the model as section material.
 	const owlSections = listOwlSectionComponents(teamId);
 	const designForCatalog =
 		owlSections.length > 0
 			? owlSections
-			: bundle.components.filter((c) => c.html?.trim());
+			: bundle.components.filter((c) => c.html?.trim() && !c.html.includes('data-owl-mjml'));
 	const catalog = buildOwlCatalog(
 		STARTERS.map((s) => ({
 			key: s.key,

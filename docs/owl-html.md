@@ -181,6 +181,39 @@ Guarantees:
 fragments into the shell at `<!--owl:sections-->` and fills the preheader; its
 output is the input to `compileOwlHtml`.
 
+### 6a. Delivery stage (MJML)
+
+The studio markup above is **C1** — the deterministic fixed-point stage that
+the editor, Pi and lint operate on. Everything user-facing (studio preview,
+Save, Test send, export, API & automation sends) runs **C2** in addition:
+`deliverOwlHtml(compiledMarkupHtml)` (`src/lib/email/owl/deliver.ts`):
+
+```
+buildOwlMjmlDocument (owl/mjml-map.ts)
+  → mjml2html        (src/lib/email/mjml/transpile.ts, lazy import, MJML 5 async)
+  → finalizeDeliveryHtml (src/lib/email/mjml/postprocess.ts)
+```
+
+- The hand-rolled backdrop/canvas table scaffold is replaced by MJML structure
+  (`mj-body` = backdrop color, `width="620"` canvas, `mj-wrapper` = canvas
+  color, spacer sections for the 32px backdrop gaps). Authored sections ride
+  inside `<mj-raw>` verbatim, together with their `data-owl-*` annotations,
+  `owll-*` classes, gmail-blend wrappers and the preheader node; the base CSS
+  enters `<mj-head><mj-style>`.
+- MJML contributes MSO/VML conditionals, `@media`-driven `mj-column-*`
+  responsive classes, `role="article"` scaffolding and its own doctype/metas.
+- The post-pass re-asserts the light-only shield on the final document:
+  `color-scheme` metas, `class="body"` + backdrop gradient pin, re-stamps the
+  shell canvas `data-owl-id` onto the MJML wrapper div (studio "Email
+  container" selection), mints continuation `data-owl-id`s for MJML structural
+  elements and re-runs `applyLightOverride`.
+- The `data-owl-mjml` marker tells `absolutizeEmailAssetUrls` to skip the
+  legacy fluidify re-width pass on delivery html.
+- Pi whole-template edits never see C2 — they receive C1 studio markup
+  (`renderOwlMarkupHtml`) so the model edits authored markup, not MJML output.
+  The block-builder pipeline shares the same delivery stage
+  (`email-builder/to-mjml.ts` + `render-delivered.ts`).
+
 ## 7. Preheader
 
 `[data-owl-preheader]` text is the preview. The compiler:

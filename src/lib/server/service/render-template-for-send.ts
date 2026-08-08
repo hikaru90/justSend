@@ -30,14 +30,14 @@ export type RenderTemplateForSendOptions = {
  * "Save template"). Legacy (non-Owl) templates keep today's behavior: the
  * stored `html` verbatim, else `renderEmailHtml`.
  */
-export function renderTemplateForSend(
+export async function renderTemplateForSend(
 	template: { content: string | null | undefined; html: string | null | undefined },
 	opts: RenderTemplateForSendOptions = {},
-): string {
+): Promise<string> {
 	const variables = opts.variables ?? {};
 	const doc = parseOwlDoc(template.content);
 	if (doc) {
-		const { html } = renderOwlDocHtml(doc, { tokens: opts.tokens, origin: opts.origin });
+		const { html } = await renderOwlDocHtml(doc, { tokens: opts.tokens, origin: opts.origin });
 		return replaceVariables(html, variables);
 	}
 	if (template.html?.trim()) {

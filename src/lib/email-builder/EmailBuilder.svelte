@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { setContext } from 'svelte';
+	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 	import Button from '$lib/components/ui/Button.svelte';
 	import { EmailEditorState as Editor } from './editor-state.svelte';
 	import { EDITOR_KEY } from './context';
@@ -9,9 +11,7 @@
 	import { renderEmailHtml } from './render';
 	import { inferEditApproach, type EditApproach } from './edit-approach';
 	import { resolveBlockTheme, themeEmptyDocument } from './block-theme';
-	import {
-		substitutePreviewPlaceholders,
-	} from '$lib/design/extractTokens';
+	import { substitutePreviewPlaceholders } from '$lib/design/extractTokens';
 	import BuilderCanvas from './BuilderCanvas.svelte';
 	import InspectorPanel from './InspectorPanel.svelte';
 
@@ -285,12 +285,43 @@
 	}
 
 	async function save() {
+		// The server recompiles from the document with the MJML delivery stage
+		// (design-system save); this sync render is only a fallback payload.
 		const html = renderEmailHtml(editor.document);
 		await onSave?.({ document: editor.document, html });
 	}
 
+	// Live delivery compile (MJML) for the Preview + HTML tabs — debounced,
+	// server-side so the preview matches what inboxes receive.
+	let deliveredHtml = $state('');
+	let compileSeq = 0;
+	$effect(() => {
+		void editor.document;
+		if (!browser) return;
+		const seq = ++compileSeq;
+		const handle = setTimeout(async () => {
+			try {
+				const res = await fetch(resolve('/design-system/compile'), {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ document: editor.document }),
+				});
+				if (!res.ok) return;
+				const data = (await res.json()) as { html?: string };
+				if (seq !== compileSeq) return;
+				deliveredHtml = typeof data?.html === 'string' ? data.html : '';
+			} catch {
+				// keep the last good compile
+			}
+		}, 250);
+		return () => clearTimeout(handle);
+	});
+
 	const previewHtml = $derived(
-		substitutePreviewPlaceholders(renderEmailHtml(editor.document), previewOverrides),
+		substitutePreviewPlaceholders(
+			deliveredHtml || renderEmailHtml(editor.document),
+			previewOverrides,
+		),
 	);
 </script>
 
@@ -395,9 +426,7 @@
 	</div>
 
 	<div class="flex min-h-[420px] flex-col sm:min-h-[640px] lg:flex-row">
-		<div
-			class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f5f5f5]"
-		>
+		<div class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-[#f5f5f5]">
 			{#if editor.tab === 'editor'}
 				<div
 					class="box-border p-2 sm:p-4 {editor.screen === 'mobile'
@@ -412,18 +441,17 @@
 						? 'mx-auto w-full max-w-[min(100%,370px)]'
 						: 'w-full'}"
 				>
-				<iframe
-					title="Email preview"
-					class="block min-h-[480px] w-full max-w-full rounded border border-[hsl(var(--border))] bg-white sm:min-h-[600px]"
-					sandbox="allow-same-origin"
-					srcdoc={previewHtml}
-				></iframe>
+					<iframe
+						title="Email preview"
+						class="block min-h-[480px] w-full max-w-full rounded border border-[hsl(var(--border))] bg-white sm:min-h-[600px]"
+						sandbox="allow-same-origin"
+						srcdoc={previewHtml}
+					></iframe>
 				</div>
 			{:else if editor.tab === 'html'}
 				<pre
-					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{renderEmailHtml(
-						editor.document,
-					)}</pre>
+					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{deliveredHtml ||
+						renderEmailHtml(editor.document)}</pre>
 			{:else if editor.tab === 'json'}
 				<pre
 					class="m-0 max-h-[70vh] overflow-auto p-3 font-mono text-xs break-all whitespace-pre-wrap text-[#111] sm:p-4 sm:break-normal">{JSON.stringify(
@@ -519,19 +547,29 @@
 									<p class="font-sans whitespace-pre-wrap text-[hsl(var(--foreground))]">
 										<span class="opacity-70">you </span>{line.label}
 									</p>
-							{:else if line.kind === 'step'}
-								<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
-							{:else if line.kind === 'system'}
-								<details class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1">
-									<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]">System prompt</summary>
-									<pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
-								</details>
-							{:else if line.kind === 'context'}
-								<details class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1">
-									<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]">Context</summary>
-									<pre class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
-								</details>
-							{:else if line.kind === 'thinking'}
+								{:else if line.kind === 'step'}
+									<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
+								{:else if line.kind === 'system'}
+									<details
+										class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1"
+									>
+										<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]"
+											>System prompt</summary
+										>
+										<pre
+											class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
+									</details>
+								{:else if line.kind === 'context'}
+									<details
+										class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1"
+									>
+										<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]"
+											>Context</summary
+										>
+										<pre
+											class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
+									</details>
+								{:else if line.kind === 'thinking'}
 									<p class="whitespace-pre-wrap text-[hsl(var(--muted-foreground))] italic">
 										<span class="not-italic opacity-70">thinking </span>{line.label}
 									</p>
@@ -596,7 +634,11 @@
 								<Button type="button" size="sm" variant="outline" onclick={stopAiEdit}>Stop</Button>
 							{:else}
 								<Button type="submit" size="sm" disabled={!aiInstruction.trim() || !onAiEdit}>
-									{aiMode === 'validate' ? 'Validate' : aiMode === 'edit' ? 'Apply edit' : 'Generate'}
+									{aiMode === 'validate'
+										? 'Validate'
+										: aiMode === 'edit'
+											? 'Apply edit'
+											: 'Generate'}
 								</Button>
 							{/if}
 						</div>

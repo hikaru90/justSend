@@ -78,6 +78,7 @@ const HTML_EDIT_SYSTEM_PROMPT = [
 	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
+	'The file you edit is the studio markup (C1). Final delivery HTML is produced by the MJML compile stage (MSO/VML scaffolding, responsive classes) — never hand-author or preserve MJML/Outlook scaffolding (`<!--[if mso]-->` comments, mj-column-* classes, role="article" divs); the compiler owns it.',
 	'Emails are always light: never author dark-mode variants, prefers-color-scheme rules, color-scheme:dark, or data-owl-dark markup. Preserve the dark-mode override scaffold (data-owl-light-css style, class="body", gmail-blend-screen/gmail-blend-difference wrappers, owll-* classes, data-ogsc/data-ogsb). Every visible element must keep an explicit opaque inline background-color and color — do not strip them or rely on cascade; leave img and gmail-blend wrappers without a background.',
 	'Do not create unrelated files. Do not leave the work directory.',
 ].join(' ');
@@ -94,6 +95,7 @@ const EMAIL_TREE_EDIT_SYSTEM_PROMPT = [
 	'Preserve email-safe markup (tables with tbody around tr, inline CSS, Svelte props/snippets) unless asked to change them.',
 	'Follow the Email formatting rules in AGENTS.md (620px column, #fefefe, spacers, CTA/footer patterns) unless the user asks otherwise.',
 	'Always wrap <tr> inside <tbody>/<thead>/<tfoot> — never put <tr> directly under <table>.',
+	'The file you edit is the studio markup (C1). Final delivery HTML is produced by the MJML compile stage (MSO/VML scaffolding, responsive classes) — never hand-author MJML/Outlook scaffolding (`<!--[if mso]-->` comments, mj-column-* classes, role="article" divs); the compiler owns it.',
 	'Emails are always light: never author dark-mode variants, prefers-color-scheme rules, color-scheme:dark, or data-owl-dark markup. Preserve the dark-mode override scaffold (data-owl-light-css style, class="body", gmail-blend-screen/gmail-blend-difference wrappers, owll-* classes, data-ogsc/data-ogsb). Every visible element must keep an explicit opaque inline background-color and color — do not strip them or rely on cascade; leave img and gmail-blend wrappers without a background.',
 	'Keep <script> limited to relative .svelte imports and $props() only — a single top-level <script> block (never two).',
 	'Do not modify design.md, components/, or assets/. Do not leave the work directory.',
@@ -1048,23 +1050,23 @@ export async function editHtmlWithPi(input: EditHtmlWithPiInput): Promise<EditHt
 			'utf8',
 		);
 
-	emit({
-		type: 'step',
-		message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components (${mode}).`,
-	});
-	emit({ type: 'system', content: HTML_EDIT_SYSTEM_PROMPT });
-	const agentsMd = buildPiAgentsMd({ filename, metaLines, designFiles });
-	emit({
-		type: 'context',
-		content: [
-			`Work directory: ${designFiles.map((f) => f.relativePath).join(', ') || '(empty)'}`,
-			'',
-			agentsMd,
-		].join('\n'),
-	});
-	emit({ type: 'step', message: 'Starting Pi…' });
+		emit({
+			type: 'step',
+			message: `Context: design.md, ${workspace.assets.length} assets, ${workspace.libraryComponents.length} peer components (${mode}).`,
+		});
+		emit({ type: 'system', content: HTML_EDIT_SYSTEM_PROMPT });
+		const agentsMd = buildPiAgentsMd({ filename, metaLines, designFiles });
+		emit({
+			type: 'context',
+			content: [
+				`Work directory: ${designFiles.map((f) => f.relativePath).join(', ') || '(empty)'}`,
+				'',
+				agentsMd,
+			].join('\n'),
+		});
+		emit({ type: 'step', message: 'Starting Pi…' });
 
-	handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
+		handle = await spawnPiSession({ purpose: 'html-edit', cwd: workDir });
 		const entry = registry.get(handle.id);
 		if (entry) {
 			entry.workDir = workDir;
@@ -1297,16 +1299,16 @@ export async function editTemplateTreeWithPi(
 		}
 
 		const treePrompt = [
-				'Edit the Svelte email under `email/` in the current working directory.',
-				`Email directory: ${emailDir}`,
-				'',
-				'## Instruction',
-				instruction,
-				'',
-				'Use your read/edit/write/ls tools. You may change multiple files, add new section `.svelte` files, and update Root imports.',
-				'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
-				'When done, the updated tree must live under `email/` with exactly one Root.svelte.',
-			].join('\n');
+			'Edit the Svelte email under `email/` in the current working directory.',
+			`Email directory: ${emailDir}`,
+			'',
+			'## Instruction',
+			instruction,
+			'',
+			'Use your read/edit/write/ls tools. You may change multiple files, add new section `.svelte` files, and update Root imports.',
+			'Design context (design.md, components/, assets/) is in this directory — open it yourself when needed.',
+			'When done, the updated tree must live under `email/` with exactly one Root.svelte.',
+		].join('\n');
 
 		emit({ type: 'context', content: `## User prompt\n${treePrompt}` });
 		await runPiPromptWithRetries(handle.session, treePrompt, {

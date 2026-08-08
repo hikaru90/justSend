@@ -13,7 +13,7 @@ Rebuild the Owl studio into a genuine AI-assisted email template builder. The ed
 
 ## Decisions (already settled, do not reopen)
 
-- **No iframes, no shadow DOM.** Preview = a plain Svelte `<div>`. Compile emits body markup + inline styles only; the app's own container-scoped CSS handles resets, mobile stacking, and selection.
+- **Preview = sandboxed iframe (updated for MJML delivery).** Delivery HTML is MJML-compiled (MSO/VML conditionals, responsive `mj-column-*` classes) and needs its head CSS, so the preview renders the full delivery document in a `sandbox="allow-same-origin"` srcdoc iframe; selection/hover query the iframe document via `data-owl-id`. (Earlier decision was a plain div with body innerHTML — superseded by MJML delivery.)
 - **Emails are always light.** The compiler pins `color-scheme: light only` in
   `<head>` and the base CSS, then runs a light-pinning override pass that
   re-asserts every inline light color under `@media (prefers-color-scheme)`
@@ -21,8 +21,8 @@ Rebuild the Owl studio into a genuine AI-assisted email template builder. The ed
   `u + .body` Gmail blend-mode CSS plus `gmail-blend-screen` /
   `gmail-blend-difference` wrappers (content inside `class="body"`). It never
   emits `data-owl-dark-*` markup — so previews and inboxes render
-  deterministically and can never blacken. Preview injects **body innerHTML
-  only** into the div preview; head content is never rendered.
+  deterministically and can never blacken. The override is re-applied by the
+  MJML delivery post-pass (`postprocess.ts`).
 - **Right panel = property inspector, not curated presets.** It reads the actual CSS properties from the section HTML as editable rows:
   - colors → swatches, sizes → steppers, enums → dropdowns, everything else → text field
   - add/remove properties

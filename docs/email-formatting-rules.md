@@ -102,6 +102,10 @@ Runtime copy for AI prompts: `src/lib/server/email-formatting-rules.ts` (keep in
 - Choose light colors so they survive a forced dark transform: white/light fills (`#ffffff`, `#faf9f7`) with dark text (`#262626`, `#1a1a1a`) — the compiler re-asserts them.
 - Every visible element must carry an explicit opaque inline `background-color` and `color`; the compiler enforces this by inheriting from the nearest ancestor. Do not strip inline bg/color when editing — do not rely on cascade. Leave `<img>` and the `gmail-blend-*` wrappers without a background (they must stay transparent).
 
+## Delivery (MJML)
+
+- You author/edit studio markup (C1). Delivery HTML is compiled by the MJML stage (C2), which owns the MSO/VML conditionals, responsive `mj-column-*` classes, and `role="article"` scaffold — never hand-author or preserve those; the compiler regenerates them.
+
 ## Tracking & hygiene
 
 - If using an open-tracking pixel, keep it 1×1 and visually hidden (`display: none !important` plus max width/height 1px).

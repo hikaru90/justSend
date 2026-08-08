@@ -16,6 +16,7 @@ import {
 } from '$lib/server/service/design-infer-service';
 import { designAssetKinds, type DesignAssetKind } from '$lib/server/db/schema';
 import { isPiConfigured } from '$lib/server/service/pi-service';
+import { renderDeliveredEmailHtml } from '$lib/email-builder/render-delivered';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -164,8 +165,19 @@ export const actions: Actions = {
 			}
 		}
 
+		// Compilations are server-side MJML (C2) so every component preview,
+		// card thumbnail and template insertion shares the delivery scaffold.
+		// Legacy html-only components (empty document) keep their stored html.
+		let html = htmlRaw;
 		try {
-			upsertComponent(teamId, { id, name, description, document, slots, html: htmlRaw });
+			const hasBlocks = Object.values(document).some((b) => b.type !== 'EmailLayout');
+			if (hasBlocks) html = await renderDeliveredEmailHtml(document);
+		} catch {
+			// compile failed — keep the client-provided fallback
+		}
+
+		try {
+			upsertComponent(teamId, { id, name, description, document, slots, html });
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Save failed' });
 		}

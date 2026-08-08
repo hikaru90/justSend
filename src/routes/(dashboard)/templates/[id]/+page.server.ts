@@ -12,23 +12,28 @@ import {
 } from '$lib/server/service/design-system-service';
 import { getDomain } from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
+import { compileOwlDoc, migrateToOwlDoc } from '$lib/email/owl/studio-server';
 import {
-	compileOwlDoc,
-	migrateToOwlDoc,
-} from '$lib/email/owl/studio-server';
-import { parseOwlDoc, serializeOwlDoc, parseTemplateStudioSnapshot, serializeTemplateStudioSnapshot } from '$lib/email/owl/studio';
+	parseOwlDoc,
+	serializeOwlDoc,
+	parseTemplateStudioSnapshot,
+	serializeTemplateStudioSnapshot,
+} from '$lib/email/owl/studio';
 import { STARTERS } from '$lib/email/owl/starters';
 import { relativizeDesignAssetUrls } from '$lib/design-asset-urls';
 import { deleteTemplate, getTemplate, updateTemplate } from '$lib/server/service/template-service';
-import { pickEmailLogo, extractDesignTokens, hexForColorInput, parseDesignTokenMap } from '$lib/design/extractTokens';
+import {
+	pickEmailLogo,
+	extractDesignTokens,
+	hexForColorInput,
+	parseDesignTokenMap,
+} from '$lib/design/extractTokens';
 import { isPiConfigured } from '$lib/server/service/pi-service';
 import type { Actions, PageServerLoad } from './$types';
 
 function logoExtraProps(teamId: number, origin = ''): Record<string, string> {
 	const extra: Record<string, string> = {};
-	const logo = pickEmailLogo(
-		getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo'),
-	);
+	const logo = pickEmailLogo(getDesignSystemBundle(teamId).assets.filter((a) => a.kind === 'logo'));
 	if (logo) {
 		const base = origin.replace(/\/$/, '');
 		const src = base ? `${base}/api/design-asset/${logo.id}` : `/api/design-asset/${logo.id}`;
@@ -192,7 +197,7 @@ export const actions: Actions = {
 
 			let sendInput: Parameters<typeof sendEmail>[0];
 			if (doc) {
-				const preview = compileOwlDoc(doc, {
+				const preview = await compileOwlDoc(doc, {
 					origin,
 					tokens: designTokensForTeam(teamId),
 				});
@@ -280,7 +285,7 @@ export const actions: Actions = {
 		if (!doc) return fail(400, { error: 'Invalid owl document' });
 
 		try {
-			return compileOwlDoc(doc, {
+			return await compileOwlDoc(doc, {
 				origin: url.origin,
 				tokens: designTokensForTeam(teamId),
 			});
@@ -308,7 +313,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const preview = compileOwlDoc(doc, { tokens: designTokensForTeam(teamId) });
+			const preview = await compileOwlDoc(doc, { tokens: designTokensForTeam(teamId) });
 			updateTemplate(
 				params.id,
 				teamId,
@@ -338,7 +343,7 @@ export const actions: Actions = {
 		if (!doc) return fail(400, { error: 'Invalid owl document' });
 
 		try {
-			const preview = compileOwlDoc(doc, { tokens: designTokensForTeam(teamId) });
+			const preview = await compileOwlDoc(doc, { tokens: designTokensForTeam(teamId) });
 			updateTemplate(
 				params.id,
 				teamId,

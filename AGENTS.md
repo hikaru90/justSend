@@ -14,6 +14,12 @@
 - Single app; no monorepo of marketing/SMTP/docs/SDK packages.
 - Form actions belong on `+page.server.ts` only (not layouts).
 
+## Email pipeline (MJML delivery)
+
+- All user-facing email HTML ships through the **MJML delivery stage (C2)**: studio markup (**C1** = `compileOwlHtml` / `renderOwlMarkupHtml`, deterministic fixed-point, what AI/Pi edits and lints) → `mjml-map`/`to-mjml` → `mjml2html` (`src/lib/email/mjml/transpile.ts`, lazy import, `ssr.external: ['mjml']`) → `finalizeDeliveryHtml` (light-only metas, class="body" + gradient pins, owl-id continuation, light-override).
+- C2 consumers: studio preview (sandboxed iframe), Save/Test send, export, API/flow sends, design-system components (preview cards + saved snapshots). Pi/AI never sees C2 — they edit C1 markup or block documents.
+- `data-owl-mjml` marks delivered html: absolutize skips the fluidify re-width pass; prompts/catalogs must exclude delivered snapshots (they'd flood context with MSO/VML scaffolding).
+
 ## AI / Pi agent UI (required)
 
 When working on AI-assisted email or design-system flows, **always show streamed agent output in the UI**. Do not hide prompts or context behind a spinner-only status line.

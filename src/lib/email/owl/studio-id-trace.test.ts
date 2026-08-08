@@ -15,9 +15,9 @@ describe('studio id minting', () => {
 			{ id: newSectionId(), key: cta.key, label: cta.name, html: cta.html },
 		);
 		const minted = mintOwlDocSections(doc);
-		const allIds = minted.sections.flatMap((s) => [
-			...s.html.matchAll(/data-owl-id="(w\d+)"/g),
-		]).map((m) => m[1]);
+		const allIds = minted.sections
+			.flatMap((s) => [...s.html.matchAll(/data-owl-id="(w\d+)"/g)])
+			.map((m) => m[1]);
 		expect(new Set(allIds).size).toBe(allIds.length);
 	});
 
@@ -28,15 +28,15 @@ describe('studio id minting', () => {
 			{ id: newSectionId(), key: 'logo-header', label: 'Logo', html: shared },
 			{ id: newSectionId(), key: 'text', label: 'Text', html: shared },
 		);
-		const before = doc.sections.flatMap((s) => [
-			...s.html.matchAll(/data-owl-id="(w\d+)"/g),
-		]).map((m) => m[1]);
+		const before = doc.sections
+			.flatMap((s) => [...s.html.matchAll(/data-owl-id="(w\d+)"/g)])
+			.map((m) => m[1]);
 		expect(new Set(before).size).toBeLessThan(before.length);
 
 		const minted = mintOwlDocSections(doc);
-		const allIds = minted.sections.flatMap((s) => [
-			...s.html.matchAll(/data-owl-id="(w\d+)"/g),
-		]).map((m) => m[1]);
+		const allIds = minted.sections
+			.flatMap((s) => [...s.html.matchAll(/data-owl-id="(w\d+)"/g)])
+			.map((m) => m[1]);
 		expect(new Set(allIds).size).toBe(allIds.length);
 
 		const textOwlId = [...minted.sections[1].html.matchAll(/data-owl-id="(w\d+)"/g)].map(
@@ -46,14 +46,18 @@ describe('studio id minting', () => {
 		expect(findSectionIdForOwlId(minted, textOwlId)).toBe(minted.sections[1].id);
 	});
 
-	it('preserves data-owl-id on a/img in compiled preview', () => {
+	it('preserves data-owl-id on a/img in compiled preview', async () => {
 		const logoHtml = mintOwlIdsInFragment(starterByKey('logo-header')!.html);
 		const doc = emptyOwlDoc(defaultOwlShell(), 'Preview');
 		doc.sections.push({ id: newSectionId(), key: 'logo-header', label: 'Logo', html: logoHtml });
-		const { html } = compileOwlDoc(doc, { origin: 'http://localhost' });
+		const { html } = await compileOwlDoc(doc, { origin: 'http://localhost' });
 		const m = html.match(/data-owl-component="logo-header"[\s\S]*?<\/table>/);
 		const compiled = m?.[0] ?? '';
-		expect(compiled).toMatch(/<a\b[^>]*data-owl-id="w\d+"[^>]*data-owl-slot="logo_link"|<a\b[^>]*data-owl-slot="logo_link"[^>]*data-owl-id="w\d+"/);
-		expect(compiled).toMatch(/<img\b[^>]*data-owl-id="w\d+"[^>]*data-owl-slot="logo"|<img\b[^>]*data-owl-slot="logo"[^>]*data-owl-id="w\d+"/);
+		expect(compiled).toMatch(
+			/<a\b[^>]*data-owl-id="w\d+"[^>]*data-owl-slot="logo_link"|<a\b[^>]*data-owl-slot="logo_link"[^>]*data-owl-id="w\d+"/,
+		);
+		expect(compiled).toMatch(
+			/<img\b[^>]*data-owl-id="w\d+"[^>]*data-owl-slot="logo"|<img\b[^>]*data-owl-slot="logo"[^>]*data-owl-id="w\d+"/,
+		);
 	});
 });

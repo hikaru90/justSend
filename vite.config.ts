@@ -20,9 +20,9 @@ export default defineConfig({
 		sourcemap: false,
 	},
 	ssr: {
-		external: ['better-sqlite3'],
+		external: ['better-sqlite3', 'mjml'],
 	},
 	optimizeDeps: {
-		exclude: ['better-sqlite3'],
+		exclude: ['better-sqlite3', 'mjml'],
 	},
 });
