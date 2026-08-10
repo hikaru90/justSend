@@ -69,6 +69,7 @@ describe('owlery MCP handlers', () => {
 				'create_template',
 				'delete_flow',
 				'delete_template',
+				'describe_owl_doc',
 				'get_flow',
 				'get_template',
 				'list_flows',
@@ -134,6 +135,37 @@ describe('owlery MCP handlers', () => {
 
 		const after = parseContent(await handlers.list_templates());
 		expect(after.templates).toEqual([]);
+	});
+
+	it('rejects non-OwlDoc content with a format guide', async () => {
+		const { handlers } = await setup();
+		const guide = parseContent(await handlers.describe_owl_doc());
+		expect(guide.format).toBe('OwlDoc');
+		expect(guide.example).toMatchObject({ owl: 'v1' });
+
+		const badCreate = parseContent(
+			await handlers.create_template({
+				name: 'Bad',
+				content: '<mjml><mj-body>nope</mj-body></mjml>',
+			}),
+		);
+		expect(badCreate.error).toMatch(/Invalid OwlDoc/i);
+		expect(badCreate.hint).toEqual(expect.stringContaining('owl": "v1"'));
+		expect(badCreate.example).toMatchObject({ owl: 'v1' });
+
+		const ok = parseContent(
+			await handlers.create_template({
+				name: 'Ok',
+				content: serializeOwlDoc(emptyOwlDoc(TEST_SHELL, 'Pre')),
+			}),
+		);
+		const badUpdate = parseContent(
+			await handlers.update_template({
+				id: ok.id as string,
+				content: { root: { type: 'EmailLayout' } },
+			}),
+		);
+		expect(badUpdate.error).toMatch(/Invalid OwlDoc/i);
 	});
 
 	it('flows CRUD without ever changing status via update_flow', async () => {

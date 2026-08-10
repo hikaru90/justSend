@@ -1,11 +1,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { createHandlers, type McpScope } from './handlers';
+import { OWL_DOC_GUIDE } from './owl-doc-guide';
 
 export type { McpScope };
 
 const SAFETY =
 	'This MCP never activates or pauses flows, enrolls contacts, or sends/queues email. Compose only.';
+
+const CONTENT_DESC =
+	'OwlDoc JSON object or string. NOT MJML/React Email/bare HTML. Must include owl:"v1", shell (with <!--owl:sections-->), sections[], slotValues. Call describe_owl_doc for the full format + example.';
 
 const flowGraphSchema = z.object({
 	nodes: z.array(
@@ -42,6 +46,15 @@ export function createOwleryMcpServer(scope: McpScope): McpServer {
 	});
 
 	server.registerTool(
+		'describe_owl_doc',
+		{
+			description: `Return the OwlDoc format guide and a minimal valid example. Call this BEFORE create_template or update_template if you are unsure how to structure content. ${SAFETY}`,
+			inputSchema: {},
+		},
+		async () => handlers.describe_owl_doc(),
+	);
+
+	server.registerTool(
 		'list_templates',
 		{
 			description: `List email templates for the authenticated team (summary only). ${SAFETY}`,
@@ -53,7 +66,7 @@ export function createOwleryMcpServer(scope: McpScope): McpServer {
 	server.registerTool(
 		'get_template',
 		{
-			description: `Get a template by id, including OwlDoc content JSON (source of truth) and cached html. ${SAFETY}`,
+			description: `Get a template by id. The \`content\` field is OwlDoc JSON (source of truth). ${OWL_DOC_GUIDE} ${SAFETY}`,
 			inputSchema: {
 				id: z.string().describe('Template id'),
 			},
@@ -64,12 +77,16 @@ export function createOwleryMcpServer(scope: McpScope): McpServer {
 	server.registerTool(
 		'create_template',
 		{
-			description: `Create a template. Prefer OwlDoc JSON in content; html is a cached delivery snapshot recompiled on studio save/send. ${SAFETY}`,
+			description: `Create a template. Set \`content\` to an OwlDoc — do not invent another templating language. ${OWL_DOC_GUIDE} Prefer leaving html null; use compile_template_preview after create. ${SAFETY}`,
 			inputSchema: {
 				name: z.string().describe('Template name'),
-				subject: z.string().optional().describe('Email subject (may include {{variables}})'),
-				content: contentSchema.describe('OwlDoc JSON string or object'),
-				html: z.string().nullable().optional().describe('Optional cached HTML snapshot'),
+				subject: z.string().optional().describe('Email subject (may include {{firstName}} etc.)'),
+				content: contentSchema.describe(CONTENT_DESC),
+				html: z
+					.string()
+					.nullable()
+					.optional()
+					.describe('Optional cached delivery HTML — leave null; not a substitute for OwlDoc content'),
 				tags: z.array(z.string()).optional(),
 				domainId: z.number().int().positive().optional(),
 			},
@@ -80,13 +97,13 @@ export function createOwleryMcpServer(scope: McpScope): McpServer {
 	server.registerTool(
 		'update_template',
 		{
-			description: `Update a template. Edit content (OwlDoc) as the source of truth; fetch with get_template first. html is optional cached snapshot. ${SAFETY}`,
+			description: `Update a template. Always get_template first, then patch OwlDoc \`content\` (owl:"v1" envelope). ${OWL_DOC_GUIDE} ${SAFETY}`,
 			inputSchema: {
 				id: z.string().describe('Template id'),
 				name: z.string().optional(),
 				subject: z.string().optional(),
-				content: contentSchema.describe('OwlDoc JSON string or object'),
-				html: z.string().nullable().optional(),
+				content: contentSchema.describe(CONTENT_DESC),
+				html: z.string().nullable().optional().describe('Optional cached delivery HTML snapshot'),
 				prompt: z.string().nullable().optional(),
 				tags: z.array(z.string()).optional(),
 			},
@@ -108,7 +125,7 @@ export function createOwleryMcpServer(scope: McpScope): McpServer {
 	server.registerTool(
 		'compile_template_preview',
 		{
-			description: `Compile OwlDoc content to delivery HTML for preview. Does not persist and does not send. ${SAFETY}`,
+			description: `Compile OwlDoc content to delivery HTML for preview. Fails with the OwlDoc guide if content is missing/invalid. Does not persist and does not send. ${SAFETY}`,
 			inputSchema: {
 				id: z.string().describe('Template id'),
 			},

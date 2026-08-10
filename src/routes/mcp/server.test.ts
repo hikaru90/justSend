@@ -106,6 +106,7 @@ describe('POST /mcp', () => {
 		const names = tools.map((t) => t.name).sort();
 		expect(names).toContain('list_flows');
 		expect(names).toContain('list_templates');
+		expect(names).toContain('describe_owl_doc');
 		expect(names).not.toContain('activate_flow');
 		expect(names).not.toContain('send_email');
 	});

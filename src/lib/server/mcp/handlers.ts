@@ -16,6 +16,7 @@ import {
 	listTemplates,
 	updateTemplate,
 } from '$lib/server/service/template-service';
+import { OWL_DOC_GUIDE, OWL_DOC_MINIMAL_EXAMPLE } from './owl-doc-guide';
 
 export type McpScope = {
 	teamId: number;
@@ -41,10 +42,42 @@ function asContentString(value: unknown): string | null | undefined {
 	return JSON.stringify(value);
 }
 
+/** Returns a helpful MCP error payload if content is present but not a valid OwlDoc. */
+function invalidOwlDocResult(content: string) {
+	return textResult(
+		{
+			error: 'Invalid OwlDoc in content. Owlery does not use MJML/React Email/bare HTML as content.',
+			hint: OWL_DOC_GUIDE,
+			example: OWL_DOC_MINIMAL_EXAMPLE,
+			receivedPreview: content.slice(0, 240),
+		},
+		true,
+	);
+}
+
+function requireOwlDocContent(raw: unknown): { ok: true; content: string } | { ok: false; result: ReturnType<typeof textResult> } {
+	const content = asContentString(raw);
+	if (content === undefined || content === null || content === '') {
+		return { ok: true, content: content ?? '' };
+	}
+	if (!parseOwlDoc(content)) {
+		return { ok: false, result: invalidOwlDocResult(content) };
+	}
+	return { ok: true, content };
+}
+
 export function createHandlers(scope: McpScope) {
 	const { teamId, domainId } = scope;
 
 	return {
+		async describe_owl_doc() {
+			return textResult({
+				format: 'OwlDoc',
+				guide: OWL_DOC_GUIDE,
+				example: OWL_DOC_MINIMAL_EXAMPLE,
+			});
+		},
+
 		async list_templates() {
 			try {
 				const templates = listTemplates(teamId, domainId).map((t) => ({
@@ -94,12 +127,18 @@ export function createHandlers(scope: McpScope) {
 			domainId?: number;
 		}) {
 			try {
+				let content: string | null = null;
+				if (args.content !== undefined && args.content !== null) {
+					const checked = requireOwlDocContent(args.content);
+					if (!checked.ok) return checked.result;
+					content = checked.content || null;
+				}
 				const tpl = createTemplate({
 					teamId,
 					domainId: args.domainId ?? domainId ?? null,
 					name: args.name,
 					subject: args.subject ?? '',
-					content: asContentString(args.content) ?? null,
+					content,
 					html: args.html ?? null,
 				});
 				if (args.tags !== undefined) {
@@ -122,13 +161,23 @@ export function createHandlers(scope: McpScope) {
 			tags?: string[];
 		}) {
 			try {
+				let contentPatch: string | null | undefined;
+				if (args.content !== undefined) {
+					if (args.content === null) {
+						contentPatch = null;
+					} else {
+						const checked = requireOwlDocContent(args.content);
+						if (!checked.ok) return checked.result;
+						contentPatch = checked.content;
+					}
+				}
 				const updated = updateTemplate(
 					args.id,
 					teamId,
 					{
 						...(args.name !== undefined ? { name: args.name } : {}),
 						...(args.subject !== undefined ? { subject: args.subject } : {}),
-						...(args.content !== undefined ? { content: asContentString(args.content) } : {}),
+						...(contentPatch !== undefined ? { content: contentPatch } : {}),
 						...(args.html !== undefined ? { html: args.html } : {}),
 						...(args.prompt !== undefined ? { prompt: args.prompt } : {}),
 						...(args.tags !== undefined ? { tags: args.tags } : {}),
@@ -159,6 +208,8 @@ export function createHandlers(scope: McpScope) {
 						{
 							error:
 								'Template has no valid OwlDoc content (expected JSON with owl:"v1"). Nothing was sent or persisted.',
+							hint: OWL_DOC_GUIDE,
+							example: OWL_DOC_MINIMAL_EXAMPLE,
 						},
 						true,
 					);

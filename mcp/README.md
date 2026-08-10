@@ -37,6 +37,10 @@ npm run mcp
 
 ## Tools
 
+**Format:** `describe_owl_doc` — OwlDoc guide + minimal example (call before creating/editing templates)
+
 **Templates:** `list_templates`, `get_template`, `create_template`, `update_template`, `delete_template`, `compile_template_preview`
 
 **Flows:** `list_flows`, `get_flow`, `create_flow`, `update_flow`, `delete_flow`
+
+Template `content` is **OwlDoc** JSON (`owl: "v1"`, `shell`, `sections`, `slotValues`) — not MJML or bare HTML. Invalid content is rejected with the guide + example.
