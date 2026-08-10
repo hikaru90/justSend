@@ -9,6 +9,28 @@
 
 <h1 class="mb-6 text-2xl font-semibold">API keys</h1>
 
+<div class="mb-6 space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
+	<p>
+		Keys authenticate the REST API via
+		<code class="rounded bg-[hsl(var(--muted))] px-1">Authorization: Bearer us_…</code>.
+	</p>
+	<p>
+		Agents (Hermes, Cursor, etc.) should use the HTTP MCP endpoint
+		<code class="rounded bg-[hsl(var(--muted))] px-1">/mcp</code>
+		with the same Bearer header. Full URL:
+		<code class="rounded bg-[hsl(var(--muted))] px-1">https://your-host/mcp</code>.
+		MCP is compose-only — it can compose flows and templates, but cannot send mail or
+		activate flows. Optional domain scoping limits which domain the agent can see.
+	</p>
+	<p>
+		Alternatively, for local agents via stdio, run
+		<code class="rounded bg-[hsl(var(--muted))] px-1">npm run mcp</code>
+		and set
+		<code class="rounded bg-[hsl(var(--muted))] px-1">OWLERY_API_KEY</code>
+		in the MCP server env.
+	</p>
+</div>
+
 <Card title="Create key" class="mb-6">
 	<form method="POST" action="?/create" use:enhance class="grid gap-3 sm:grid-cols-2">
 		<Input name="name" placeholder="Production" required />
