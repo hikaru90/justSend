@@ -20,9 +20,9 @@ export default defineConfig({
 		sourcemap: false,
 	},
 	ssr: {
-		external: ['better-sqlite3', 'mjml'],
+		external: ['better-sqlite3', 'mjml', '@modelcontextprotocol/sdk'],
 	},
 	optimizeDeps: {
-		exclude: ['better-sqlite3', 'mjml'],
+		exclude: ['better-sqlite3', 'mjml', '@modelcontextprotocol/sdk'],
 	},
 });
