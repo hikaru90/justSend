@@ -637,7 +637,7 @@ export function applyShellInspectorPatch(
  * stripped so the container color shows through again.
  */
 export function shellCanvasColorSet(shellHtml: string, canvasOwlId: string): Set<string> {
-	const colors = new Set<string>(['#ffffff']);
+	const colors = new Set<string>();
 	const doc = parseShellDocument(shellHtml);
 	if (!doc?.body) return colors;
 	const canvas = findCanvasTable(doc.body);

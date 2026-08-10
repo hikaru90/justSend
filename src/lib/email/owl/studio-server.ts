@@ -164,7 +164,7 @@ export function healOwlDocCanvas(doc: OwlDoc): OwlHealResult {
 	const cell = canvas.querySelector('td') as Element | null;
 	const cellBg = cell ? backgroundColorOf(cell) : null;
 
-	const colors = new Set<string>(['#ffffff']);
+	const colors = new Set<string>();
 	for (const value of [canvasBg, pinColor, bgAttr, cellBg]) {
 		if (value) colors.add(normalizeHexColor(value));
 	}
