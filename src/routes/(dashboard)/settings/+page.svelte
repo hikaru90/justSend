@@ -5,13 +5,26 @@
 	import { enhance } from '$app/forms';
 
 	let { data, form } = $props();
+	let teamName = $state('');
+
+	$effect(() => {
+		teamName = data.team?.name ?? '';
+	});
 </script>
 
 <h1 class="mb-6 text-2xl font-semibold">Settings</h1>
 
 <Card title="Team">
-	<form method="POST" use:enhance class="flex gap-2">
-		<Input name="name" value={data.team?.name ?? ''} required class="flex-1" />
+	<form
+		method="POST"
+		use:enhance={() => {
+			return async ({ update }) => {
+				await update({ reset: false });
+			};
+		}}
+		class="flex gap-2"
+	>
+		<Input name="name" bind:value={teamName} required class="flex-1" />
 		<Button type="submit">Save</Button>
 	</form>
 	{#if form?.error}<p class="mt-2 text-sm text-[hsl(var(--destructive))]">{form.error}</p>{/if}

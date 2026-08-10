@@ -70,6 +70,7 @@ export function createDomain(
 		clickTracking: boolean;
 		openTracking: boolean;
 		isVerifying: boolean;
+		defaultFrom: string | null;
 	}> = {},
 ) {
 	const n = next();
@@ -85,6 +86,7 @@ export function createDomain(
 			clickTracking: overrides.clickTracking ?? false,
 			openTracking: overrides.openTracking ?? false,
 			isVerifying: overrides.isVerifying ?? false,
+			defaultFrom: overrides.defaultFrom ?? null,
 		})
 		.returning()
 		.get();

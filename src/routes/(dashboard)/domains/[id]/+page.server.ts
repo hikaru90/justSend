@@ -49,10 +49,22 @@ export const actions: Actions = {
 		const teamId = requireTeamId(locals.teamId);
 		const id = Number(params.id);
 		const form = await request.formData();
+		const defaultFromRaw = String(form.get('defaultFrom') ?? '').trim();
 		try {
+			if (defaultFromRaw) {
+				const domain = await getDomain(id, teamId);
+				const at = defaultFromRaw.lastIndexOf('@');
+				const host = at >= 0 ? defaultFromRaw.slice(at + 1).toLowerCase() : '';
+				if (!host || host !== domain.name.toLowerCase()) {
+					return fail(400, {
+						error: `Default sender must use the domain ${domain.name}`,
+					});
+				}
+			}
 			await updateDomain(id, {
 				clickTracking: form.get('clickTracking') === 'on',
 				openTracking: form.get('openTracking') === 'on',
+				defaultFrom: defaultFromRaw || null,
 			});
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });

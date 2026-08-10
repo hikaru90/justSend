@@ -1,5 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import { getContactBook, updateContactBook } from '$lib/server/service/contact-book-service';
+import { db } from '$lib/server/db';
+import { domains } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { requireDomainId, requireTeamId } from '$lib/server/dashboard';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -7,7 +10,17 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const teamId = requireTeamId(locals.teamId);
 	const domainId = requireDomainId(locals.domainId);
 	try {
-		return { book: getContactBook(params.id, teamId, domainId) };
+		const book = getContactBook(params.id, teamId, domainId);
+		const domain = db
+			.select({ defaultFrom: domains.defaultFrom, name: domains.name })
+			.from(domains)
+			.where(eq(domains.id, domainId))
+			.get();
+		return {
+			book,
+			defaultFrom: domain?.defaultFrom?.trim() || null,
+			domainName: domain?.name ?? null,
+		};
 	} catch {
 		error(404, 'Not found');
 	}
@@ -25,6 +38,7 @@ export const actions: Actions = {
 				doubleOptInSubject: String(form.get('doubleOptInSubject') ?? ''),
 				doubleOptInContent: String(form.get('doubleOptInContent') ?? ''),
 			});
+			return { saved: true };
 		} catch (e) {
 			return fail(400, { error: e instanceof Error ? e.message : 'Update failed' });
 		}

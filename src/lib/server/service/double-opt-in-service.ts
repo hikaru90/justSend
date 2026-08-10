@@ -129,22 +129,43 @@ export async function sendDoubleOptInConfirmationEmail({
 	const configuredFrom = contactBook.doubleOptInFrom?.trim();
 	let from: string;
 
-	if (!configuredFrom) {
-		const domain = db
-			.select({ name: domains.name })
-			.from(domains)
-			.where(and(eq(domains.teamId, teamId), eq(domains.status, 'SUCCESS')))
-			.orderBy(asc(domains.createdAt))
-			.get();
-
-		if (!domain) {
-			throw new Error(
-				'Double opt-in requires at least one verified domain to send confirmation emails',
-			);
-		}
-		from = `hello@${domain.name}`;
-	} else {
+	if (configuredFrom) {
 		from = configuredFrom;
+	} else {
+		// Prefer the contact book's domain default sender, then any verified domain default,
+		// then hello@{first verified domain}.
+		let resolved: string | null = null;
+
+		if (contactBook.domainId) {
+			const bookDomain = db
+				.select({ name: domains.name, defaultFrom: domains.defaultFrom, status: domains.status })
+				.from(domains)
+				.where(eq(domains.id, contactBook.domainId))
+				.get();
+			if (bookDomain?.defaultFrom?.trim()) {
+				resolved = bookDomain.defaultFrom.trim();
+			} else if (bookDomain?.status === 'SUCCESS') {
+				resolved = `hello@${bookDomain.name}`;
+			}
+		}
+
+		if (!resolved) {
+			const domain = db
+				.select({ name: domains.name, defaultFrom: domains.defaultFrom })
+				.from(domains)
+				.where(and(eq(domains.teamId, teamId), eq(domains.status, 'SUCCESS')))
+				.orderBy(asc(domains.createdAt))
+				.get();
+
+			if (!domain) {
+				throw new Error(
+					'Double opt-in requires at least one verified domain to send confirmation emails',
+				);
+			}
+			resolved = domain.defaultFrom?.trim() || `hello@${domain.name}`;
+		}
+
+		from = resolved;
 	}
 
 	const confirmationUrl = createDoubleOptInConfirmationUrl(contact.id);

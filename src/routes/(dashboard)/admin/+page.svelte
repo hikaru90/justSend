@@ -8,47 +8,58 @@
 
 	let { data, form } = $props();
 
-	let selectedParts = $state<string[]>([]);
-	let teamId = $state('');
-	let importFile = $state<FileList | null>(null);
+	let exportParts = $state<string[]>([]);
+	let importParts = $state<string[]>([]);
+	let exportTeamId = $state(
+		typeof data.currentTeamId === 'number' ? String(data.currentTeamId) : '',
+	);
+	let importTeamId = $state(
+		typeof data.currentTeamId === 'number' ? String(data.currentTeamId) : '',
+	);
+	let importFile = $state<File | null>(null);
+	let importFileName = $state('');
 	let importBusy = $state(false);
 	let importError = $state<string | null>(null);
 	let importSummary = $state<ImportSummary | null>(null);
 
-	const defaultTeamId = $derived(data.teams.length === 1 ? String(data.teams[0]!.id) : '');
-	const effectiveTeamId = $derived(teamId || defaultTeamId);
-
-	const needsTeam = $derived(
-		selectedParts.some((id) => data.dbParts.find((p) => p.id === id)?.scope === 'team'),
+	const exportNeedsTeam = $derived(
+		exportParts.some((id) => data.dbParts.find((p) => p.id === id)?.scope === 'team'),
+	);
+	const importNeedsTeam = $derived(
+		importParts.some((id) => data.dbParts.find((p) => p.id === id)?.scope === 'team'),
 	);
 
-	const partsQuery = $derived(selectedParts.join(','));
+	const exportPartsQuery = $derived(exportParts.join(','));
+	const importPartsQuery = $derived(importParts.join(','));
 
-	function togglePart(id: string) {
-		if (selectedParts.includes(id)) {
-			selectedParts = selectedParts.filter((p) => p !== id);
+	function togglePart(list: 'export' | 'import', id: string) {
+		if (list === 'export') {
+			exportParts = exportParts.includes(id)
+				? exportParts.filter((p) => p !== id)
+				: [...exportParts, id];
 		} else {
-			selectedParts = [...selectedParts, id];
+			importParts = importParts.includes(id)
+				? importParts.filter((p) => p !== id)
+				: [...importParts, id];
 		}
 	}
 
 	async function runImport() {
 		importError = null;
 		importSummary = null;
-		if (selectedParts.length === 0) {
+		if (importParts.length === 0) {
 			importError = 'Select at least one part';
 			return;
 		}
-		if (needsTeam && !effectiveTeamId) {
+		if (importNeedsTeam && !importTeamId) {
 			importError = 'Select a team';
 			return;
 		}
-		const file = importFile?.[0];
-		if (!file) {
+		if (!importFile) {
 			importError = 'Choose a parts zip file';
 			return;
 		}
-		const labels = selectedParts
+		const labels = importParts
 			.map((id) => data.dbParts.find((p) => p.id === id)?.label ?? id)
 			.join(', ');
 		if (
@@ -62,10 +73,10 @@
 		importBusy = true;
 		try {
 			const body = new FormData();
-			body.set('parts', partsQuery);
-			if (effectiveTeamId) body.set('teamId', effectiveTeamId);
+			body.set('parts', importPartsQuery);
+			if (importTeamId) body.set('teamId', importTeamId);
 			if (data.currentDomainId != null) body.set('domainId', String(data.currentDomainId));
-			body.set('file', file);
+			body.set('file', importFile);
 			const res = await fetch('/admin/database/parts/import', { method: 'POST', body });
 			const text = await res.text();
 			let payload: ImportSummary & { message?: string };
@@ -82,12 +93,27 @@
 			importBusy = false;
 		}
 	}
+
+	function onFileChange(e: Event) {
+		const files = (e.currentTarget as HTMLInputElement).files;
+		importFile = files?.[0] ?? null;
+		importFileName = importFile?.name ?? '';
+	}
 </script>
 
-<h1 class="mb-6 text-2xl font-semibold">SES settings</h1>
+<h1 class="mb-6 text-2xl font-semibold">Settings</h1>
 
-<Card title="Add region" class="mb-6">
-	<form method="POST" action="?/create" use:enhance class="grid gap-3 sm:grid-cols-2">
+<Card title="Add SES region" class="mb-6">
+	<form
+		method="POST"
+		action="?/create"
+		use:enhance={() => {
+			return async ({ update }) => {
+				await update({ reset: false });
+			};
+		}}
+		class="grid gap-3 sm:grid-cols-2"
+	>
 		<Input name="region" placeholder="us-east-1" required />
 		<Input name="owleryUrl" value={data.defaultUrl} required />
 		<Input name="sendingRateLimit" type="number" value="1" />
@@ -98,7 +124,7 @@
 </Card>
 
 <div class="space-y-3">
-	{#each data.settings as setting}
+	{#each data.settings as setting (setting.region)}
 		<Card title={setting.region}>
 			<dl class="grid gap-2 text-sm sm:grid-cols-2">
 				<div>
@@ -123,11 +149,59 @@
 	{/each}
 </div>
 
-<Card title="Database parts" class="mt-6 mb-6">
+<Card title="Export database parts" class="mt-6 mb-6">
 	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
-		Export or import selected slices of the database. Unselected parts on the target are never
-		touched. Use this to move templates and design system without overwriting SES or domains.
-		Imported templates are attached to your currently selected domain
+		Download selected slices of the database. Use this to move templates and design system without
+		overwriting SES or domains.
+	</p>
+
+	<fieldset class="mb-4 space-y-2">
+		<legend class="mb-1 text-sm font-medium">Parts to export</legend>
+		{#each data.dbParts as part (part.id)}
+			<label class="flex items-center gap-2 text-sm">
+				<input
+					type="checkbox"
+					checked={exportParts.includes(part.id)}
+					onchange={() => togglePart('export', part.id)}
+				/>
+				<span>{part.label}</span>
+				<span class="text-xs text-[hsl(var(--muted-foreground))]">({part.scope})</span>
+			</label>
+		{/each}
+	</fieldset>
+
+	{#if data.teams.length > 0}
+		<label class="mb-4 block text-sm">
+			<span class="mb-1 block font-medium">Team</span>
+			<select
+				class="h-9 w-full max-w-sm rounded-md border border-[hsl(var(--border))] bg-transparent px-3 text-sm"
+				bind:value={exportTeamId}
+			>
+				{#if !exportTeamId}
+					<option value="">Select team…</option>
+				{/if}
+				{#each data.teams as team (team.id)}
+					<option value={String(team.id)}>{team.name} (#{team.id})</option>
+				{/each}
+			</select>
+		</label>
+	{/if}
+
+	{#if exportParts.length > 0 && (!exportNeedsTeam || exportTeamId)}
+		<Button
+			href={`/admin/database/parts/export?parts=${encodeURIComponent(exportPartsQuery)}${exportTeamId ? `&teamId=${encodeURIComponent(exportTeamId)}` : ''}`}
+		>
+			Export selected
+		</Button>
+	{:else}
+		<Button disabled>Export selected</Button>
+	{/if}
+</Card>
+
+<Card title="Import database parts" class="mb-6">
+	<p class="mb-4 text-sm text-[hsl(var(--muted-foreground))]">
+		Import a previously exported parts zip. Only the parts you select below are written. Imported
+		templates are attached to your currently selected domain
 		{#if data.currentDomainId != null}
 			(#{data.currentDomainId}).
 		{:else}
@@ -136,13 +210,13 @@
 	</p>
 
 	<fieldset class="mb-4 space-y-2">
-		<legend class="mb-1 text-sm font-medium">Parts</legend>
-		{#each data.dbParts as part}
+		<legend class="mb-1 text-sm font-medium">Parts to import</legend>
+		{#each data.dbParts as part (part.id)}
 			<label class="flex items-center gap-2 text-sm">
 				<input
 					type="checkbox"
-					checked={selectedParts.includes(part.id)}
-					onchange={() => togglePart(part.id)}
+					checked={importParts.includes(part.id)}
+					onchange={() => togglePart('import', part.id)}
 				/>
 				<span>{part.label}</span>
 				<span class="text-xs text-[hsl(var(--muted-foreground))]">({part.scope})</span>
@@ -150,60 +224,51 @@
 		{/each}
 	</fieldset>
 
-	{#if needsTeam || data.teams.length > 0}
+	{#if data.teams.length > 0}
 		<label class="mb-4 block text-sm">
 			<span class="mb-1 block font-medium">Team</span>
 			<select
 				class="h-9 w-full max-w-sm rounded-md border border-[hsl(var(--border))] bg-transparent px-3 text-sm"
-				bind:value={teamId}
+				bind:value={importTeamId}
 			>
-				{#if data.teams.length !== 1}
+				{#if !importTeamId}
 					<option value="">Select team…</option>
 				{/if}
-				{#each data.teams as team}
+				{#each data.teams as team (team.id)}
 					<option value={String(team.id)}>{team.name} (#{team.id})</option>
 				{/each}
 			</select>
 		</label>
 	{/if}
 
-	<div class="mb-4 flex flex-wrap gap-2">
-		{#if selectedParts.length > 0 && (!needsTeam || effectiveTeamId)}
-			<Button
-				href={`/admin/database/parts/export?parts=${encodeURIComponent(partsQuery)}${effectiveTeamId ? `&teamId=${encodeURIComponent(effectiveTeamId)}` : ''}`}
+	<div class="mb-4 flex flex-wrap items-center gap-3">
+		<label class="inline-flex cursor-pointer">
+			<span
+				class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-[hsl(var(--border))] bg-transparent px-4 text-sm font-medium hover:bg-[hsl(var(--accent))]"
 			>
-				Export selected
-			</Button>
-		{:else}
-			<Button disabled>Export selected</Button>
-		{/if}
+				Choose file
+			</span>
+			<input type="file" accept=".zip,application/zip" class="sr-only" onchange={onFileChange} />
+		</label>
+		<span class="text-sm text-[hsl(var(--muted-foreground))]">
+			{importFileName || 'No file selected'}
+		</span>
 	</div>
 
-	<div class="border-t border-[hsl(var(--border))] pt-4">
-		<p class="mb-2 text-sm font-medium">Import pack</p>
-		<input
-			type="file"
-			accept=".zip,application/zip"
-			class="mb-3 block w-full max-w-md text-sm"
-			onchange={(e) => {
-				importFile = (e.currentTarget as HTMLInputElement).files;
-			}}
-		/>
-		<Button type="button" variant="outline" disabled={importBusy} onclick={runImport}>
-			{importBusy ? 'Importing…' : 'Import selected parts'}
-		</Button>
-		{#if importError}
-			<p class="mt-2 text-sm text-[hsl(var(--destructive))]">{importError}</p>
-		{/if}
-		{#if importSummary}
-			<pre
-				class="mt-3 max-h-48 overflow-auto rounded-md bg-[hsl(var(--muted))] p-3 text-xs">{JSON.stringify(
-					importSummary,
-					null,
-					2,
-				)}</pre>
-		{/if}
-	</div>
+	<Button type="button" variant="outline" disabled={importBusy} onclick={runImport}>
+		{importBusy ? 'Importing…' : 'Import selected parts'}
+	</Button>
+	{#if importError}
+		<p class="mt-2 text-sm text-[hsl(var(--destructive))]">{importError}</p>
+	{/if}
+	{#if importSummary}
+		<pre
+			class="mt-3 max-h-48 overflow-auto rounded-md bg-[hsl(var(--muted))] p-3 text-xs">{JSON.stringify(
+				importSummary,
+				null,
+				2,
+			)}</pre>
+	{/if}
 </Card>
 
 <Card title="Full database snapshot" class="mb-6">

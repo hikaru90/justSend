@@ -230,3 +230,34 @@ export function deleteContactBook(contactBookId: string, teamId: number): Contac
 	db.delete(contactBooks).where(eq(contactBooks.id, contactBookId)).run();
 	return book;
 }
+
+/** Duplicate a contact book and its settings (without contacts). */
+export function duplicateContactBook(contactBookId: string, teamId: number): ContactBook {
+	const book = db
+		.select()
+		.from(contactBooks)
+		.where(and(eq(contactBooks.id, contactBookId), eq(contactBooks.teamId, teamId)))
+		.get();
+
+	if (!book) {
+		throw new Error('Contact book not found');
+	}
+
+	return db
+		.insert(contactBooks)
+		.values({
+			id: cuid(),
+			name: `${book.name} (copy)`,
+			teamId: book.teamId,
+			domainId: book.domainId,
+			variables: book.variables,
+			properties: book.properties,
+			doubleOptInEnabled: book.doubleOptInEnabled,
+			doubleOptInFrom: book.doubleOptInFrom,
+			doubleOptInSubject: book.doubleOptInSubject,
+			doubleOptInContent: book.doubleOptInContent,
+			emoji: book.emoji,
+		})
+		.returning()
+		.get();
+}

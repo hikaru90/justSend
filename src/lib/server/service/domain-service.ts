@@ -349,13 +349,14 @@ export async function refreshDomainVerification(
 
 export async function updateDomain(
 	id: number,
-	data: { clickTracking?: boolean; openTracking?: boolean },
+	data: { clickTracking?: boolean; openTracking?: boolean; defaultFrom?: string | null },
 ): Promise<Domain> {
 	const updated = db
 		.update(domains)
 		.set({
 			...(data.clickTracking !== undefined ? { clickTracking: data.clickTracking } : {}),
 			...(data.openTracking !== undefined ? { openTracking: data.openTracking } : {}),
+			...(data.defaultFrom !== undefined ? { defaultFrom: data.defaultFrom } : {}),
 		})
 		.where(eq(domains.id, id))
 		.returning()

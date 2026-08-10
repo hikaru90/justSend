@@ -13,6 +13,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		teams: db.select({ id: teams.id, name: teams.name }).from(teams).all(),
 		dbParts: DB_PARTS.map((p) => ({ id: p.id, label: p.label, scope: p.scope })),
 		currentDomainId: locals.domainId,
+		currentTeamId: locals.teamId,
 	};
 };
 

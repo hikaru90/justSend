@@ -246,6 +246,7 @@ export const domains = sqliteTable('domains', {
 	region: text('region').notNull().default('us-east-1'),
 	clickTracking: integer('click_tracking', { mode: 'boolean' }).notNull().default(false),
 	openTracking: integer('open_tracking', { mode: 'boolean' }).notNull().default(false),
+	defaultFrom: text('default_from'),
 	publicKey: text('public_key').notNull(),
 	dkimSelector: text('dkim_selector').default('owlery'),
 	dkimStatus: text('dkim_status'),

@@ -138,7 +138,7 @@
 			use:enhance={() => {
 				saving = true;
 				return async ({ update }) => {
-					await update();
+					await update({ reset: false });
 					saving = false;
 				};
 			}}
@@ -241,8 +241,15 @@
 								id="from"
 								value={String(selectedNode.data.from ?? '')}
 								oninput={(e) => updateSelectedData('from', e.currentTarget.value)}
-								placeholder="hello@yourdomain.com"
+								placeholder={data.defaultFrom ?? 'hello@yourdomain.com'}
 							/>
+							<p class="mt-1 text-[10px] text-[hsl(var(--muted-foreground))]">
+								{#if data.defaultFrom}
+									Leave blank to use domain default ({data.defaultFrom})
+								{:else}
+									Optional override — set a default sender on the domain
+								{/if}
+							</p>
 						</div>
 						<div>
 							<label for="tpl" class="mb-1 block text-xs font-medium">Template</label>

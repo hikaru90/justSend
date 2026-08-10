@@ -7,7 +7,7 @@ export default defineConfig({
 		pool: 'forks',
 		isolate: true,
 		setupFiles: ['./src/tests/setup.ts'],
-		include: ['src/**/*.test.ts'],
+		include: ['src/**/*.test.ts', 'mcp/**/*.test.ts'],
 		exclude: ['**/node_modules/**', '**/useSend-legacy/**', '**/build/**'],
 		env: {
 			DATABASE_URL: ':memory:',

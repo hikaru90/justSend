@@ -66,7 +66,7 @@
 				await update({ reset: false });
 			};
 		}}
-		class="space-y-2"
+		class="space-y-3"
 	>
 		<label class="flex items-center gap-2 text-sm">
 			<input type="checkbox" name="openTracking" checked={data.domain.openTracking} />
@@ -76,6 +76,19 @@
 			<input type="checkbox" name="clickTracking" checked={data.domain.clickTracking} />
 			Click tracking
 		</label>
+		<div>
+			<label class="mb-1 block text-sm" for="defaultFrom">Default sender address</label>
+			<Input
+				id="defaultFrom"
+				name="defaultFrom"
+				type="email"
+				placeholder={`newsletter@${data.domain.name}`}
+				value={data.domain.defaultFrom ?? ''}
+			/>
+			<p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+				Used as the From address for flows and double opt-in when not overridden.
+			</p>
+		</div>
 		<Button type="submit" size="sm">Save</Button>
 	</form>
 </Card>

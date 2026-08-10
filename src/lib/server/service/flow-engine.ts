@@ -5,6 +5,7 @@ import {
 	automationEnrollments,
 	automationExecutionLog,
 	contacts,
+	domains,
 	emails,
 	type AutomationExecutionEvent,
 } from '../db/schema';
@@ -167,8 +168,13 @@ async function executeSendEmail(
 	}
 
 	const templateId = String(node.data.templateId ?? '');
-	const from = String(node.data.from ?? '').trim();
+	let from = String(node.data.from ?? '').trim();
 	const subjectOverride = String(node.data.subject ?? '').trim();
+
+	if (!from) {
+		const domainRow = db.select().from(domains).where(eq(domains.id, flow.domainId)).get();
+		from = domainRow?.defaultFrom?.trim() || '';
+	}
 
 	if (!from) {
 		setEnrollment(enrollment.id, { status: 'exited' });

@@ -1,5 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
 import { requireDomainId, requireTeamId } from '$lib/server/dashboard';
+import { db } from '$lib/server/db';
+import { domains } from '$lib/server/db/schema';
 import { getContactBooks } from '$lib/server/service/contact-book-service';
 import {
 	activateFlow,
@@ -20,10 +23,17 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 	try {
 		const flow = getFlow(params.id, teamId, domainId);
+		const domain = db
+			.select({ defaultFrom: domains.defaultFrom, name: domains.name })
+			.from(domains)
+			.where(eq(domains.id, domainId))
+			.get();
 		return {
 			flow,
 			templates: listTemplates(teamId, domainId).map((t) => ({ id: t.id, name: t.name })),
 			books: getContactBooks(teamId, { domainId }).map((b) => ({ id: b.id, name: b.name })),
+			defaultFrom: domain?.defaultFrom?.trim() || null,
+			domainName: domain?.name ?? null,
 		};
 	} catch {
 		error(404, 'Flow not found');

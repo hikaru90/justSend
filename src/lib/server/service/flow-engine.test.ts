@@ -259,6 +259,65 @@ describe('flow-engine', () => {
 		expect(sent[0]?.html).not.toContain('{{unsubscribe_url}}');
 	});
 
+	it('uses domain defaultFrom when sendEmail from is empty', async () => {
+		const team = createTeam();
+		const domain = createDomain(team.id, {
+			name: 'defaults.example.com',
+			status: 'SUCCESS',
+			defaultFrom: 'hello@defaults.example.com',
+		});
+		const book = createContactBook(team.id, { domainId: domain.id });
+		const contact = createContact(book.id, { email: 'user@example.com', subscribed: true });
+		createSesSetting({ region: domain.region });
+
+		const flow = createFlow({
+			teamId: team.id,
+			domainId: domain.id,
+			name: 'Default from flow',
+			triggerConfig: { contactBookId: book.id },
+		});
+
+		const graph = {
+			nodes: [
+				{
+					id: 'trigger-1',
+					type: 'trigger',
+					position: { x: 0, y: 0 },
+					data: { label: 'Contact created' },
+				},
+				{
+					id: 'sendEmail-1',
+					type: 'sendEmail',
+					position: { x: 0, y: 100 },
+					data: {
+						label: 'Send',
+						from: '',
+						subject: 'Hello',
+						templateId: '',
+					},
+				},
+				{ id: 'end-1', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } },
+			],
+			edges: [
+				{ id: 'e1', source: 'trigger-1', target: 'sendEmail-1' },
+				{ id: 'e2', source: 'sendEmail-1', target: 'end-1' },
+			],
+		};
+		updateFlow(flow.id, team.id, { graph }, domain.id);
+		activateFlow(flow.id, team.id, domain.id);
+
+		const enrollment = enrollContact({
+			flow: getFlow(flow.id, team.id, domain.id),
+			contactId: contact.id,
+		});
+
+		await processFlowStep({ enrollmentId: enrollment!.id });
+
+		const sent = db.select().from(emails).where(eq(emails.contactId, contact.id)).all();
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.from).toBe('hello@defaults.example.com');
+	});
+
 	it('handleContactCreated enrolls into matching active flows', () => {
 		const { team, domain, book, contact } = setup();
 		const flow = createFlow({

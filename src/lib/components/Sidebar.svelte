@@ -34,6 +34,8 @@
 		domainId: number | null;
 	} = $props();
 
+	const currentTeam = $derived(teams.find((t) => t.id === teamId) ?? teams[0] ?? null);
+
 	const links = $derived([
 		{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
 		{ href: '/emails', label: 'Queue', icon: ListOrdered },
@@ -45,14 +47,13 @@
 		{ href: '/design-system', label: 'Design System', icon: Palette },
 		{ href: '/suppressions', label: 'Suppressions', icon: Ban },
 		{ href: '/webhooks', label: 'Webhooks', icon: Webhook },
-		{ href: '/settings', label: 'Settings', icon: Settings },
 		{ href: '/dev-settings/api-keys', label: 'API Keys', icon: Code },
 	]);
 
 	const adminLinks = $derived(
 		user.isAdmin
 			? [
-					{ href: '/admin', label: 'SES Settings', icon: Shield },
+					{ href: '/admin', label: 'Settings', icon: Shield },
 					{ href: '/admin/teams', label: 'Teams', icon: Users },
 				]
 			: [],
@@ -73,7 +74,7 @@
 		</div>
 		{#if teams.length > 1}
 			<div class="mt-3">
-				<p class="mb-1.5 text-xs font-medium tracking-wide uppercase opacity-60">Team</p>
+				<p class="mb-1.5 text-xs font-medium tracking-wide uppercase opacity-60">Switch team</p>
 				<TeamSwitcher {teams} {teamId} />
 			</div>
 		{/if}
@@ -117,7 +118,27 @@
 	</nav>
 
 	<div class="border-t border-[hsl(var(--sidebar-border))] p-4">
-		<p class="truncate text-sm font-medium">{user.name ?? user.email}</p>
+		{#if currentTeam}
+			<div class="mb-3 flex items-center justify-between gap-2">
+				<p class="truncate text-sm font-medium">{currentTeam.name}</p>
+				<a
+					href="/settings"
+					class={cn(
+						'rounded-md p-1.5 text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]',
+						page.url.pathname.startsWith('/settings')
+							? 'bg-[hsl(var(--accent))] text-[hsl(var(--foreground))]'
+							: '',
+					)}
+					aria-label="Team settings"
+					title="Team settings"
+				>
+					<Settings class="h-4 w-4" />
+				</a>
+			</div>
+		{/if}
+		<p class="truncate text-sm text-[hsl(var(--muted-foreground))]">
+			{user.name ?? user.email}
+		</p>
 		<form method="POST" action="/api/auth/logout" class="mt-2">
 			<button type="submit" class="text-xs text-[hsl(var(--muted-foreground))] hover:underline">
 				Sign out
