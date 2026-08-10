@@ -78,7 +78,7 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 
 	let subject = input.subject;
 	let html = input.html;
-	const text = input.text;
+	let text = input.text;
 
 	let domain: Awaited<ReturnType<typeof validateDomainFromEmail>>;
 
@@ -124,6 +124,12 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 				{ variables, tokens: designTokensForTeam(teamId) },
 			);
 		}
+	} else if (variables && Object.keys(variables).length > 0) {
+		// Direct html/text sends (e.g. template-page Save-then-send preview) pass
+		// compiled markup + variables without a templateId — still substitute.
+		subject = replaceVariables(subject, variables);
+		if (html) html = replaceVariables(html, variables);
+		if (text) text = replaceVariables(text, variables);
 	}
 
 	if (html) {

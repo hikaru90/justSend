@@ -192,6 +192,22 @@ describe('email-service', () => {
 			expect(html).toBe('<p>Hi Ada</p>');
 		});
 
+		it('substitutes variables into direct html/subject sends without templateId', async () => {
+			const { team, domain } = setupTeamWithDomain();
+
+			const email = await sendEmail({
+				teamId: team.id,
+				from: `noreply@${domain.name}`,
+				to: 'recipient@test.com',
+				subject: 'Hi {{firstName}}',
+				html: '<p>Hello {{firstName}} {{lastName}}</p>',
+				variables: { firstName: 'Alex', lastName: 'River' },
+			});
+
+			expect(email.subject).toBe('Hi Alex');
+			expect(email.html).toBe('<p>Hello Alex River</p>');
+		});
+
 		it('creates a scheduled email and queue job', async () => {
 			const { team, domain } = setupTeamWithDomain();
 			const scheduledAt = new Date(Date.now() + 60_000).toISOString();
