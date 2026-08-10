@@ -50,12 +50,13 @@ describe('applyLightOverride', () => {
 		expect(html).not.toMatch(/class="owll-/);
 	});
 
-	it('emits the Gmail blend-mode CSS in the light-css container', () => {
+	it('emits the Gmail blend-mode CSS inside the dark media query', () => {
 		const html = compile(`<div>Hi</div>`);
 		expect(html).toContain('data-owl-light-css');
-		expect(html).toContain('u + .body .gmail-blend-screen{background:#000;mix-blend-mode:screen;}');
-		expect(html).toContain(
-			'u + .body .gmail-blend-difference{background:#000;mix-blend-mode:difference;}',
+		const style = html.match(/<style[^>]*data-owl-light-css[^>]*>([\s\S]*?)<\/style>/)?.[1] ?? '';
+		// Entire light-css is one dark media query that includes the blend rules (nothing after).
+		expect(style).toMatch(
+			/^@media \(prefers-color-scheme:dark\)\{[\s\S]*u \+ \.body \.gmail-blend-screen\{background:#000;mix-blend-mode:screen;\}u \+ \.body \.gmail-blend-difference\{background:#000;mix-blend-mode:difference;\}\}$/,
 		);
 	});
 

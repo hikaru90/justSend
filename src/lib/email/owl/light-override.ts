@@ -104,7 +104,7 @@ export function applyLightOverride(doc: Document, ctx: OwlCompileContext): OwlIs
 		if (bg) el.setAttribute('data-ogsb', bg[1]);
 	}
 
-	const css = `@media (prefers-color-scheme:dark){${mediaRules.join('')}}${GMAIL_BLEND_CSS}`;
+	const css = `@media (prefers-color-scheme:dark){${mediaRules.join('')}${GMAIL_BLEND_CSS}}`;
 	lightCssElement(doc).textContent = css;
 	return [];
 }
