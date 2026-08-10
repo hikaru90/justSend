@@ -158,6 +158,13 @@
 	</p>
 {/if}
 
+{#if data.owlHealed}
+	<p class="mb-4 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-2 text-sm">
+		{data.owlHealNote ?? 'Fixed an inconsistent container background so your container color now applies everywhere.'}{' '}
+		Save to keep the fix.
+	</p>
+{/if}
+
 {#if !data.designReady}
 	<Card title="Design system missing" class="mb-4">
 		<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">

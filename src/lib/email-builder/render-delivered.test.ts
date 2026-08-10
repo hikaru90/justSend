@@ -55,11 +55,16 @@ describe('toMjmlDocument', () => {
 
 	it('keeps block render output verbatim in mj-raw with blend wrappers', () => {
 		const xml = toMjmlDocument(doc());
-		expect(xml).toContain(
-			'<mj-raw><div class="gmail-blend-screen"><div class="gmail-blend-difference">',
-		);
+		expect(xml).toContain('<div class="gmail-blend-screen"><div class="gmail-blend-difference">');
 		expect(xml).toContain('owl-block-');
 		expect(xml).toContain('Buy now');
+	});
+
+	it('carries the canvas text styles onto the raw wrapper', () => {
+		const xml = toMjmlDocument(doc());
+		expect(xml).toContain('font-family:');
+		expect(xml).toContain('color:#262626');
+		expect(xml).toContain('font-size:16px');
 	});
 });
 

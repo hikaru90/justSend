@@ -8,6 +8,7 @@ import type { Document, Node } from 'linkedom';
 import { slotsFromFragment } from './slots';
 import { starterByKey } from './starters';
 import { OWL } from './format';
+import { gradientPinColor, normalizeHexColor, parseStyleDecls } from './style';
 import { newSectionId, parseOwlDoc, type OwlDoc, type OwlSection } from './studio';
 import type { OwlIssue, OwlSlot } from './format';
 import { renderOwlDocHtml } from './render-doc';
@@ -71,6 +72,142 @@ export async function compileOwlDoc(
 		issues,
 		sectionSlots,
 		sectionHtml: extractSectionHtml(html, doc.sections),
+	};
+}
+
+export type OwlHealResult = {
+	doc: OwlDoc;
+	healed: boolean;
+	note?: string;
+};
+
+/** The canvas = the inner max-width table inside the shell root (mirrors studio-client). */
+function findCanvasTableInDoc(doc: Document): Element | null {
+	const shell = doc.querySelector(`[${OWL.role}="shell"]`);
+	if (!shell) return null;
+	for (const table of shell.querySelectorAll('table')) {
+		if (table === (shell as unknown as Element)) continue;
+		const style = table.getAttribute('style') ?? '';
+		if (/max-width:\s*[\d.]+px/i.test(style)) return table as unknown as Element;
+	}
+	const nested = shell.querySelector('table');
+	return nested && nested !== (shell as unknown as Element)
+		? (nested as unknown as Element)
+		: null;
+}
+
+function styleDeclsOf(el: Element): Array<[string, string]> {
+	return parseStyleDecls(el.getAttribute('style'));
+}
+
+function backgroundColorOf(el: Element): string | null {
+	return styleDeclsOf(el).find(([p]) => p === 'background-color')?.[1] ?? el.getAttribute('bgcolor');
+}
+
+function setStyleDecls(el: Element, decls: Array<[string, string]>): void {
+	if (decls.length) el.setAttribute('style', decls.map(([p, v]) => `${p}:${v};`).join(''));
+	else el.removeAttribute('style');
+}
+
+/**
+ * Remove `background-color` (and matching gradient pins) from a section
+ * fragment wherever the color is in `colors`. Elements carrying
+ * `data-owl-dark-style` are authored variant surfaces and keep their colors.
+ * Server-side (linkedom) counterpart of studio-client's
+ * `stripSectionBackgroundColors`.
+ */
+function stripSectionColorsInFragment(html: string, colors: ReadonlySet<string>): string {
+	const wanted = new Set([...colors].map(normalizeHexColor));
+	const doc = parseDocument(
+		`<!DOCTYPE html><html><head></head><body>${html}</body></html>`,
+	);
+	let changed = false;
+	for (const el of walkElements(doc)) {
+		if (el.hasAttribute('data-owl-dark-style')) continue;
+		const decls = styleDeclsOf(el);
+		if (decls.length === 0) continue;
+		const kept = decls.filter(([p, v]) => {
+			if (p === 'background-color') return !wanted.has(normalizeHexColor(v));
+			const pin = p === 'background-image' ? gradientPinColor(v) : null;
+			if (pin) return !wanted.has(pin);
+			return true;
+		});
+		if (kept.length !== decls.length) {
+			changed = true;
+			setStyleDecls(el, kept);
+			if (!el.getAttribute('style')) el.removeAttribute('style');
+		}
+	}
+	if (!changed) return html;
+	return [...(doc.body?.childNodes ?? [])].map((n) => serialize(n)).join('');
+}
+
+/**
+ * Heal canvas background inconsistencies accumulated in saved docs:
+ * gradient pins / bgcolor attributes / the inner canvas cell drifting away
+ * from the canvas `background-color` (a stale white pin keeps rendering white
+ * on top of a recolored canvas), and section backgrounds baked in by earlier
+ * compiles (which made container edits invisible). Sections are stripped of
+ * those canvas-matching colors so they inherit the container again.
+ *
+ * Idempotent: an already-consistent doc returns `healed: false`.
+ */
+export function healOwlDocCanvas(doc: OwlDoc): OwlHealResult {
+	const shellDoc = parseDocument(doc.shell);
+	const canvas = shellDoc ? findCanvasTableInDoc(shellDoc) : null;
+	if (!canvas) return { doc, healed: false };
+
+	const canvasBg = backgroundColorOf(canvas);
+	const declaredPin = styleDeclsOf(canvas).find(([p]) => p === 'background-image')?.[1];
+	const pinColor = gradientPinColor(declaredPin);
+	const bgAttr = canvas.getAttribute('bgcolor');
+	const cell = canvas.querySelector('td') as Element | null;
+	const cellBg = cell ? backgroundColorOf(cell) : null;
+
+	const colors = new Set<string>(['#ffffff']);
+	for (const value of [canvasBg, pinColor, bgAttr, cellBg]) {
+		if (value) colors.add(normalizeHexColor(value));
+	}
+
+	let healed = false;
+
+	if (canvasBg) {
+		if (pinColor && pinColor !== normalizeHexColor(canvasBg)) {
+			setStyleDecls(
+				canvas,
+				styleDeclsOf(canvas).map(([p, v]) =>
+					p === 'background-image' && gradientPinColor(v)
+						? ([p, `linear-gradient(${canvasBg},${canvasBg})`] as [string, string])
+						: ([p, v] as [string, string]),
+				),
+			);
+			healed = true;
+		}
+		if (bgAttr && normalizeHexColor(bgAttr) !== normalizeHexColor(canvasBg)) {
+			canvas.setAttribute('bgcolor', canvasBg);
+			healed = true;
+		}
+		if (cell && cellBg && normalizeHexColor(cellBg) !== normalizeHexColor(canvasBg)) {
+			const kept = styleDeclsOf(cell).filter(
+				([p, v]) =>
+					p !== 'background-color' && !(p === 'background-image' && gradientPinColor(v)),
+			);
+			setStyleDecls(cell, [...kept, ['background-color', canvasBg]]);
+			healed = true;
+		}
+	}
+
+	const sections = doc.sections.map((section) => {
+		const html = stripSectionColorsInFragment(section.html, colors);
+		if (html !== section.html) healed = true;
+		return html === section.html ? section : { ...section, html };
+	});
+
+	if (!healed) return { doc, healed: false };
+	return {
+		doc: { ...doc, shell: serialize(shellDoc), sections },
+		healed: true,
+		note: 'Fixed an inconsistent container background: removed a stale white overlay and baked-in section backgrounds so the container color applies everywhere. Save to keep the fix.',
 	};
 }
 

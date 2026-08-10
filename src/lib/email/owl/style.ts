@@ -48,6 +48,30 @@ export function removeStyleDecls(style: string | null | undefined, props: string
 		.join('');
 }
 
+/** Two-stop `linear-gradient(...)` detector used for compiler color pins. */
+const GRADIENT_PIN_RE = /linear-gradient\(\s*([^,)]+?)\s*,\s*([^,)]+?)\s*\)/i;
+
+/** Normalize a color literal for comparisons (#fff -> #ffffff, lowercase). */
+export function normalizeHexColor(value: string | null | undefined): string {
+	const v = (value ?? '').trim().toLowerCase();
+	const m = /^#([0-9a-f]{3})$/.exec(v);
+	if (m) return `#${m[1].split('').map((c) => c + c).join('')}`;
+	return v;
+}
+
+/**
+ * Two-stop `linear-gradient(C, C)` pin color, when both stops are the same.
+ * Such a gradient paints a solid color — it only exists as a dark-mode
+ * hardening pin; authored decorative gradients have distinct stops.
+ */
+export function gradientPinColor(value: string | null | undefined): string | null {
+	const match = value ? GRADIENT_PIN_RE.exec(value) : null;
+	if (!match) return null;
+	return normalizeHexColor(match[1]) === normalizeHexColor(match[2])
+		? normalizeHexColor(match[1])
+		: null;
+}
+
 /** Add a class to an element, preserving class order and de-duplicating. */
 export function addClass(el: { getAttribute(name: string): string | null; setAttribute(name: string, value: string): void }, cls: string): void {
 	const current = (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);

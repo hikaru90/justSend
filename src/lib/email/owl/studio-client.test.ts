@@ -12,8 +12,11 @@ import {
 	mintOwlDoc,
 	mintOwlIdsInFragment,
 	mintOwlIdsInShell,
+	shellBackdropBackgroundColor,
+	shellBackdropCrumb,
 	shellCanvasBackgroundColor,
 	shellCanvasCrumb,
+	stripSectionBackgroundColors,
 } from './studio-client';
 import { applySlotValues } from './slots';
 import { parseDocument, serialize } from './parser';
@@ -129,6 +132,152 @@ describe('studio-client: email container', () => {
 		expect(shellCanvasBackgroundColor(next!)?.toLowerCase()).toBe('#eef2ff');
 		// Outer shell backdrop stays default — no syncing.
 		expect(next).toContain('background-color:#F5F5F5');
+	});
+
+	it('canvas recolor syncs the gradient pin and the inner canvas cell', () => {
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
+		const canvasId = shellCanvasCrumb(shell)!.owlId;
+		const canvas = extractShellInspector(shell, canvasId)!;
+		expect(canvas.rawHtml).toContain('linear-gradient(#FFFFFF,#FFFFFF)');
+
+		const next = applyShellInspectorPatch(
+			shell,
+			canvasId,
+			{
+				styleRows: [
+					...canvas.styleRows.map((r) =>
+						r.prop === 'background-color' ? { ...r, value: '#FF0000' } : r,
+					),
+				],
+			},
+		)!;
+
+		// The white gradient pin must follow the new background color.
+		expect(next).not.toContain('linear-gradient(#FFFFFF,#FFFFFF)');
+		expect(next).toContain('linear-gradient(#FF0000, #FF0000)');
+		// The canvas inner cell (visible surface behind sections) follows too.
+		const cellMatch = next.match(
+			/<td[^>]*style="width:100%;([^"]*)"/,
+		);
+		expect(cellMatch?.[1]).toContain('background-color:#FF0000');
+		expect(cellMatch?.[1]).not.toContain('background-color:#FFFFFF');
+	});
+
+	it('deleting the canvas background removes the pin and the cell background', () => {
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
+		const canvasId = shellCanvasCrumb(shell)!.owlId;
+		const canvas = extractShellInspector(shell, canvasId)!;
+		const next = applyShellInspectorPatch(shell, canvasId, {
+			styleRows: canvas.styleRows
+				.filter((r) => r.prop !== 'background-color')
+				.map((r) => r),
+		})!;
+		expect(next).not.toContain('linear-gradient(#FFFFFF,#FFFFFF)');
+	});
+
+	it('a stale gradient pin (mismatched color) heals on the next background edit', () => {
+		// Saved doc where background-color and pin drifted apart (e.g. via raw
+		// HTML edits): the white pin keeps rendering even though bg says sage.
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html)
+			.replace('background-color:#FFFFFF;', 'background-color:#e8ede5;');
+		const canvasId = shellCanvasCrumb(shell)!.owlId;
+		const canvas = extractShellInspector(shell, canvasId)!;
+		expect(canvas.rawHtml).toContain('background-color:#e8ede5;');
+
+		const next = applyShellInspectorPatch(shell, canvasId, { styleRows: canvas.styleRows })!;
+		expect(next).toContain('linear-gradient(#e8ede5, #e8ede5)');
+		expect(next).not.toContain('linear-gradient(#FFFFFF,#FFFFFF)');
+	});
+
+	it('canvas background edit syncs the legacy bgcolor attribute', () => {
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
+		const canvasId = shellCanvasCrumb(shell)!.owlId;
+		const canvas = extractShellInspector(shell, canvasId)!;
+		const next = applyShellInspectorPatch(
+			shell,
+			canvasId,
+			{
+				styleRows: canvas.styleRows.map((r) =>
+					r.prop === 'background-color' ? { ...r, value: '#FF0000' } : r,
+				),
+			},
+		)!;
+		expect(next).toContain('bgcolor="#FF0000"');
+		expect(next).not.toContain('bgcolor="#FFFFFF"');
+	});
+});
+
+describe('studio-client: email backdrop', () => {
+	it('shellBackdropCrumb points at the full-width wrapper table', () => {
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
+		const crumb = shellBackdropCrumb(shell);
+		expect(crumb).not.toBeNull();
+		expect(crumb!.label).toBe('Email backdrop');
+		expect(crumb!.kind).toBe('backdrop');
+		expect(shellBackdropBackgroundColor(shell)?.toLowerCase()).toBe('#f5f5f5');
+	});
+
+	it('backdrop edit propagates to body, wrapper table, and padded cell', () => {
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
+		const backdropId = shellBackdropCrumb(shell)!.owlId;
+		const backdrop = extractShellInspector(shell, backdropId)!;
+		const next = applyShellInspectorPatch(
+			shell,
+			backdropId,
+			{
+				styleRows: backdrop.styleRows.map((r) =>
+					r.prop === 'background-color' ? { ...r, value: '#111827' } : r,
+				),
+			},
+		)!;
+
+		expect(next).not.toContain('#F5F5F5');
+		expect(next).toContain('bgcolor="#111827"');
+		// body + wrapper + cell all carry the new color, with pins.
+		expect(next.match(/background-color:\s*#111827/g)?.length).toBe(3);
+		expect(next.match(/linear-gradient\(#111827, ?#111827\)/g)?.length).toBe(3);
+		// The canvas keeps its own background.
+		expect(next).toContain('background-color:#FFFFFF');
+	});
+
+	it('deleting the backdrop background clears all three layers', () => {
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
+		const backdropId = shellBackdropCrumb(shell)!.owlId;
+		const backdrop = extractShellInspector(shell, backdropId)!;
+		const next = applyShellInspectorPatch(shell, backdropId, {
+			styleRows: backdrop.styleRows
+				.filter((r) => r.prop !== 'background-color' && r.prop !== 'background-image')
+				.map((r) => r),
+		})!;
+		expect(next).not.toContain('#F5F5F5');
+	});
+});
+
+describe('studio-client: stripSectionBackgroundColors', () => {
+	it('removes matching backgrounds so sections inherit, keeping dark-styled surfaces', () => {
+		const html =
+			'<table style="background-color:#FFFFFF;color:#262626;"><tbody><tr>' +
+			'<td style="padding:8px;background-color:#fff;color:#262626;">' +
+			'<p style="color:#262626;background-color:#FFFFFF;">Text</p>' +
+			'<a href="https://x.test" style="background-color:#ffffff;color:#000000;" data-owl-dark-style="background-color:#1a3a6e;">Button</a>' +
+			'</td></tr></tbody></table>';
+		const next = stripSectionBackgroundColors(html, new Set(['#ffffff']));
+		expect(next).not.toMatch(/<(table|td|p)[^>]*background-color/i);
+		// The dark-styled button keeps its authored white surface.
+		expect(next).toContain('data-owl-dark-style="background-color:#1a3a6e;"');
+		expect(next).toContain('background-color:#ffffff;color:#000000;');
+		// Other declarations survive.
+		expect(next).toContain('padding:8px');
+		expect(next).toContain('color:#262626');
+	});
+
+	it('keeps backgrounds of other colors and strips matching gradient pins', () => {
+		const html =
+			'<div style="background-color:#FFF5E5;">Authored</div>' +
+			'<div style="background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);">Pinned</div>';
+		const next = stripSectionBackgroundColors(html, new Set(['#FFFFFF']));
+		expect(next).toContain('background-color:#FFF5E5;');
+		expect(next).not.toContain('linear-gradient');
 	});
 });
 

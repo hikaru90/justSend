@@ -47,7 +47,7 @@ function escapeAttr(value: string): string {
 	return escapeHtml(value).replace(/'/g, '&#39;');
 }
 
-function fontFamilyCss(name: string | undefined): string {
+export function fontFamilyCss(name: string | undefined): string {
 	switch (name) {
 		case 'BOOK_SANS':
 			return 'Optima, Candara, "Noto Sans", source-sans-pro, sans-serif';

@@ -84,6 +84,14 @@ describe('deliverOwlHtml', () => {
 		expect(occurrences).toBe(1);
 	});
 
+	it('carries the shell canvas text styles onto the raw wrapper', () => {
+		const { xml } = buildOwlMjmlDocument(renderOwlMarkupHtml(doc()).html);
+		expect(xml).toContain("font-family:'Helvetica Neue',Helvetica,Arial,sans-serif");
+		expect(xml).toContain('color:#262626');
+		expect(xml).toContain('font-size:16px');
+		expect(xml).toContain('line-height:1.5');
+	});
+
 	it('is deterministic across runs', async () => {
 		const markup = renderOwlMarkupHtml(doc()).html;
 		const a = await deliverOwlHtml(markup);

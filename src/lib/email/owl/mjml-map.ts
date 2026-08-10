@@ -31,6 +31,20 @@ function readBackgroundColor(el: Element): string | null {
 	return bg ?? el.getAttribute('bgcolor');
 }
 
+/** Inheritable text styles carried from the replaced canvas table to the raw wrapper div. */
+const INHERITED_TEXT_PROPS = ['color', 'font-family', 'font-size', 'line-height'] as const;
+
+function inheritedCanvasStyle(canvasTable: Element | null): string {
+	if (!canvasTable) return '';
+	const decls = parseStyleDecls(canvasTable.getAttribute('style'));
+	return INHERITED_TEXT_PROPS.map(
+		(prop) => decls.find(([p]) => p === prop),
+	)
+		.filter((d): d is [string, string] => !!d)
+		.map(([p, v]) => `${p}:${v};`)
+		.join('');
+}
+
 /** The canvas = the inner max-width table inside the shell root (mirrors studio-client.findCanvasTable). */
 function findCanvasTable(doc: Document): Element | null {
 	const shell = doc.querySelector(`[${OWL.role}="shell"]`);
@@ -103,6 +117,12 @@ export function buildOwlMjmlDocument(compiledHtml: string): OwlDeliveryMap {
 			.map((n) => (typeof n.toString === 'function' ? n.toString() : ''))
 			.join('\n');
 	}
+
+	// The MJML wrapper replaces the shell canvas table — carry its inheritable
+	// text styles (font/color/size/leading) so raw content does not fall back
+	// to the browser default font.
+	const textRootStyle = inheritedCanvasStyle(canvasTable);
+	if (textRootStyle) sectionsRaw = `<div style="${textRootStyle.replace(/"/g, "'")}">${sectionsRaw}</div>`;
 
 	const baseCss = doc.head?.querySelector(`style[${OWL.baseCss}]`)?.textContent ?? '';
 

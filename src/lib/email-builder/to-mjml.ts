@@ -11,11 +11,12 @@
  * Pure string building: client- and worker-safe; no mjml import here.
  */
 import { fluidifyEmailHtml } from '$lib/email/fluidify-email-html';
-import { renderBlock } from './render-html';
+import { fontFamilyCss, renderBlock } from './render-html';
 import type { TEditorBlock, TEditorConfiguration } from './types';
 
 const DEFAULT_BACKDROP = '#F5F5F5';
 const DEFAULT_CANVAS = '#FFFFFF';
+const DEFAULT_TEXT = '#262626';
 
 function xmlAttr(value: string): string {
 	return value.replace(/["'<>&]/g, '').trim();
@@ -49,6 +50,8 @@ export function toMjmlDocument(document: TEditorConfiguration): string {
 	const root = layoutBlock(document);
 	const backdrop = root?.data.backdropColor ?? DEFAULT_BACKDROP;
 	const canvas = root?.data.canvasColor ?? DEFAULT_CANVAS;
+	const textColor = root?.data.textColor ?? DEFAULT_TEXT;
+	const font = fontFamilyCss(root?.data.fontFamily);
 
 	const kids = root
 		? fluidifyEmailHtml(
@@ -56,12 +59,20 @@ export function toMjmlDocument(document: TEditorConfiguration): string {
 			)
 		: '';
 
+	// The canvas table in renderEmailLayout carries the base text styles; the
+	// MJML wrapper replaces that table, so the raw content div re-declares them
+	// (otherwise mj-raw content falls back to the browser default font).
+	const textRootStyle = `color:${textColor};font-family:${font};font-size:16px;line-height:1.5;`.replace(
+		/"/g,
+		"'",
+	);
+
 	return (
 		`<mjml lang="en"><mj-head><mj-style>${BASE_CSS}</mj-style></mj-head>` +
 		`<mj-body background-color="${xmlAttr(backdrop)}" width="600px">` +
 		backdropSpacer(backdrop) +
 		`<mj-wrapper background-color="${xmlAttr(canvas)}">` +
-		`<mj-raw><div class="gmail-blend-screen"><div class="gmail-blend-difference">${kids}</div></div></mj-raw>` +
+		`<mj-raw><div style="${textRootStyle}"><div class="gmail-blend-screen"><div class="gmail-blend-difference">${kids}</div></div></div></mj-raw>` +
 		`</mj-wrapper>` +
 		backdropSpacer(backdrop) +
 		`</mj-body></mjml>`

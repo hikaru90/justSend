@@ -12,7 +12,7 @@ import {
 } from '$lib/server/service/design-system-service';
 import { getDomain } from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
-import { compileOwlDoc, migrateToOwlDoc } from '$lib/email/owl/studio-server';
+import { compileOwlDoc, healOwlDocCanvas, migrateToOwlDoc } from '$lib/email/owl/studio-server';
 import {
 	parseOwlDoc,
 	serializeOwlDoc,
@@ -77,15 +77,19 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 					content,
 					html,
 				});
+		const owlDocRaw = owlParsed ?? owlMigration?.doc ?? null;
+		const owlHeal = owlDocRaw ? healOwlDocCanvas(owlDocRaw) : null;
 
 		const studioSnapshot = parseTemplateStudioSnapshot(template.designSnapshot);
 
 		return {
 			template: { ...template, content, html },
 			studioSnapshot,
-			owlDoc: owlParsed ?? owlMigration?.doc ?? null,
+			owlDoc: owlHeal?.doc ?? owlDocRaw,
 			owlMigrated: owlMigration?.migrated ?? false,
 			owlMigrationNote: owlMigration?.note ?? null,
+			owlHealed: owlHeal?.healed ?? false,
+			owlHealNote: owlHeal?.note ?? null,
 			owlStarters: STARTERS.map((s) => ({
 				key: s.key,
 				name: s.name,

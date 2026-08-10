@@ -46,8 +46,12 @@
 		mintOwlDoc,
 		mintOwlIdsInFragment,
 		nextStylePropertyToAdd,
+		shellBackdropBackgroundColor,
+		shellBackdropCrumb,
 		shellCanvasBackgroundColor,
+		shellCanvasColorSet,
 		shellCanvasCrumb,
+		stripSectionBackgroundColors,
 		stylePropertyOptions,
 		styleRowKind,
 		suggestedAttributes,
@@ -220,8 +224,13 @@
 	const blockTheme = $derived(resolveBlockTheme(designColors));
 	const emailContainer = $derived(shellCanvasCrumb(currentDoc.shell));
 	const emailContainerColor = $derived(shellCanvasBackgroundColor(currentDoc.shell) ?? '#FFFFFF');
+	const emailBackdrop = $derived(shellBackdropCrumb(currentDoc.shell));
+	const emailBackdropColor = $derived(shellBackdropBackgroundColor(currentDoc.shell) ?? '#F5F5F5');
 	const selectedIsEmailContainer = $derived(
 		emailContainer !== null && selectedOwlId === emailContainer.owlId,
+	);
+	const selectedIsEmailBackdrop = $derived(
+		emailBackdrop !== null && selectedOwlId === emailBackdrop.owlId,
 	);
 	const selectedIsShell = $derived(
 		selectedOwlId !== null && isOwlIdInShell(currentDoc, selectedOwlId),
@@ -648,11 +657,60 @@
 		});
 	}
 
+	function selectEmailBackdrop() {
+		if (!emailBackdrop) return;
+		selectedOwlId = emailBackdrop.owlId;
+		selectedMarkedEl = null;
+		selectedId = null;
+		void tick().then(() => {
+			hoverMarkedEl = null;
+			breadcrumbHoverOwlId = null;
+			syncPreviewOutlines();
+			scrollSelectedIntoPreview();
+		});
+	}
+
+	/**
+	 * Remove baked-in section backgrounds (white fills, the container color, or
+	 * the container's gradient pin color) so sections inherit the container
+	 * background again. Authored variant surfaces (data-owl-dark-style) keep
+	 * their colors.
+	 */
+	function clearSectionBackgrounds() {
+		if (!emailContainer) return;
+		const colors = shellCanvasColorSet(currentDoc.shell, emailContainer.owlId);
+		currentDoc = {
+			...currentDoc,
+			sections: currentDoc.sections.map((s) => ({
+				...s,
+				html: stripSectionBackgroundColors(s.html, colors),
+			})),
+		};
+		refreshInspector();
+	}
+
 	function applyToOwlId(owlId: string, patch: InspectorPatch) {
 		if (isOwlIdInShell(currentDoc, owlId)) {
+			// A container background edit cascades to sections: remove fills that
+			// match the OLD container surface so nothing stays pinned to the
+			// previous color and the new color shows through everywhere.
+			const wasContainer = emailContainer !== null && emailContainer.owlId === owlId;
+			const oldColors =
+				wasContainer && patch.styleRows?.some((r) => r.prop.trim().toLowerCase() === 'background-color')
+					? shellCanvasColorSet(currentDoc.shell, owlId)
+					: null;
 			const nextShell = applyShellPatch(owlId, patch);
 			if (nextShell === null) return;
 			currentDoc = updateShellHtml(currentDoc, nextShell);
+			if (oldColors) {
+				currentDoc = {
+					...currentDoc,
+					sections: currentDoc.sections.map((s) => ({
+						...s,
+						html: stripSectionBackgroundColors(s.html, oldColors),
+					})),
+				};
+			}
 			refreshInspector();
 			return;
 		}
@@ -1540,8 +1598,29 @@
 				No sections yet. Add one or build from description.
 			</p>
 		{:else}
-			<ul class="space-y-1">
-				{#if emailContainer}
+		<ul class="space-y-1">
+			{#if emailBackdrop}
+				<li>
+					<button
+						type="button"
+						class="flex w-full items-center gap-2 rounded-md border p-1.5 text-left {selectedIsEmailBackdrop
+							? 'border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/40'
+							: 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]/20'}"
+						onclick={selectEmailBackdrop}
+					>
+						<span
+							class="size-4 shrink-0 rounded border border-[hsl(var(--border))]"
+							style:background-color={emailBackdropColor}
+							aria-hidden="true"
+						></span>
+						<span class="min-w-0 flex-1 truncate text-sm font-medium">Email backdrop</span>
+						<span class="font-mono text-[0.65rem] text-[hsl(var(--muted-foreground))]"
+							>{emailBackdropColor}</span
+						>
+					</button>
+				</li>
+			{/if}
+			{#if emailContainer}
 					<li>
 						<button
 							type="button"
@@ -1795,14 +1874,38 @@
 
 		{#if inspector}
 			<div class="mb-4 space-y-4 border-b border-[hsl(var(--border))] pb-4">
-				{#if selectedIsEmailContainer}
-					<p
-						class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
-					>
-						<strong class="font-medium text-[hsl(var(--foreground))]">Email container</strong> wraps
-						all sections — change <code class="text-[0.65rem]">background-color</code> here.
+			{#if selectedIsEmailContainer}
+				<div
+					class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
+				>
+					<p>
+						<strong class="font-medium text-[hsl(var(--foreground))]">Email container</strong>
+						wraps all sections — change
+						<code class="text-[0.65rem]">background-color</code> here. Sections that have their
+						own background keep it.
 					</p>
-				{/if}
+					<button
+						type="button"
+						class="mt-1.5 underline hover:text-[hsl(var(--foreground))]"
+						onclick={clearSectionBackgrounds}
+					>
+						Clear baked-in section backgrounds
+					</button>
+					<span class="mt-0.5 block text-[0.65rem]">
+						Removes white/container-colored section backgrounds so sections inherit the container
+						color. Styled elements like buttons are kept.
+					</span>
+				</div>
+			{/if}
+			{#if selectedIsEmailBackdrop}
+				<p
+					class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
+				>
+					<strong class="font-medium text-[hsl(var(--foreground))]">Email backdrop</strong> paints
+					the page background behind the container — change
+					<code class="text-[0.65rem]">background-color</code> here.
+				</p>
+			{/if}
 
 				<p class="text-xs text-[hsl(var(--muted-foreground))]">
 					Edits apply directly to this element. The preview always renders in light mode.

@@ -3,8 +3,10 @@
  * patching section fragments. No server imports — safe for Svelte components.
  */
 import { OWL } from './format';
-import { parseStyleDecls } from './style';
+import { gradientPinColor, normalizeHexColor, parseStyleDecls } from './style';
 import type { OwlDoc, OwlSection } from './studio';
+
+export { gradientPinColor, normalizeHexColor } from './style';
 
 export type StyleRow = { prop: string; value: string };
 export type AttrRow = { name: string; value: string };
@@ -206,9 +208,7 @@ function parseShellDocument(shellHtml: string): Document | null {
 
 function serializeShellDocument(doc: Document, original: string): string {
 	const html = doc.documentElement.outerHTML;
-	return original.trim().toLowerCase().startsWith('<!doctype')
-		? `<!DOCTYPE html>\n${html}`
-		: html;
+	return original.trim().toLowerCase().startsWith('<!doctype') ? `<!DOCTYPE html>\n${html}` : html;
 }
 
 function collectOwlIds(html: string): Set<string> {
@@ -323,6 +323,35 @@ export function shellCanvasBackgroundColor(shellHtml: string): string | null {
 	if (!doc?.body) return null;
 	const canvas = findCanvasTable(doc.body);
 	return canvas ? readBackgroundColor(canvas) : null;
+}
+
+export type ShellBackdropCrumb = {
+	owlId: string;
+	label: string;
+	kind: 'backdrop';
+	tag: string;
+};
+
+function findBackdropTable(body: Element): Element | null {
+	return body.querySelector(`[${OWL.role}="shell"]`);
+}
+
+/** The full-width page wrapper behind the canvas — the email backdrop. */
+export function shellBackdropCrumb(shellHtml: string): ShellBackdropCrumb | null {
+	const doc = parseShellDocument(shellHtml);
+	if (!doc?.body) return null;
+	const backdrop = findBackdropTable(doc.body);
+	const id = backdrop?.getAttribute(OWL.id);
+	if (!backdrop || !id) return null;
+	return { owlId: id, label: 'Email backdrop', kind: 'backdrop', tag: 'table' };
+}
+
+/** Current backdrop background-color (for the sidebar color chip). */
+export function shellBackdropBackgroundColor(shellHtml: string): string | null {
+	const doc = parseShellDocument(shellHtml);
+	if (!doc?.body) return null;
+	const backdrop = findBackdropTable(doc.body);
+	return backdrop ? readBackgroundColor(backdrop) : null;
 }
 
 export function updateShellHtml(doc: OwlDoc, shell: string): OwlDoc {
@@ -463,10 +492,18 @@ function applyInspectorPatchToElement(
 	}
 
 	if (patch.styleRows !== undefined) {
-		const style = rowsToStyle(patch.styleRows);
+		const rows = syncGradientPinRows(el, patch.styleRows);
+		const style = rowsToStyle(rows);
 		if (style) el.setAttribute('style', style);
 		else el.removeAttribute('style');
 		stripTokenRefs(el);
+		// Keep the legacy `bgcolor` attribute (Outlook fallback) in step.
+		if (el.hasAttribute('bgcolor')) {
+			const bgNext =
+				rows.find((r) => r.prop.trim().toLowerCase() === 'background-color')?.value.trim() ?? '';
+			if (bgNext) el.setAttribute('bgcolor', bgNext);
+			else el.removeAttribute('bgcolor');
+		}
 	}
 
 	if (patch.attrRows !== undefined) {
@@ -476,6 +513,41 @@ function applyInspectorPatchToElement(
 	if (patch.textContent !== undefined) {
 		applyTextTo(el, patch.textContent);
 	}
+}
+
+/**
+ * The compiler pins light backgrounds with a same-color two-stop
+ * `linear-gradient` (dark-mode hardening). When the user edits or deletes an
+ * element's `background-color`, the pin must follow — otherwise the old
+ * gradient keeps painting the previous color on top of the new one.
+ */
+const GRADIENT_PIN_RE = /linear-gradient\(\s*([^,)]+?)\s*,\s*([^,)]+?)\s*\)/i;
+
+function syncGradientPinRows(el: Element, rows: StyleRow[]): StyleRow[] {
+	const oldDecls = parseStyleDecls(el.getAttribute('style'));
+	const oldPin = oldDecls.find(([p]) => p === 'background-image')?.[1];
+	// Any same-color two-stop gradient is treated as a pin and follows
+	// background-color edits — even when it no longer matches the current
+	// background (stale pins must heal, otherwise they keep painting the old
+	// color on top of the new one).
+	if (!gradientPinColor(oldPin)) return rows;
+
+	const bgRow = rows.find((r) => r.prop.trim().toLowerCase() === 'background-color');
+	const bgNext = bgRow?.value.trim() ?? '';
+	const out = [...rows];
+	const pinIdx = out.findIndex(
+		(r) => r.prop.trim().toLowerCase() === 'background-image' && GRADIENT_PIN_RE.test(r.value),
+	);
+	if (pinIdx < 0) return rows;
+	if (!bgNext) {
+		out.splice(pinIdx, 1);
+	} else {
+		out[pinIdx] = {
+			...out[pinIdx],
+			value: `linear-gradient(${bgNext}, ${bgNext})`,
+		};
+	}
+	return out;
 }
 
 export function applyInspectorPatch(
@@ -492,6 +564,33 @@ export function applyInspectorPatch(
 	return container.innerHTML;
 }
 
+/**
+ * Set (or clear) an element's background surface: `background-color`, a
+ * same-color gradient pin when the element already carries one, and the
+ * legacy `bgcolor` attribute — the trio that must move together or layers
+ * keep painting stale colors on top of each other.
+ */
+function applyBackgroundTo(el: Element, color: string | null): void {
+	const decls = parseStyleDecls(el.getAttribute('style'));
+	const hadPin = decls.some(([p, v]) => p === 'background-image' && gradientPinColor(v));
+	const kept = decls.filter(
+		([p, v]) => p !== 'background-color' && !(p === 'background-image' && gradientPinColor(v)),
+	);
+	const next: Array<[string, string]> = [...kept];
+	if (color) {
+		next.push(['background-color', color]);
+		if (hadPin) next.push(['background-image', `linear-gradient(${color},${color})`]);
+	}
+	el.setAttribute(
+		'style',
+		next.map(([p, v]) => `${p}:${v};`).join(''),
+	);
+	if (el.hasAttribute('bgcolor')) {
+		if (color) el.setAttribute('bgcolor', color);
+		else el.removeAttribute('bgcolor');
+	}
+}
+
 export function applyShellInspectorPatch(
 	shellHtml: string,
 	owlId: string,
@@ -502,7 +601,60 @@ export function applyShellInspectorPatch(
 	const el = doc.body.querySelector(`[${OWL.id}="${owlId}"]`);
 	if (!el) return null;
 	applyInspectorPatchToElement(el, doc.body, patch, owlId);
+	// The "Email container" is a composite: the 620px canvas table AND its
+	// inner cell carry explicit surfaces. Propagating the background-color to
+	// the cell keeps the visible canvas (the area behind sections) in sync and
+	// lets enforceExplicitColors fall back to the container color inside
+	// sections whose background was removed.
+	const canvas = findCanvasTable(doc.body);
+	if (canvas && canvas.getAttribute(OWL.id) === owlId && patch.styleRows) {
+		const bgRow = patch.styleRows.find((r) => r.prop.trim().toLowerCase() === 'background-color');
+		const bgNext = bgRow?.value.trim() || null;
+		const td = canvas.querySelector('td');
+		if (td) applyBackgroundTo(td, bgNext);
+	}
+	// The "Email backdrop" is a composite too: <body>, the full-width wrapper
+	// table, and its padded cell all paint the page background. One edit must
+	// move all three (plus their pins and bgcolor attributes) or the old color
+	// keeps showing around/behind the canvas.
+	const backdrop = findBackdropTable(doc.body);
+	if (backdrop && backdrop.getAttribute(OWL.id) === owlId && patch.styleRows) {
+		const bgRow = patch.styleRows.find((r) => r.prop.trim().toLowerCase() === 'background-color');
+		const bgNext = bgRow?.value.trim() || null;
+		applyBackgroundTo(doc.body, bgNext);
+		applyBackgroundTo(backdrop, bgNext);
+		const td = backdrop.querySelector('td');
+		if (td) applyBackgroundTo(td, bgNext);
+	}
 	return serializeShellDocument(doc, shellHtml);
+}
+
+/**
+ * Colors that paint the email container's background surface: the canvas
+ * table's `background-color`, its gradient pin, its `bgcolor` attribute, the
+ * inner cell's background, plus a white sentinel. Section fills matching any
+ * of these are container-surface paints (not authored accents) and get
+ * stripped so the container color shows through again.
+ */
+export function shellCanvasColorSet(shellHtml: string, canvasOwlId: string): Set<string> {
+	const colors = new Set<string>(['#ffffff']);
+	const doc = parseShellDocument(shellHtml);
+	if (!doc?.body) return colors;
+	const canvas = findCanvasTable(doc.body);
+	if (!canvas || canvas.getAttribute(OWL.id) !== canvasOwlId) return colors;
+	for (const [prop, value] of parseStyleDecls(canvas.getAttribute('style'))) {
+		if (prop === 'background-color') colors.add(normalizeHexColor(value));
+		const pin = prop === 'background-image' ? gradientPinColor(value) : null;
+		if (pin) colors.add(pin);
+	}
+	const bgAttr = canvas.getAttribute('bgcolor');
+	if (bgAttr) colors.add(normalizeHexColor(bgAttr));
+	const td = canvas.querySelector('td');
+	if (td) {
+		const tdBg = readBackgroundColor(td);
+		if (tdBg) colors.add(normalizeHexColor(tdBg));
+	}
+	return colors;
 }
 
 export function updateSectionHtml(doc: OwlDoc, sectionId: string, html: string): OwlDoc {
@@ -516,6 +668,39 @@ export function extractPreviewBodyInnerHtml(fullHtml: string): string {
 	if (typeof DOMParser === 'undefined') return fullHtml;
 	const doc = new DOMParser().parseFromString(fullHtml, 'text/html');
 	return doc.body?.innerHTML ?? fullHtml;
+}
+
+/**
+ * Remove `background-color` (and matching gradient pins) from every element
+ * of a section fragment whose color is in `colors`. Elements carrying
+ * `data-owl-dark-style` are authored variant surfaces (e.g. buttons) and are
+ * never touched. After stripping, sections inherit the container background
+ * again at compile time (`enforceExplicitColors`).
+ */
+export function stripSectionBackgroundColors(
+	sectionHtml: string,
+	colors: ReadonlySet<string>,
+): string {
+	const wanted = new Set([...colors].map(normalizeHexColor));
+	const wrapped = wrapFragment(sectionHtml);
+	if (!wrapped) return sectionHtml;
+	let changed = false;
+	for (const el of Array.from(wrapped.container.querySelectorAll('[style]'))) {
+		if (el.hasAttribute('data-owl-dark-style')) continue;
+		const decls = parseStyleDecls(el.getAttribute('style'));
+		const kept = decls.filter(([p, v]) => {
+			if (p === 'background-color') return !wanted.has(normalizeHexColor(v));
+			const pin = p === 'background-image' ? gradientPinColor(v) : null;
+			if (pin) return !wanted.has(pin);
+			return true;
+		});
+		if (kept.length !== decls.length) {
+			changed = true;
+			if (kept.length) el.setAttribute('style', kept.map(([p, v]) => `${p}:${v};`).join(''));
+			else el.removeAttribute('style');
+		}
+	}
+	return changed ? wrapped.container.innerHTML : sectionHtml;
 }
 
 export function isEditableAttribute(name: string): boolean {
