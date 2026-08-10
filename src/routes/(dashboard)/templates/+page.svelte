@@ -193,7 +193,12 @@
 			<Button size="sm" href={resolve(`/templates/${template.id}`)}>
 				{template.html ? 'Edit' : 'Generate'}
 			</Button>
-			<form method="POST" action="?/delete" use:enhance>
+			<form
+				method="POST"
+				action="?/delete"
+				use:enhance
+				onsubmit={(e) => !confirm(`Delete “${template.name}”?`) && e.preventDefault()}
+			>
 				<input type="hidden" name="id" value={template.id} />
 				<Button type="submit" size="sm" variant="destructive">Delete</Button>
 			</form>
