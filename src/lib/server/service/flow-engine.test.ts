@@ -6,8 +6,15 @@ import {
 	createDomain,
 	createContactBook,
 	createContact,
+	createTemplate,
+	createSesSetting,
 } from '../../../tests/helpers/factories';
-import { automationEnrollments, automationExecutionLog, queueJobs } from '$lib/server/db/schema';
+import {
+	automationEnrollments,
+	automationExecutionLog,
+	emails,
+	queueJobs,
+} from '$lib/server/db/schema';
 import { QUEUES } from '../queue/constants';
 import { activateFlow, createFlow, defaultFlowGraph, getFlow, updateFlow } from './flow-service';
 import { enrollContact, handleContactCreated, nextNodeId, processFlowStep } from './flow-engine';
@@ -191,6 +198,65 @@ describe('flow-engine', () => {
 			.where(eq(automationEnrollments.id, enrollment!.id))
 			.get();
 		expect(done?.status).toBe('completed');
+	});
+
+	it('substitutes {{unsubscribe_url}} when sending a template', async () => {
+		const { team, domain, book, contact } = setup();
+		createSesSetting({ region: domain.region });
+		const template = createTemplate(team.id, {
+			domainId: domain.id,
+			html: '<p>Hi</p><a href="{{unsubscribe_url}}">Unsubscribe</a>',
+			subject: 'Flow mail',
+		});
+
+		const flow = createFlow({
+			teamId: team.id,
+			domainId: domain.id,
+			name: 'Unsub flow',
+			triggerConfig: { contactBookId: book.id },
+		});
+
+		const graph = {
+			nodes: [
+				{
+					id: 'trigger-1',
+					type: 'trigger',
+					position: { x: 0, y: 0 },
+					data: { label: 'Contact created' },
+				},
+				{
+					id: 'sendEmail-1',
+					type: 'sendEmail',
+					position: { x: 0, y: 100 },
+					data: {
+						label: 'Send',
+						from: `hi@${domain.name}`,
+						subject: '',
+						templateId: template.id,
+					},
+				},
+				{ id: 'end-1', type: 'end', position: { x: 0, y: 200 }, data: { label: 'End' } },
+			],
+			edges: [
+				{ id: 'e1', source: 'trigger-1', target: 'sendEmail-1' },
+				{ id: 'e2', source: 'sendEmail-1', target: 'end-1' },
+			],
+		};
+		updateFlow(flow.id, team.id, { graph }, domain.id);
+		activateFlow(flow.id, team.id, domain.id);
+
+		const enrollment = enrollContact({
+			flow: getFlow(flow.id, team.id, domain.id),
+			contactId: contact.id,
+		});
+
+		await processFlowStep({ enrollmentId: enrollment!.id });
+
+		const sent = db.select().from(emails).where(eq(emails.contactId, contact.id)).all();
+		expect(sent).toHaveLength(1);
+		expect(sent[0]?.html).toContain(`/unsubscribe?id=${contact.id}`);
+		expect(sent[0]?.html).toContain('hash=');
+		expect(sent[0]?.html).not.toContain('{{unsubscribe_url}}');
 	});
 
 	it('handleContactCreated enrolls into matching active flows', () => {

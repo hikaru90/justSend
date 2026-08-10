@@ -12,6 +12,8 @@ import {
 } from '$lib/server/service/design-system-service';
 import { getDomain } from '$lib/server/service/domain-service';
 import { sendEmail } from '$lib/server/service/email-service';
+import { findContactByEmailForTeam } from '$lib/server/service/contact-service';
+import { unsubVariablesForContact } from '$lib/server/service/campaign-service';
 import { compileOwlDoc, healOwlDocCanvas, migrateToOwlDoc } from '$lib/email/owl/studio-server';
 import {
 	parseOwlDoc,
@@ -192,6 +194,9 @@ export const actions: Actions = {
 				const value = String(form.get(key) ?? '').trim();
 				if (value) variables[key] = value;
 			}
+
+			// Always inject unsubscribe placeholders (signed when recipient is a known contact).
+			Object.assign(variables, unsubVariablesForContact(findContactByEmailForTeam(teamId, to)));
 
 			// Save-then-send: accept the live editor doc, persist it together with
 			// the freshly compiled HTML (so DB / preview / API sends all agree),

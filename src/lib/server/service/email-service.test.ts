@@ -8,6 +8,8 @@ import {
 	createSesSetting,
 	createEmail,
 	createTemplate,
+	createContactBook,
+	createContact,
 } from '../../../tests/helpers/factories';
 import {
 	sendEmail,
@@ -206,6 +208,59 @@ describe('email-service', () => {
 
 			expect(email.subject).toBe('Hi Alex');
 			expect(email.html).toBe('<p>Hello Alex River</p>');
+		});
+
+		it('substitutes {{unsubscribe_url}} with a bare /unsubscribe when recipient is unknown', async () => {
+			const { team, domain } = setupTeamWithDomain();
+
+			const email = await sendEmail({
+				teamId: team.id,
+				from: `noreply@${domain.name}`,
+				to: 'unknown@test.com',
+				subject: 'Bye',
+				html: '<a href="{{unsubscribe_url}}">Unsubscribe</a>',
+			});
+
+			expect(email.html).toContain('href="http://localhost:5173/unsubscribe"');
+			expect(email.html).not.toContain('{{unsubscribe_url}}');
+			expect(email.html).not.toContain('hash=');
+		});
+
+		it('substitutes {{unsubscribe_url}} with a signed contact link when recipient exists', async () => {
+			const { team, domain } = setupTeamWithDomain();
+			const book = createContactBook(team.id);
+			const contact = createContact(book.id, { email: 'known@test.com' });
+
+			const email = await sendEmail({
+				teamId: team.id,
+				from: `noreply@${domain.name}`,
+				to: 'known@test.com',
+				subject: 'Bye',
+				html: '<a href="{{unsubscribe_url}}">Unsubscribe</a>',
+				templateId: createTemplate(team.id, {
+					html: '<a href="{{unsubscribe_url}}">Unsubscribe</a>',
+					subject: 'Bye',
+				}).id,
+			});
+
+			expect(email.html).toContain(`/unsubscribe?id=${contact.id}`);
+			expect(email.html).toContain('hash=');
+			expect(email.html).not.toContain('{{unsubscribe_url}}');
+		});
+
+		it('does not override a caller-provided unsubscribe_url', async () => {
+			const { team, domain } = setupTeamWithDomain();
+
+			const email = await sendEmail({
+				teamId: team.id,
+				from: `noreply@${domain.name}`,
+				to: 'recipient@test.com',
+				subject: 'Bye',
+				html: '<a href="{{unsubscribe_url}}">Unsubscribe</a>',
+				variables: { unsubscribe_url: 'https://example.com/custom-unsub' },
+			});
+
+			expect(email.html).toBe('<a href="https://example.com/custom-unsub">Unsubscribe</a>');
 		});
 
 		it('creates a scheduled email and queue job', async () => {

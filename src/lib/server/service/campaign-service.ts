@@ -113,16 +113,52 @@ export function createOneClickUnsubUrl(contactId: string, campaignId: string): s
 	return `${env.HOST_URL}/api/unsubscribe-oneclick?id=${unsubId}&hash=${unsubHash}`;
 }
 
+/** Contact-scoped unsubscribe URL (no campaign attribution). */
+export function createContactUnsubUrl(contactId: string): string {
+	const unsubHash = createHash('sha256').update(`${contactId}-${env.AUTH_SECRET}`).digest('hex');
+	return `${env.HOST_URL}/unsubscribe?id=${contactId}&hash=${unsubHash}`;
+}
+
+/** Bare unsubscribe page URL when no contact is known. */
+export function createBareUnsubUrl(): string {
+	return `${env.HOST_URL}/unsubscribe`;
+}
+
+/**
+ * Map of unsubscribe placeholder tokens → URL for the given contact, or the
+ * bare `/unsubscribe` page when no contact exists.
+ */
+export function unsubVariablesForContact(
+	contact: { id: string } | null | undefined,
+): Record<(typeof CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS)[number], string> {
+	const url = contact?.id ? createContactUnsubUrl(contact.id) : createBareUnsubUrl();
+	return {
+		unsubscribe_url: url,
+		unsend_unsubscribe_url: url,
+		owlery_unsubscribe_url: url,
+	};
+}
+
 function verifyUnsubscribeLink(
 	id: string,
 	hash: string,
-): { contactId: string; campaignId: string } {
-	const [contactId, campaignId] = id.split('-');
-	if (!contactId || !campaignId) {
-		throw new Error('Invalid unsubscribe link');
-	}
+): { contactId: string; campaignId?: string } {
 	const expectedHash = createHash('sha256').update(`${id}-${env.AUTH_SECRET}`).digest('hex');
 	if (hash !== expectedHash) {
+		throw new Error('Invalid unsubscribe link');
+	}
+
+	const dash = id.indexOf('-');
+	if (dash === -1) {
+		if (!id) {
+			throw new Error('Invalid unsubscribe link');
+		}
+		return { contactId: id };
+	}
+
+	const contactId = id.slice(0, dash);
+	const campaignId = id.slice(dash + 1);
+	if (!contactId || !campaignId) {
 		throw new Error('Invalid unsubscribe link');
 	}
 	return { contactId, campaignId };
@@ -863,10 +899,12 @@ export async function subscribeContact(id: string, hash: string): Promise<boolea
 			unsubscribeReason: null,
 		});
 
-		db.update(campaigns)
-			.set({ unsubscribed: sql`${campaigns.unsubscribed} - 1`, updatedAt: nowIso() })
-			.where(eq(campaigns.id, campaignId))
-			.run();
+		if (campaignId) {
+			db.update(campaigns)
+				.set({ unsubscribed: sql`${campaigns.unsubscribed} - 1`, updatedAt: nowIso() })
+				.where(eq(campaigns.id, campaignId))
+				.run();
+		}
 	}
 
 	return true;

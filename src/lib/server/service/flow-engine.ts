@@ -22,6 +22,7 @@ import {
 } from './flow-service';
 import { getTemplate } from './template-service';
 import { designTokensForTeam, renderTemplateForSend } from './render-template-for-send';
+import { unsubVariablesForContact } from './campaign-service';
 
 export type Enrollment = typeof automationEnrollments.$inferSelect;
 
@@ -203,6 +204,7 @@ async function executeSendEmail(
 							email: contact.email,
 							firstName: contact.firstName ?? '',
 							lastName: contact.lastName ?? '',
+							...unsubVariablesForContact(contact),
 						},
 						tokens: designTokensForTeam(flow.teamId),
 					},

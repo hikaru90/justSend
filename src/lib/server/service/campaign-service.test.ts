@@ -11,6 +11,8 @@ import { campaigns, queueJobs } from '$lib/server/db/schema';
 import { QUEUES } from '../queue/constants';
 import {
 	createCampaign,
+	createContactUnsubUrl,
+	createBareUnsubUrl,
 	deleteCampaign,
 	getCampaign,
 	listCampaigns,
@@ -19,9 +21,11 @@ import {
 	scheduleCampaign,
 	sendCampaign,
 	processCampaignBatch,
+	unsubscribeContactFromLink,
+	unsubVariablesForContact,
 	updateCampaign,
 } from './campaign-service';
-import { emails } from '$lib/server/db/schema';
+import { emails, contacts } from '$lib/server/db/schema';
 
 beforeEach(() => resetDb());
 
@@ -330,6 +334,43 @@ describe('campaign-service', () => {
 			expect(sent[0]?.html).toContain('hash=');
 			expect(sent[0]?.html).not.toContain('{{unsubscribe_url}}');
 			expect(sent[0]?.html).not.toContain('{{owlery_unsubscribe_url}}');
+		});
+	});
+
+	describe('contact-scoped unsubscribe links', () => {
+		it('createContactUnsubUrl round-trips through unsubscribeContactFromLink', async () => {
+			const { book } = setup();
+			const contact = createContact(book.id, { email: 'roundtrip@example.com', subscribed: true });
+
+			const url = createContactUnsubUrl(contact.id);
+			const parsed = new URL(url);
+			expect(parsed.pathname).toBe('/unsubscribe');
+			expect(parsed.searchParams.get('id')).toBe(contact.id);
+			expect(parsed.searchParams.get('hash')).toBeTruthy();
+
+			const updated = await unsubscribeContactFromLink(
+				parsed.searchParams.get('id')!,
+				parsed.searchParams.get('hash')!,
+			);
+			expect(updated.subscribed).toBe(false);
+
+			const row = db.select().from(contacts).where(eq(contacts.id, contact.id)).get();
+			expect(row?.subscribed).toBe(false);
+			expect(row?.unsubscribeReason).toBe('UNSUBSCRIBED');
+		});
+
+		it('unsubVariablesForContact uses bare URL when contact is missing', () => {
+			expect(unsubVariablesForContact(null).unsubscribe_url).toBe(createBareUnsubUrl());
+			expect(createBareUnsubUrl()).toMatch(/\/unsubscribe$/);
+		});
+
+		it('unsubVariablesForContact signs with contact id when present', () => {
+			const { book } = setup();
+			const contact = createContact(book.id);
+			const vars = unsubVariablesForContact(contact);
+			expect(vars.unsubscribe_url).toBe(createContactUnsubUrl(contact.id));
+			expect(vars.owlery_unsubscribe_url).toBe(vars.unsubscribe_url);
+			expect(vars.unsend_unsubscribe_url).toBe(vars.unsubscribe_url);
 		});
 	});
 });

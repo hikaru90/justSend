@@ -70,6 +70,21 @@ export function getContactInContactBook(contactId: string, contactBookId: string
 	);
 }
 
+/** First contact matching `email` in any contact book owned by `teamId`. */
+export function findContactByEmailForTeam(teamId: number, email: string): Contact | null {
+	const normalized = email.trim().toLowerCase();
+	if (!normalized) return null;
+
+	const row = db
+		.select({ contact: contacts })
+		.from(contacts)
+		.innerJoin(contactBooks, eq(contacts.contactBookId, contactBooks.id))
+		.where(and(eq(contactBooks.teamId, teamId), eq(contacts.email, normalized)))
+		.get();
+
+	return row?.contact ?? null;
+}
+
 export type ListContactsParams = {
 	contactBookId: string;
 	search?: string;

@@ -8,6 +8,8 @@ import { checkMultipleEmails } from './suppression-service';
 import { queueEmail } from './email-queue-service';
 import { absolutizeEmailAssetUrls } from '../absolutize-email-urls';
 import { env } from '../env';
+import { findContactByEmailForTeam } from './contact-service';
+import { unsubVariablesForContact } from './campaign-service';
 
 export type Email = typeof emails.$inferSelect;
 
@@ -111,25 +113,32 @@ export async function sendEmail(input: SendEmailInput): Promise<Email> {
 	const filteredCc = ccEmails.filter((email) => !suppressionResults[email]);
 	const filteredBcc = bccEmails.filter((email) => !suppressionResults[email]);
 
+	// Default-inject unsubscribe placeholders (caller-provided values win).
+	const recipientContact = findContactByEmailForTeam(teamId, toEmails[0] ?? '');
+	const mergedVariables: Record<string, string> = {
+		...unsubVariablesForContact(recipientContact),
+		...(variables ?? {}),
+	};
+
 	if (templateId) {
 		const template = db.select().from(templates).where(eq(templates.id, templateId)).get();
 		if (template) {
-			subject = replaceVariables(template.subject ?? '', variables ?? {});
+			subject = replaceVariables(template.subject ?? '', mergedVariables);
 			// Dynamic import keeps the Owl compiler out of the static email-service
 			// graph so list/get email SSR stays light.
 			const { renderTemplateForSend, designTokensForTeam } =
 				await import('./render-template-for-send');
 			html = await renderTemplateForSend(
 				{ content: template.content, html: template.html },
-				{ variables, tokens: designTokensForTeam(teamId) },
+				{ variables: mergedVariables, tokens: designTokensForTeam(teamId) },
 			);
 		}
-	} else if (variables && Object.keys(variables).length > 0) {
-		// Direct html/text sends (e.g. template-page Save-then-send preview) pass
-		// compiled markup + variables without a templateId — still substitute.
-		subject = replaceVariables(subject, variables);
-		if (html) html = replaceVariables(html, variables);
-		if (text) text = replaceVariables(text, variables);
+	} else {
+		// Always substitute so default unsub tokens apply even when the caller
+		// passed no other variables (e.g. studio preview of a marketing footer).
+		subject = replaceVariables(subject, mergedVariables);
+		if (html) html = replaceVariables(html, mergedVariables);
+		if (text) text = replaceVariables(text, mergedVariables);
 	}
 
 	if (html) {
