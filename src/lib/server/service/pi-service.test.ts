@@ -35,9 +35,7 @@ describe('isPiRateLimitError', () => {
 				'429: {"message":"Provider returned error","code":429,"metadata":{"raw":"qwen/qwen3.7-flash is temporarily rate-limited upstream"}}',
 			),
 		).toBe(true);
-		expect(isPiRateLimitError('insufficient_quota from upstream_provider_shared_pool')).toBe(
-			true,
-		);
+		expect(isPiRateLimitError('insufficient_quota from upstream_provider_shared_pool')).toBe(true);
 		expect(isPiRateLimitError('Rate limited by provider')).toBe(true);
 	});
 
@@ -248,8 +246,12 @@ describe('buildPiDesignWorkspaceFiles', () => {
 		expect(files[0].content).toContain('assets/logo/asset1-logo.png');
 		expect(files[0].content).toContain('http://localhost:5173/api/design-asset/asset1');
 		expect(files[0].content).toContain('Light logo');
-		expect(files[0].content).toContain('[logo] Light logo → http://localhost:5173/api/design-asset/asset1');
-		expect(files[0].content).toContain('[logo] Dark logo → http://localhost:5173/api/design-asset/asset2');
+		expect(files[0].content).toContain(
+			'[logo] Light logo → http://localhost:5173/api/design-asset/asset1',
+		);
+		expect(files[0].content).toContain(
+			'[logo] Dark logo → http://localhost:5173/api/design-asset/asset2',
+		);
 		expect(files[0].content).toContain('http://localhost:5173/api/design-asset/asset2');
 	});
 

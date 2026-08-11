@@ -37,9 +37,7 @@ const INHERITED_TEXT_PROPS = ['color', 'font-family', 'font-size', 'line-height'
 function inheritedCanvasStyle(canvasTable: Element | null): string {
 	if (!canvasTable) return '';
 	const decls = parseStyleDecls(canvasTable.getAttribute('style'));
-	return INHERITED_TEXT_PROPS.map(
-		(prop) => decls.find(([p]) => p === prop),
-	)
+	return INHERITED_TEXT_PROPS.map((prop) => decls.find(([p]) => p === prop))
 		.filter((d): d is [string, string] => !!d)
 		.map(([p, v]) => `${p}:${v};`)
 		.join('');
@@ -122,7 +120,8 @@ export function buildOwlMjmlDocument(compiledHtml: string): OwlDeliveryMap {
 	// text styles (font/color/size/leading) so raw content does not fall back
 	// to the browser default font.
 	const textRootStyle = inheritedCanvasStyle(canvasTable);
-	if (textRootStyle) sectionsRaw = `<div style="${textRootStyle.replace(/"/g, "'")}">${sectionsRaw}</div>`;
+	if (textRootStyle)
+		sectionsRaw = `<div style="${textRootStyle.replace(/"/g, "'")}">${sectionsRaw}</div>`;
 
 	const baseCss = doc.head?.querySelector(`style[${OWL.baseCss}]`)?.textContent ?? '';
 

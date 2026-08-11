@@ -16,9 +16,9 @@ describe('inferEditApproach', () => {
 	};
 
 	it('picks html for raw/custom html and media-query cues', () => {
-		expect(
-			inferEditApproach({ instruction: 'raw html CTA button', document: withButton }),
-		).toBe('html');
+		expect(inferEditApproach({ instruction: 'raw html CTA button', document: withButton })).toBe(
+			'html',
+		);
 		expect(
 			inferEditApproach({
 				instruction: 'Add @media queries for mobile stacking',

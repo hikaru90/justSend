@@ -4,7 +4,11 @@ import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import type { ComponentSlot, TEditorConfiguration } from '$lib/email-builder/types';
 import { EMPTY_DOCUMENT } from '$lib/email-builder/types';
-import { annotateOwlSectionRoot, isOwlSectionHtml, prepareOwlSectionFragment } from '$lib/email/owl/fragment';
+import {
+	annotateOwlSectionRoot,
+	isOwlSectionHtml,
+	prepareOwlSectionFragment,
+} from '$lib/email/owl/fragment';
 import { slotsFromFragment } from '$lib/email/owl/slots';
 import { cuid, nowIso } from '$lib/utils';
 import { db } from '../db';

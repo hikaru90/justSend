@@ -12,8 +12,7 @@ export function isEmptyComponentDocument(document: TEditorConfiguration): boolea
 	return !Array.isArray(children) || children.length === 0;
 }
 
-const HTML_INSTRUCTION_RE =
-	/\b(raw\s*html|custom\s*html|inline\s*css|markup)\b|@media\b/i;
+const HTML_INSTRUCTION_RE = /\b(raw\s*html|custom\s*html|inline\s*css|markup)\b|@media\b/i;
 
 const CONTENT_BLOCK_TYPES = new Set([
 	'Heading',
@@ -95,7 +94,8 @@ function collectContentBlockIds(document: TEditorConfiguration, startIds: string
 			const block = document[id];
 			if (!block || !CONTENT_BLOCK_TYPES.has(block.type)) continue;
 			if (block.type === 'Container') {
-				const kids = (block.data.props as { childrenIds?: string[] } | undefined)?.childrenIds ?? [];
+				const kids =
+					(block.data.props as { childrenIds?: string[] } | undefined)?.childrenIds ?? [];
 				visit(kids);
 				continue;
 			}

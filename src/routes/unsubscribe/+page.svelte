@@ -8,8 +8,8 @@
 	{#if data.bare}
 		<Card title="Manage subscription" class="w-full max-w-md text-center">
 			<p class="text-sm text-[hsl(var(--muted-foreground))]">
-				Use the unsubscribe link from your email to manage your subscription. That link is unique
-				to your address and confirms the request.
+				Use the unsubscribe link from your email to manage your subscription. That link is unique to
+				your address and confirms the request.
 			</p>
 		</Card>
 	{:else}

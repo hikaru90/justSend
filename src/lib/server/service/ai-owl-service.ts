@@ -13,7 +13,11 @@ import { env } from '../env';
 import { slotsFromFragment } from '$lib/email/owl/slots';
 import type { OwlDoc } from '$lib/email/owl/studio';
 import { newSectionId } from '$lib/email/owl/studio';
-import { getDesignSystemBundle, listOwlSectionComponents, parseComponentProps } from './design-system-service';
+import {
+	getDesignSystemBundle,
+	listOwlSectionComponents,
+	parseComponentProps,
+} from './design-system-service';
 import { openRouterChat, openRouterModel } from './openrouter';
 
 export type GenerateProgressEvent =
@@ -185,9 +189,7 @@ function designContextBlocks(input: BuildInput): string {
 	const otherAssetBlock =
 		nonLogoAssets.length === 0
 			? '(none)'
-			: nonLogoAssets
-					.map((a) => `- [${a.kind}] ${a.name} → /api/design-asset/${a.id}`)
-					.join('\n');
+			: nonLogoAssets.map((a) => `- [${a.kind}] ${a.name} → /api/design-asset/${a.id}`).join('\n');
 
 	return [
 		`# Template`,
@@ -275,9 +277,7 @@ export async function generateOwlScaffold(opts: OwlAiOptions): Promise<OwlAiResu
 
 	const owlLibrary = listOwlSectionComponents(opts.teamId);
 	const libraryForPrompt =
-		owlLibrary.length > 0
-			? owlLibrary
-			: bundle.components.filter((c) => c.html?.trim());
+		owlLibrary.length > 0 ? owlLibrary : bundle.components.filter((c) => c.html?.trim());
 
 	const input: BuildInput = {
 		templateName: opts.templateName ?? 'Owl email',
@@ -288,9 +288,10 @@ export async function generateOwlScaffold(opts: OwlAiOptions): Promise<OwlAiResu
 			name: c.name,
 			description: c.description,
 			role: c.role,
-			props: slotsFromFragment(c.html)
-				.map((s) => s.name)
-				.join(', ') || parseComponentProps(c).join(', '),
+			props:
+				slotsFromFragment(c.html)
+					.map((s) => s.name)
+					.join(', ') || parseComponentProps(c).join(', '),
 			starterKey: c.starterKey,
 			source: 'design' as const,
 		})),

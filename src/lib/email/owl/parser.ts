@@ -70,7 +70,9 @@ export function importNodes(doc: Document, nodes: Node[], target: Node): void {
 /** Replace a marker comment with detached fragment nodes. */
 export function spliceAtComment(root: Node, anchor: string, fragmentHtml: string): boolean {
 	const doc =
-		root.nodeType === 9 ? (root as unknown as Document) : (root as { ownerDocument?: Document }).ownerDocument;
+		root.nodeType === 9
+			? (root as unknown as Document)
+			: (root as { ownerDocument?: Document }).ownerDocument;
 	const marker = findComment(root, anchor);
 	const parent = marker?.parentNode;
 	if (!marker || !parent || !doc) return false;

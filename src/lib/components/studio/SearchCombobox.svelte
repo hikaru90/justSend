@@ -138,7 +138,7 @@
 			}}
 			{placeholder}
 			class={cn(
-				'w-full rounded border border-[hsl(var(--input))] bg-transparent py-1 pe-7 ps-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]',
+				'w-full rounded border border-[hsl(var(--input))] bg-transparent py-1 ps-2 pe-7 text-xs outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]',
 				mono && 'font-mono',
 				inputClass,
 			)}
@@ -178,9 +178,7 @@
 							onclick={() => commit(opt.value)}
 						>
 							<Check
-								class="size-3.5 shrink-0 {opt.value === value
-									? 'opacity-100'
-									: 'opacity-0'}"
+								class="size-3.5 shrink-0 {opt.value === value ? 'opacity-100' : 'opacity-0'}"
 							/>
 							{#if opt.swatch}
 								<span

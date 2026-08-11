@@ -140,25 +140,19 @@ describe('studio-client: email container', () => {
 		const canvas = extractShellInspector(shell, canvasId)!;
 		expect(canvas.rawHtml).toContain('linear-gradient(#FFFFFF,#FFFFFF)');
 
-		const next = applyShellInspectorPatch(
-			shell,
-			canvasId,
-			{
-				styleRows: [
-					...canvas.styleRows.map((r) =>
-						r.prop === 'background-color' ? { ...r, value: '#FF0000' } : r,
-					),
-				],
-			},
-		)!;
+		const next = applyShellInspectorPatch(shell, canvasId, {
+			styleRows: [
+				...canvas.styleRows.map((r) =>
+					r.prop === 'background-color' ? { ...r, value: '#FF0000' } : r,
+				),
+			],
+		})!;
 
 		// The white gradient pin must follow the new background color.
 		expect(next).not.toContain('linear-gradient(#FFFFFF,#FFFFFF)');
 		expect(next).toContain('linear-gradient(#FF0000, #FF0000)');
 		// The canvas inner cell (visible surface behind sections) follows too.
-		const cellMatch = next.match(
-			/<td[^>]*style="width:100%;([^"]*)"/,
-		);
+		const cellMatch = next.match(/<td[^>]*style="width:100%;([^"]*)"/);
 		expect(cellMatch?.[1]).toContain('background-color:#FF0000');
 		expect(cellMatch?.[1]).not.toContain('background-color:#FFFFFF');
 	});
@@ -168,9 +162,7 @@ describe('studio-client: email container', () => {
 		const canvasId = shellCanvasCrumb(shell)!.owlId;
 		const canvas = extractShellInspector(shell, canvasId)!;
 		const next = applyShellInspectorPatch(shell, canvasId, {
-			styleRows: canvas.styleRows
-				.filter((r) => r.prop !== 'background-color')
-				.map((r) => r),
+			styleRows: canvas.styleRows.filter((r) => r.prop !== 'background-color').map((r) => r),
 		})!;
 		expect(next).not.toContain('linear-gradient(#FFFFFF,#FFFFFF)');
 	});
@@ -178,8 +170,10 @@ describe('studio-client: email container', () => {
 	it('a stale gradient pin (mismatched color) heals on the next background edit', () => {
 		// Saved doc where background-color and pin drifted apart (e.g. via raw
 		// HTML edits): the white pin keeps rendering even though bg says sage.
-		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html)
-			.replace('background-color:#FFFFFF;', 'background-color:#e8ede5;');
+		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html).replace(
+			'background-color:#FFFFFF;',
+			'background-color:#e8ede5;',
+		);
 		const canvasId = shellCanvasCrumb(shell)!.owlId;
 		const canvas = extractShellInspector(shell, canvasId)!;
 		expect(canvas.rawHtml).toContain('background-color:#e8ede5;');
@@ -193,15 +187,11 @@ describe('studio-client: email container', () => {
 		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
 		const canvasId = shellCanvasCrumb(shell)!.owlId;
 		const canvas = extractShellInspector(shell, canvasId)!;
-		const next = applyShellInspectorPatch(
-			shell,
-			canvasId,
-			{
-				styleRows: canvas.styleRows.map((r) =>
-					r.prop === 'background-color' ? { ...r, value: '#FF0000' } : r,
-				),
-			},
-		)!;
+		const next = applyShellInspectorPatch(shell, canvasId, {
+			styleRows: canvas.styleRows.map((r) =>
+				r.prop === 'background-color' ? { ...r, value: '#FF0000' } : r,
+			),
+		})!;
 		expect(next).toContain('bgcolor="#FF0000"');
 		expect(next).not.toContain('bgcolor="#FFFFFF"');
 	});
@@ -221,15 +211,11 @@ describe('studio-client: email backdrop', () => {
 		const shell = mintOwlIdsInShell(starterByKey('base-layout')!.html);
 		const backdropId = shellBackdropCrumb(shell)!.owlId;
 		const backdrop = extractShellInspector(shell, backdropId)!;
-		const next = applyShellInspectorPatch(
-			shell,
-			backdropId,
-			{
-				styleRows: backdrop.styleRows.map((r) =>
-					r.prop === 'background-color' ? { ...r, value: '#111827' } : r,
-				),
-			},
-		)!;
+		const next = applyShellInspectorPatch(shell, backdropId, {
+			styleRows: backdrop.styleRows.map((r) =>
+				r.prop === 'background-color' ? { ...r, value: '#111827' } : r,
+			),
+		})!;
 
 		expect(next).not.toContain('#F5F5F5');
 		expect(next).toContain('bgcolor="#111827"');

@@ -18,14 +18,12 @@
 	const pickerValue = $derived(hexForColorInput(value || fallback));
 
 	const comboboxOptions = $derived(
-		options.map(
-			(opt): ComboboxOption => ({
-				value: opt.value,
-				label: opt.label,
-				keywords: opt.value,
-				swatch: opt.value,
-			}),
-		),
+		options.map((opt): ComboboxOption => ({
+			value: opt.value,
+			label: opt.label,
+			keywords: opt.value,
+			swatch: opt.value,
+		})),
 	);
 
 	function pick(next: string) {

@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createHash } from 'node:crypto';
 import { resetDb, db } from '../../tests/helpers/db';
-import {
-	createTeam,
-	createContactBook,
-	createContact,
-} from '../../tests/helpers/factories';
+import { createTeam, createContactBook, createContact } from '../../tests/helpers/factories';
 import { contacts } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { env } from '$lib/server/env';

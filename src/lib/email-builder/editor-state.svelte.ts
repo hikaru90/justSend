@@ -1,14 +1,5 @@
-import {
-	createFactoryBlock,
-	themeEmptyDocument,
-	type BlockTheme,
-} from './block-theme';
-import {
-	EMPTY_DOCUMENT,
-	newBlockId,
-	type TEditorBlock,
-	type TEditorConfiguration,
-} from './types';
+import { createFactoryBlock, themeEmptyDocument, type BlockTheme } from './block-theme';
+import { EMPTY_DOCUMENT, newBlockId, type TEditorBlock, type TEditorConfiguration } from './types';
 import { cloneDocument } from './render';
 
 export type EditorTab = 'editor' | 'preview' | 'html' | 'json' | 'ai';

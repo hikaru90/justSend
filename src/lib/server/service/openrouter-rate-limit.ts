@@ -127,7 +127,11 @@ export async function withOpenRouterRateLimit<T>(
 			err.name = 'AbortError';
 			throw err;
 		}
-		const waitMs = Math.max(0, lastStartAt + MIN_INTERVAL_MS - Date.now(), cooldownUntil - Date.now());
+		const waitMs = Math.max(
+			0,
+			lastStartAt + MIN_INTERVAL_MS - Date.now(),
+			cooldownUntil - Date.now(),
+		);
 		if (waitMs > 0) await sleep(waitMs, signal);
 		lastStartAt = Date.now();
 		return await fn();
@@ -149,7 +153,11 @@ async function fetchWithRetries(
 			throw err;
 		}
 
-		const waitMs = Math.max(0, lastStartAt + MIN_INTERVAL_MS - Date.now(), cooldownUntil - Date.now());
+		const waitMs = Math.max(
+			0,
+			lastStartAt + MIN_INTERVAL_MS - Date.now(),
+			cooldownUntil - Date.now(),
+		);
 		if (waitMs > 0) await sleep(waitMs, signal);
 		lastStartAt = Date.now();
 

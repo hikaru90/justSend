@@ -148,7 +148,9 @@ describe('owl: light-only output', () => {
 describe('owl: tokens & heal & normalize', () => {
 	it('resolves data-owl-token into literal styles', () => {
 		const src = `<div style="color:#000;font-size:16px;" data-owl-token="color:primary">Hi</div>`;
-		const full = serialize(parseDocument(`<!DOCTYPE html><html><head></head><body>${src}</body></html>`));
+		const full = serialize(
+			parseDocument(`<!DOCTYPE html><html><head></head><body>${src}</body></html>`),
+		);
 		const { html } = compileOwlHtml(full, { tokens: { primary: '#0A2540' } });
 		expect(html).toContain('color:#0A2540');
 		expect(html).not.toContain('color:#000');
@@ -182,7 +184,9 @@ describe('owl: lint', () => {
 	});
 
 	it('flags missing alt text on images', () => {
-		const composed = composeEmailHtml(SHELL, [`<table role="presentation"><tbody><tr><td><img src="x.png"></td></tr></tbody></table>`]).html;
+		const composed = composeEmailHtml(SHELL, [
+			`<table role="presentation"><tbody><tr><td><img src="x.png"></td></tr></tbody></table>`,
+		]).html;
 		const { issues } = compileOwlHtml(composed);
 		expect(issues.some((i) => i.code === 'lint.img-missing-alt')).toBe(true);
 	});

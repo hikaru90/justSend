@@ -12,10 +12,7 @@ export function parseActionResult<
 	Failure extends Record<string, unknown> | undefined = Record<string, unknown>,
 >(text: string): ActionResult<Success, Failure> {
 	const parsed = JSON.parse(text) as ActionResult<Success, Failure> & { data?: unknown };
-	if (
-		(parsed.type === 'success' || parsed.type === 'failure') &&
-		typeof parsed.data === 'string'
-	) {
+	if ((parsed.type === 'success' || parsed.type === 'failure') && typeof parsed.data === 'string') {
 		return {
 			...parsed,
 			data: devalueParse(parsed.data) as Success & Failure,

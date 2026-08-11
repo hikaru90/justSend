@@ -47,9 +47,7 @@
 		lastName: testLastName,
 	});
 
-	const subjectPreview = $derived(
-		substitutePreviewPlaceholders(subject ?? '', testVariables),
-	);
+	const subjectPreview = $derived(substitutePreviewPlaceholders(subject ?? '', testVariables));
 
 	const owlDoc = $derived((data.owlDoc as OwlDoc | null) ?? null);
 
@@ -152,15 +150,20 @@
 {/if}
 
 {#if data.owlMigrated}
-	<p class="mb-4 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-2 text-sm">
-		{data.owlMigrationNote ?? 'Imported existing sections into the new studio.'} Save to switch this
-		template to the Owl editor format.
+	<p
+		class="mb-4 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-2 text-sm"
+	>
+		{data.owlMigrationNote ?? 'Imported existing sections into the new studio.'} Save to switch this template
+		to the Owl editor format.
 	</p>
 {/if}
 
 {#if data.owlHealed}
-	<p class="mb-4 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-2 text-sm">
-		{data.owlHealNote ?? 'Fixed an inconsistent container background so your container color now applies everywhere.'}{' '}
+	<p
+		class="mb-4 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-2 text-sm"
+	>
+		{data.owlHealNote ??
+			'Fixed an inconsistent container background so your container color now applies everywhere.'}{' '}
 		Save to keep the fix.
 	</p>
 {/if}
@@ -168,17 +171,19 @@
 {#if !data.designReady}
 	<Card title="Design system missing" class="mb-4">
 		<p class="mb-3 text-sm text-[hsl(var(--muted-foreground))]">
-			Optional: add a design system for branded colors and custom sections. You can still build emails
-			from the built-in library.
+			Optional: add a design system for branded colors and custom sections. You can still build
+			emails from the built-in library.
 		</p>
 		<Button href={resolve('/design-system')} size="sm">Open design system</Button>
 	</Card>
 {/if}
 
 <div class="mb-3 grid gap-2 lg:grid-cols-[1fr_auto] lg:items-start">
-	<details class="group min-w-0 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
+	<details
+		class="group min-w-0 rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--card))]"
+	>
 		<summary
-			class="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 marker:content-none select-none [&::-webkit-details-marker]:hidden"
+			class="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 select-none marker:content-none [&::-webkit-details-marker]:hidden"
 		>
 			<ChevronDown
 				class="size-3.5 shrink-0 text-[hsl(var(--muted-foreground))] transition-transform duration-200 group-open:rotate-180"
@@ -199,11 +204,14 @@
 					<Input id="tpl-name" class="h-8" bind:value={templateName} required />
 				</div>
 				<div class="min-w-40 flex-[1.5] space-y-0.5">
-					<label class="text-xs text-[hsl(var(--muted-foreground))]" for="tpl-subject">Subject</label>
+					<label class="text-xs text-[hsl(var(--muted-foreground))]" for="tpl-subject"
+						>Subject</label
+					>
 					<Input id="tpl-subject" class="h-8" bind:value={subject} required />
 				</div>
 				<div class="min-w-48 flex-[2] space-y-0.5">
-					<label class="text-xs text-[hsl(var(--muted-foreground))]" for="tpl-prompt">Description</label
+					<label class="text-xs text-[hsl(var(--muted-foreground))]" for="tpl-prompt"
+						>Description</label
 					>
 					<textarea
 						id="tpl-prompt"
@@ -245,7 +253,12 @@
 					>
 						{'{{firstName}}'}
 					</label>
-					<Input id="test-var-firstName" class="h-8" bind:value={testFirstName} placeholder="Alex" />
+					<Input
+						id="test-var-firstName"
+						class="h-8"
+						bind:value={testFirstName}
+						placeholder="Alex"
+					/>
 				</div>
 				<div class="min-w-28 flex-1 space-y-0.5">
 					<label
@@ -281,8 +294,10 @@
 		}}
 		class="flex flex-wrap items-end gap-2 lg:justify-end"
 	>
-		<div class="min-w-40 flex-1 space-y-0.5 lg:flex-none lg:min-w-48">
-			<label class="text-xs text-[hsl(var(--muted-foreground))]" for="preview-to">Send preview</label>
+		<div class="min-w-40 flex-1 space-y-0.5 lg:min-w-48 lg:flex-none">
+			<label class="text-xs text-[hsl(var(--muted-foreground))]" for="preview-to"
+				>Send preview</label
+			>
 			<Input id="preview-to" class="h-8" name="to" type="email" bind:value={previewTo} required />
 		</div>
 		<Button type="submit" size="sm" disabled={sending || !data.previewFrom}>
@@ -303,7 +318,7 @@
 		bind:preheader
 		doc={owlDoc}
 		templateId={data.template.id}
-		templateName={templateName}
+		{templateName}
 		templateSubject={subject}
 		templateDescription={templatePrompt}
 		starters={data.owlStarters}

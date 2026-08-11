@@ -581,10 +581,7 @@ function applyBackgroundTo(el: Element, color: string | null): void {
 		next.push(['background-color', color]);
 		if (hadPin) next.push(['background-image', `linear-gradient(${color},${color})`]);
 	}
-	el.setAttribute(
-		'style',
-		next.map(([p, v]) => `${p}:${v};`).join(''),
-	);
+	el.setAttribute('style', next.map(([p, v]) => `${p}:${v};`).join(''));
 	if (el.hasAttribute('bgcolor')) {
 		if (color) el.setAttribute('bgcolor', color);
 		else el.removeAttribute('bgcolor');

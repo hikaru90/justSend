@@ -1,7 +1,12 @@
 /**
  * Map design.md color tokens onto default email-builder block props/styles.
  */
-import { BLOCK_FACTORIES, EMPTY_DOCUMENT, type TEditorBlock, type TEditorConfiguration } from './types';
+import {
+	BLOCK_FACTORIES,
+	EMPTY_DOCUMENT,
+	type TEditorBlock,
+	type TEditorConfiguration,
+} from './types';
 
 export type BlockTheme = {
 	primary: string;
@@ -62,19 +67,14 @@ export function resolveBlockTheme(colors: string[] | null | undefined): BlockThe
 	const lightest = byLuma[byLuma.length - 1]!;
 
 	// First non-white token is usually the brand primary in design.md order.
-	const primary =
-		normalized.find((c) => !isNearWhite(c)) ?? normalized[0] ?? DEFAULT_THEME.primary;
+	const primary = normalized.find((c) => !isNearWhite(c)) ?? normalized[0] ?? DEFAULT_THEME.primary;
 
 	const text = isNearBlack(darkest) || luminance(darkest) < 0.4 ? darkest : DEFAULT_THEME.text;
 	const canvas = isNearWhite(lightest) ? lightest : DEFAULT_THEME.canvas;
 	const muted =
 		normalized.find(
 			(c) =>
-				c !== primary &&
-				c !== text &&
-				!isNearWhite(c) &&
-				!isNearBlack(c) &&
-				luminance(c) > 0.35,
+				c !== primary && c !== text && !isNearWhite(c) && !isNearBlack(c) && luminance(c) > 0.35,
 		) ?? DEFAULT_THEME.muted;
 	const backdrop =
 		normalized.find((c) => c !== canvas && luminance(c) > 0.7 && luminance(c) < 0.95) ??
@@ -91,7 +91,10 @@ export function resolveBlockTheme(colors: string[] | null | undefined): BlockThe
 }
 
 /** Apply brand colors onto a freshly created factory block. */
-export function applyBlockTheme(block: TEditorBlock, theme: BlockTheme | null | undefined): TEditorBlock {
+export function applyBlockTheme(
+	block: TEditorBlock,
+	theme: BlockTheme | null | undefined,
+): TEditorBlock {
 	if (!theme) return block;
 	const style = { ...(block.data.style ?? {}) } as Record<string, unknown>;
 	const props = { ...(block.data.props ?? {}) } as Record<string, unknown>;
@@ -142,10 +145,7 @@ export function applyBlockTheme(block: TEditorBlock, theme: BlockTheme | null | 
 }
 
 /** Create a built-in block, optionally themed from design.md colors. */
-export function createFactoryBlock(
-	type: string,
-	theme?: BlockTheme | null,
-): TEditorBlock | null {
+export function createFactoryBlock(type: string, theme?: BlockTheme | null): TEditorBlock | null {
 	const factory = BLOCK_FACTORIES.find((f) => f.type === type);
 	if (!factory) return null;
 	return applyBlockTheme(factory.create(), theme);

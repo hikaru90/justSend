@@ -35,7 +35,7 @@
 			});
 		}}
 		class="space-y-1.5 px-3 py-2 font-mono text-xs {scrollBody
-			? 'min-h-48 max-h-80 flex-1 overflow-y-auto'
+			? 'max-h-80 min-h-48 flex-1 overflow-y-auto'
 			: ''}"
 		aria-live="polite"
 	>
@@ -54,13 +54,17 @@
 				<p class="text-[hsl(var(--muted-foreground))]">{line.label}</p>
 			{:else if line.kind === 'system'}
 				<details class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1">
-					<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]">System prompt</summary>
-					<pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
+					<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]"
+						>System prompt</summary
+					>
+					<pre
+						class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
 				</details>
 			{:else if line.kind === 'context'}
 				<details class="rounded border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-2 py-1">
 					<summary class="cursor-pointer font-sans text-[hsl(var(--foreground))]">Context</summary>
-					<pre class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
+					<pre
+						class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-[hsl(var(--muted-foreground))]">{line.label}</pre>
 				</details>
 			{:else if line.kind === 'thinking'}
 				<p class="whitespace-pre-wrap text-[hsl(var(--muted-foreground))] italic">
@@ -71,11 +75,7 @@
 			{:else if line.kind === 'error'}
 				<p class="text-[hsl(var(--destructive))]">{line.label}</p>
 			{:else}
-				<p
-					class={line.error
-						? 'text-[hsl(var(--destructive))]'
-						: 'text-[hsl(var(--foreground))]'}
-				>
+				<p class={line.error ? 'text-[hsl(var(--destructive))]' : 'text-[hsl(var(--foreground))]'}>
 					<span class="opacity-70">{line.pending ? 'tool…' : 'tool'}</span>
 					<span> {line.label}</span>
 					{#if line.detail}
@@ -86,9 +86,7 @@
 		{/each}
 	</div>
 	{#if busy || status || error}
-		<div
-			class="flex flex-wrap items-center gap-2 border-t border-[hsl(var(--border))] px-3 py-2"
-		>
+		<div class="flex flex-wrap items-center gap-2 border-t border-[hsl(var(--border))] px-3 py-2">
 			{#if error}
 				<p class="text-xs text-[hsl(var(--destructive))]">{error}</p>
 			{:else if status}

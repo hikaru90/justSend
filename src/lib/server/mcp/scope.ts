@@ -1,9 +1,7 @@
 import { getTeamAndApiKey } from '../service/api-service';
 import type { McpScope } from './handlers';
 
-export async function resolveScopeFromEnv(
-	env: NodeJS.ProcessEnv = process.env,
-): Promise<McpScope> {
+export async function resolveScopeFromEnv(env: NodeJS.ProcessEnv = process.env): Promise<McpScope> {
 	const apiKey = env.OWLERY_API_KEY?.trim();
 	if (!apiKey) {
 		throw new Error('OWLERY_API_KEY is required');

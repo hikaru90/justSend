@@ -83,9 +83,17 @@ export const STARTERS: StarterComponent[] = Object.keys(modules)
 			role: 'section' as const,
 			description: '',
 		};
-		return { key, name: meta.name, role: meta.role, description: meta.description, html: modules[path]! };
+		return {
+			key,
+			name: meta.name,
+			role: meta.role,
+			description: meta.description,
+			html: modules[path]!,
+		};
 	})
-	.sort((a, b) => (a.role === 'shell' ? -1 : b.role === 'shell' ? 1 : a.name.localeCompare(b.name)));
+	.sort((a, b) =>
+		a.role === 'shell' ? -1 : b.role === 'shell' ? 1 : a.name.localeCompare(b.name),
+	);
 
 export function starterByKey(key: string): StarterComponent | undefined {
 	return STARTERS.find((s) => s.key === key);

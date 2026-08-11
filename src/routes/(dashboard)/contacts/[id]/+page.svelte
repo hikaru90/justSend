@@ -147,8 +147,7 @@
 									method="POST"
 									action="?/delete"
 									use:enhance
-									onsubmit={(e) =>
-										!confirm(`Delete ${contact.email}?`) && e.preventDefault()}
+									onsubmit={(e) => !confirm(`Delete ${contact.email}?`) && e.preventDefault()}
 								>
 									<input type="hidden" name="contactId" value={contact.id} />
 									<Button type="submit" size="sm" variant="destructive">Delete</Button>

@@ -91,9 +91,7 @@ function findCanvasTableInDoc(doc: Document): Element | null {
 		if (/max-width:\s*[\d.]+px/i.test(style)) return table as unknown as Element;
 	}
 	const nested = shell.querySelector('table');
-	return nested && nested !== (shell as unknown as Element)
-		? (nested as unknown as Element)
-		: null;
+	return nested && nested !== (shell as unknown as Element) ? (nested as unknown as Element) : null;
 }
 
 function styleDeclsOf(el: Element): Array<[string, string]> {
@@ -101,7 +99,9 @@ function styleDeclsOf(el: Element): Array<[string, string]> {
 }
 
 function backgroundColorOf(el: Element): string | null {
-	return styleDeclsOf(el).find(([p]) => p === 'background-color')?.[1] ?? el.getAttribute('bgcolor');
+	return (
+		styleDeclsOf(el).find(([p]) => p === 'background-color')?.[1] ?? el.getAttribute('bgcolor')
+	);
 }
 
 function setStyleDecls(el: Element, decls: Array<[string, string]>): void {
@@ -118,9 +118,7 @@ function setStyleDecls(el: Element, decls: Array<[string, string]>): void {
  */
 function stripSectionColorsInFragment(html: string, colors: ReadonlySet<string>): string {
 	const wanted = new Set([...colors].map(normalizeHexColor));
-	const doc = parseDocument(
-		`<!DOCTYPE html><html><head></head><body>${html}</body></html>`,
-	);
+	const doc = parseDocument(`<!DOCTYPE html><html><head></head><body>${html}</body></html>`);
 	let changed = false;
 	for (const el of walkElements(doc)) {
 		if (el.hasAttribute('data-owl-dark-style')) continue;
@@ -189,8 +187,7 @@ export function healOwlDocCanvas(doc: OwlDoc): OwlHealResult {
 		}
 		if (cell && cellBg && normalizeHexColor(cellBg) !== normalizeHexColor(canvasBg)) {
 			const kept = styleDeclsOf(cell).filter(
-				([p, v]) =>
-					p !== 'background-color' && !(p === 'background-image' && gradientPinColor(v)),
+				([p, v]) => p !== 'background-color' && !(p === 'background-image' && gradientPinColor(v)),
 			);
 			setStyleDecls(cell, [...kept, ['background-color', canvasBg]]);
 			healed = true;

@@ -55,7 +55,11 @@ const GRADIENT_PIN_RE = /linear-gradient\(\s*([^,)]+?)\s*,\s*([^,)]+?)\s*\)/i;
 export function normalizeHexColor(value: string | null | undefined): string {
 	const v = (value ?? '').trim().toLowerCase();
 	const m = /^#([0-9a-f]{3})$/.exec(v);
-	if (m) return `#${m[1].split('').map((c) => c + c).join('')}`;
+	if (m)
+		return `#${m[1]
+			.split('')
+			.map((c) => c + c)
+			.join('')}`;
 	return v;
 }
 
@@ -73,7 +77,13 @@ export function gradientPinColor(value: string | null | undefined): string | nul
 }
 
 /** Add a class to an element, preserving class order and de-duplicating. */
-export function addClass(el: { getAttribute(name: string): string | null; setAttribute(name: string, value: string): void }, cls: string): void {
+export function addClass(
+	el: {
+		getAttribute(name: string): string | null;
+		setAttribute(name: string, value: string): void;
+	},
+	cls: string,
+): void {
 	const current = (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
 	if (current.includes(cls)) return;
 	current.push(cls);
@@ -81,7 +91,13 @@ export function addClass(el: { getAttribute(name: string): string | null; setAtt
 }
 
 /** Remove all classes with the given prefix from an element. */
-export function removeClassesByPrefix(el: { getAttribute(name: string): string | null; setAttribute(name: string, value: string): void }, prefix: string): void {
+export function removeClassesByPrefix(
+	el: {
+		getAttribute(name: string): string | null;
+		setAttribute(name: string, value: string): void;
+	},
+	prefix: string,
+): void {
 	const current = (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
 	const next = current.filter((c) => !c.startsWith(prefix));
 	if (next.length !== current.length) {

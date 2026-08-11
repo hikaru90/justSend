@@ -12,12 +12,10 @@
 	} = $props();
 
 	const comboboxOptions = $derived(
-		options.map(
-			(opt): ComboboxOption => ({
-				value: opt,
-				label: opt,
-			}),
-		),
+		options.map((opt): ComboboxOption => ({
+			value: opt,
+			label: opt,
+		})),
 	);
 </script>
 

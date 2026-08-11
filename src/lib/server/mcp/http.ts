@@ -25,10 +25,7 @@ function sessionMatches(session: Session, scope: McpScope) {
  * Clients (Hermes, Cursor, …) send `Authorization: Bearer us_…` and reuse
  * the `mcp-session-id` response header on follow-up requests.
  */
-export async function handleOwleryMcpHttp(
-	request: Request,
-	scope: McpScope,
-): Promise<Response> {
+export async function handleOwleryMcpHttp(request: Request, scope: McpScope): Promise<Response> {
 	const existingId = request.headers.get('mcp-session-id');
 	if (existingId) {
 		const session = sessions.get(existingId);

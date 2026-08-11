@@ -696,7 +696,8 @@
 			// previous color and the new color shows through everywhere.
 			const wasContainer = emailContainer !== null && emailContainer.owlId === owlId;
 			const oldColors =
-				wasContainer && patch.styleRows?.some((r) => r.prop.trim().toLowerCase() === 'background-color')
+				wasContainer &&
+				patch.styleRows?.some((r) => r.prop.trim().toLowerCase() === 'background-color')
 					? shellCanvasColorSet(currentDoc.shell, owlId)
 					: null;
 			const nextShell = applyShellPatch(owlId, patch);
@@ -1598,29 +1599,29 @@
 				No sections yet. Add one or build from description.
 			</p>
 		{:else}
-		<ul class="space-y-1">
-			{#if emailBackdrop}
-				<li>
-					<button
-						type="button"
-						class="flex w-full items-center gap-2 rounded-md border p-1.5 text-left {selectedIsEmailBackdrop
-							? 'border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/40'
-							: 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]/20'}"
-						onclick={selectEmailBackdrop}
-					>
-						<span
-							class="size-4 shrink-0 rounded border border-[hsl(var(--border))]"
-							style:background-color={emailBackdropColor}
-							aria-hidden="true"
-						></span>
-						<span class="min-w-0 flex-1 truncate text-sm font-medium">Email backdrop</span>
-						<span class="font-mono text-[0.65rem] text-[hsl(var(--muted-foreground))]"
-							>{emailBackdropColor}</span
+			<ul class="space-y-1">
+				{#if emailBackdrop}
+					<li>
+						<button
+							type="button"
+							class="flex w-full items-center gap-2 rounded-md border p-1.5 text-left {selectedIsEmailBackdrop
+								? 'border-[hsl(var(--ring))] bg-[hsl(var(--muted))]/40'
+								: 'border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]/20'}"
+							onclick={selectEmailBackdrop}
 						>
-					</button>
-				</li>
-			{/if}
-			{#if emailContainer}
+							<span
+								class="size-4 shrink-0 rounded border border-[hsl(var(--border))]"
+								style:background-color={emailBackdropColor}
+								aria-hidden="true"
+							></span>
+							<span class="min-w-0 flex-1 truncate text-sm font-medium">Email backdrop</span>
+							<span class="font-mono text-[0.65rem] text-[hsl(var(--muted-foreground))]"
+								>{emailBackdropColor}</span
+							>
+						</button>
+					</li>
+				{/if}
+				{#if emailContainer}
 					<li>
 						<button
 							type="button"
@@ -1874,38 +1875,38 @@
 
 		{#if inspector}
 			<div class="mb-4 space-y-4 border-b border-[hsl(var(--border))] pb-4">
-			{#if selectedIsEmailContainer}
-				<div
-					class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
-				>
-					<p>
-						<strong class="font-medium text-[hsl(var(--foreground))]">Email container</strong>
-						wraps all sections — change
-						<code class="text-[0.65rem]">background-color</code> here. Sections that have their
-						own background keep it.
-					</p>
-					<button
-						type="button"
-						class="mt-1.5 underline hover:text-[hsl(var(--foreground))]"
-						onclick={clearSectionBackgrounds}
+				{#if selectedIsEmailContainer}
+					<div
+						class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
 					>
-						Clear baked-in section backgrounds
-					</button>
-					<span class="mt-0.5 block text-[0.65rem]">
-						Removes white/container-colored section backgrounds so sections inherit the container
-						color. Styled elements like buttons are kept.
-					</span>
-				</div>
-			{/if}
-			{#if selectedIsEmailBackdrop}
-				<p
-					class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
-				>
-					<strong class="font-medium text-[hsl(var(--foreground))]">Email backdrop</strong> paints
-					the page background behind the container — change
-					<code class="text-[0.65rem]">background-color</code> here.
-				</p>
-			{/if}
+						<p>
+							<strong class="font-medium text-[hsl(var(--foreground))]">Email container</strong>
+							wraps all sections — change
+							<code class="text-[0.65rem]">background-color</code> here. Sections that have their own
+							background keep it.
+						</p>
+						<button
+							type="button"
+							class="mt-1.5 underline hover:text-[hsl(var(--foreground))]"
+							onclick={clearSectionBackgrounds}
+						>
+							Clear baked-in section backgrounds
+						</button>
+						<span class="mt-0.5 block text-[0.65rem]">
+							Removes white/container-colored section backgrounds so sections inherit the container
+							color. Styled elements like buttons are kept.
+						</span>
+					</div>
+				{/if}
+				{#if selectedIsEmailBackdrop}
+					<p
+						class="rounded-md border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/20 px-2 py-1.5 text-xs text-[hsl(var(--muted-foreground))]"
+					>
+						<strong class="font-medium text-[hsl(var(--foreground))]">Email backdrop</strong> paints
+						the page background behind the container — change
+						<code class="text-[0.65rem]">background-color</code> here.
+					</p>
+				{/if}
 
 				<p class="text-xs text-[hsl(var(--muted-foreground))]">
 					Edits apply directly to this element. The preview always renders in light mode.

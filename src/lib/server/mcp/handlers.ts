@@ -46,7 +46,8 @@ function asContentString(value: unknown): string | null | undefined {
 function invalidOwlDocResult(content: string) {
 	return textResult(
 		{
-			error: 'Invalid OwlDoc in content. Owlery does not use MJML/React Email/bare HTML as content.',
+			error:
+				'Invalid OwlDoc in content. Owlery does not use MJML/React Email/bare HTML as content.',
 			hint: OWL_DOC_GUIDE,
 			example: OWL_DOC_MINIMAL_EXAMPLE,
 			receivedPreview: content.slice(0, 240),
@@ -55,7 +56,9 @@ function invalidOwlDocResult(content: string) {
 	);
 }
 
-function requireOwlDocContent(raw: unknown): { ok: true; content: string } | { ok: false; result: ReturnType<typeof textResult> } {
+function requireOwlDocContent(
+	raw: unknown,
+): { ok: true; content: string } | { ok: false; result: ReturnType<typeof textResult> } {
 	const content = asContentString(raw);
 	if (content === undefined || content === null || content === '') {
 		return { ok: true, content: content ?? '' };
@@ -256,11 +259,7 @@ export function createHandlers(scope: McpScope) {
 			}
 		},
 
-		async create_flow(args: {
-			name: string;
-			domainId?: number;
-			triggerConfig?: TriggerConfig;
-		}) {
+		async create_flow(args: { name: string; domainId?: number; triggerConfig?: TriggerConfig }) {
 			try {
 				const resolvedDomainId = args.domainId ?? domainId;
 				if (resolvedDomainId === undefined) {

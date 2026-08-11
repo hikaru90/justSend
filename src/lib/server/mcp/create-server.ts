@@ -86,7 +86,9 @@ export function createOwleryMcpServer(scope: McpScope): McpServer {
 					.string()
 					.nullable()
 					.optional()
-					.describe('Optional cached delivery HTML — leave null; not a substitute for OwlDoc content'),
+					.describe(
+						'Optional cached delivery HTML — leave null; not a substitute for OwlDoc content',
+					),
 				tags: z.array(z.string()).optional(),
 				domainId: z.number().int().positive().optional(),
 			},

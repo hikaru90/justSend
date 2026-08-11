@@ -89,7 +89,11 @@ export function healDocument(doc: Document): OwlIssue[] {
 			}
 			if (attr.name === 'href' || attr.name === 'src' || attr.name === 'background') {
 				const value = attr.value.trim().toLowerCase();
-				if (value.startsWith('javascript:') || value.startsWith('vbscript:') || value.startsWith('data:')) {
+				if (
+					value.startsWith('javascript:') ||
+					value.startsWith('vbscript:') ||
+					value.startsWith('data:')
+				) {
 					setAttrSafe(el, attr.name, value.startsWith('data:') ? '' : '#');
 				}
 			}

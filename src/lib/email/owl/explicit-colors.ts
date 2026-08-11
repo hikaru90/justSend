@@ -63,7 +63,11 @@ function shouldWalkChildren(el: Element): boolean {
 	return true;
 }
 
-function fillMissing(el: Element, inheritedBg: string, inheritedColor: string): {
+function fillMissing(
+	el: Element,
+	inheritedBg: string,
+	inheritedColor: string,
+): {
 	bg: string;
 	color: string;
 } {
@@ -129,9 +133,7 @@ export function enforceExplicitColors(doc: Document): OwlIssue[] {
 	const bodyBg = isNoOp(declOf(body, 'background-color'))
 		? DEFAULT_BG
 		: declOf(body, 'background-color')!;
-	const bodyColor = isNoOp(declOf(body, 'color'))
-		? DEFAULT_COLOR
-		: declOf(body, 'color')!;
+	const bodyColor = isNoOp(declOf(body, 'color')) ? DEFAULT_COLOR : declOf(body, 'color')!;
 
 	// Body itself needs an explicit color (shell already has background-color).
 	const { bg, color } = fillMissing(body, bodyBg, bodyColor);

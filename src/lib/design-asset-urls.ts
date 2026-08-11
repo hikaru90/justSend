@@ -56,11 +56,13 @@ export function normalizeBareDesignAssetUrlsInHtml(html: string): string {
 	return html
 		.replace(
 			/(\bsrc=["'])([a-fA-F0-9]{24}|[a-fA-F0-9]{64})(["'])/g,
-			(_, prefix: string, id: string, suffix: string) => `${prefix}/api/design-asset/${id}${suffix}`,
+			(_, prefix: string, id: string, suffix: string) =>
+				`${prefix}/api/design-asset/${id}${suffix}`,
 		)
 		.replace(
 			/(url\(\s*["']?)([a-fA-F0-9]{24}|[a-fA-F0-9]{64})(["']?\s*\))/g,
-			(_, prefix: string, id: string, suffix: string) => `${prefix}/api/design-asset/${id}${suffix}`,
+			(_, prefix: string, id: string, suffix: string) =>
+				`${prefix}/api/design-asset/${id}${suffix}`,
 		);
 }
 

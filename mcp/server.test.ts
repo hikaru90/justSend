@@ -12,7 +12,10 @@ const TEST_SHELL = `<!DOCTYPE html><html><head></head><body>
 
 beforeEach(() => resetDb());
 
-function parseContent(result: { content: Array<{ type: string; text: string }>; isError?: boolean }) {
+function parseContent(result: {
+	content: Array<{ type: string; text: string }>;
+	isError?: boolean;
+}) {
 	expect(result.content[0]?.type).toBe('text');
 	return JSON.parse(result.content[0].text) as Record<string, unknown>;
 }
@@ -128,9 +131,7 @@ describe('owlery MCP handlers', () => {
 		expect(String(preview.html).length).toBeGreaterThan(0);
 		expect(preview.note).toMatch(/not sent/i);
 
-		const deleted = parseContent(
-			await handlers.delete_template({ id: created.id as string }),
-		);
+		const deleted = parseContent(await handlers.delete_template({ id: created.id as string }));
 		expect(deleted.deleted).toBe(true);
 
 		const after = parseContent(await handlers.list_templates());

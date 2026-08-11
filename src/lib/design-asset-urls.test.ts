@@ -95,9 +95,7 @@ describe('normalizeBareDesignAssetUrlsInDocument', () => {
 		};
 		expect(normalizeBareDesignAssetUrlsInDocument(doc)).toBe(true);
 		expect(doc.img.data.props.url).toBe('/api/design-asset/174e2ac4d3aa4de49eb17b86');
-		expect(doc.hero.data.style.backgroundImage).toBe(
-			'/api/design-asset/5b638723b5fc4c20997f1496',
-		);
+		expect(doc.hero.data.style.backgroundImage).toBe('/api/design-asset/5b638723b5fc4c20997f1496');
 	});
 });
 

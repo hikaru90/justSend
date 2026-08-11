@@ -18,9 +18,9 @@
 		Agents (Hermes, Cursor, etc.) should use the HTTP MCP endpoint
 		<code class="rounded bg-[hsl(var(--muted))] px-1">/mcp</code>
 		with the same Bearer header. Full URL:
-		<code class="rounded bg-[hsl(var(--muted))] px-1">https://your-host/mcp</code>.
-		MCP is compose-only — it can compose flows and templates, but cannot send mail or
-		activate flows. Optional domain scoping limits which domain the agent can see.
+		<code class="rounded bg-[hsl(var(--muted))] px-1">https://your-host/mcp</code>. MCP is
+		compose-only — it can compose flows and templates, but cannot send mail or activate flows.
+		Optional domain scoping limits which domain the agent can see.
 	</p>
 	<p>
 		Alternatively, for local agents via stdio, run

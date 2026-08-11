@@ -89,17 +89,20 @@ export async function openRouterChat(
 
 	installOpenRouterFetchThrottle();
 
-	const response = await openRouterFetch(`${env.OPENROUTER_BASE_URL.replace(/\/$/, '')}/chat/completions`, {
-		method: 'POST',
-		headers: {
-			Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
-			'Content-Type': 'application/json',
-			'HTTP-Referer': env.HOST_URL,
-			'X-Title': 'Owlery',
+	const response = await openRouterFetch(
+		`${env.OPENROUTER_BASE_URL.replace(/\/$/, '')}/chat/completions`,
+		{
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
+				'Content-Type': 'application/json',
+				'HTTP-Referer': env.HOST_URL,
+				'X-Title': 'Owlery',
+			},
+			body: JSON.stringify(body),
+			signal: opts.signal,
 		},
-		body: JSON.stringify(body),
-		signal: opts.signal,
-	});
+	);
 
 	if (!response.ok) {
 		const errBody = await response.text().catch(() => '');

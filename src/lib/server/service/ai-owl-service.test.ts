@@ -14,10 +14,13 @@ const CTA = `<table role="presentation" data-owl-component="cta-button" data-owl
 
 const TEXT = `<table role="presentation" data-owl-component="text" data-owl-role="section" width="100%"><tbody><tr><td style="padding:16px 24px;"><p data-owl-slot="body_text" data-owl-slot-type="text" data-owl-slot-label="Body text">Hello</p></td></tr></tbody></table>`;
 
-function makeDoc(sections: Array<{ id: string; key: string; label: string; html: string }>): OwlDoc {
+function makeDoc(
+	sections: Array<{ id: string; key: string; label: string; html: string }>,
+): OwlDoc {
 	return {
 		owl: 'v1',
-		shell: '<table data-owl-role="shell"><tbody><tr><td><!--owl:sections--></td></tr></tbody></table>',
+		shell:
+			'<table data-owl-role="shell"><tbody><tr><td><!--owl:sections--></td></tr></tbody></table>',
 		sections,
 		preheader: 'Preview',
 		slotValues: {},
@@ -34,12 +37,8 @@ describe('owlSectionContexts', () => {
 		);
 
 		expect(contexts).toHaveLength(2);
-		expect(contexts[0].slots).toEqual([
-			{ name: 'cta_url', type: 'url', label: 'Button link' },
-		]);
-		expect(contexts[1].slots).toEqual([
-			{ name: 'body_text', type: 'text', label: 'Body text' },
-		]);
+		expect(contexts[0].slots).toEqual([{ name: 'cta_url', type: 'url', label: 'Button link' }]);
+		expect(contexts[1].slots).toEqual([{ name: 'body_text', type: 'text', label: 'Body text' }]);
 	});
 
 	it('collects unique slot names across sections', () => {
@@ -57,7 +56,16 @@ describe('buildOwlScaffoldMessages', () => {
 		templateName: 'Welcome',
 		templateSubject: 'Welcome to Owlery',
 		designMd: 'Modern, navy + white.',
-		components: [{ id: 'c1', name: 'CTA', description: null, role: 'promo', props: 'cta_text', starterKey: 'cta-button' }],
+		components: [
+			{
+				id: 'c1',
+				name: 'CTA',
+				description: null,
+				role: 'promo',
+				props: 'cta_text',
+				starterKey: 'cta-button',
+			},
+		],
 		assets: [],
 		contexts: [
 			{ id: 'a', key: 'cta-button', label: 'CTA', slots: [{ name: 'cta_url', type: 'url' }] },

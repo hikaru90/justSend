@@ -488,8 +488,8 @@
 			</label>
 			<p class="text-xs text-[hsl(var(--muted-foreground))]">
 				This block stores one HTML string. Colors like
-				<code class="text-[0.7rem]">#ffffff</code> are always light; the preview renders this block
-				as-is inside the email canvas.
+				<code class="text-[0.7rem]">#ffffff</code> are always light; the preview renders this block as-is
+				inside the email canvas.
 			</p>
 		{/if}
 

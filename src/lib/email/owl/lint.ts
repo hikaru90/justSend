@@ -27,7 +27,12 @@ export function lintDocument(doc: Document, renderedHtml?: string): OwlIssue[] {
 
 	// Global structure.
 	if (!doc.documentElement?.getAttribute('lang')) {
-		issues.push({ code: 'lint.missing-lang', severity: 'warning', message: 'Missing lang attribute on <html>.', owlId: 'html' });
+		issues.push({
+			code: 'lint.missing-lang',
+			severity: 'warning',
+			message: 'Missing lang attribute on <html>.',
+			owlId: 'html',
+		});
 	}
 
 	// Marketing templates must carry an unsubscribe placeholder.
@@ -60,17 +65,32 @@ export function lintDocument(doc: Document, renderedHtml?: string): OwlIssue[] {
 
 		if (tag === 'img') {
 			if (!el.getAttribute('src')) {
-				issues.push({ code: 'lint.img-missing-src', severity: 'error', message: '<img> has no src.', owlId });
+				issues.push({
+					code: 'lint.img-missing-src',
+					severity: 'error',
+					message: '<img> has no src.',
+					owlId,
+				});
 			}
 			if (!el.getAttribute('alt')) {
-				issues.push({ code: 'lint.img-missing-alt', severity: 'warning', message: '<img> is missing alt text.', owlId });
+				issues.push({
+					code: 'lint.img-missing-alt',
+					severity: 'warning',
+					message: '<img> is missing alt text.',
+					owlId,
+				});
 			}
 		}
 
 		if (tag === 'a') {
 			const href = el.getAttribute('href');
 			if (!href || href === '#') {
-				issues.push({ code: 'lint.a-missing-href', severity: 'warning', message: '<a> has no usable href.', owlId });
+				issues.push({
+					code: 'lint.a-missing-href',
+					severity: 'warning',
+					message: '<a> has no usable href.',
+					owlId,
+				});
 			}
 		}
 
@@ -92,7 +112,8 @@ export function lintDocument(doc: Document, renderedHtml?: string): OwlIssue[] {
 				issues.push({
 					code: 'lint.bg-color',
 					severity: 'warning',
-					message: 'Cells with a background image should also set bgcolor (Outlook falls back to it).',
+					message:
+						'Cells with a background image should also set bgcolor (Outlook falls back to it).',
 					owlId,
 				});
 			}
@@ -118,7 +139,9 @@ export function lintDocument(doc: Document, renderedHtml?: string): OwlIssue[] {
 		const cls = el.getAttribute('class') ?? '';
 		const classes = cls.split(/\s+/).filter(Boolean);
 		const hasInline = Boolean(el.getAttribute('style'));
-		const nonInert = classes.filter((c) => ![...INERT_CLASS_PREFIXES].some((p) => c === p || c.startsWith(p)));
+		const nonInert = classes.filter(
+			(c) => ![...INERT_CLASS_PREFIXES].some((p) => c === p || c.startsWith(p)),
+		);
 		if (nonInert.length > 0 && !hasInline) {
 			issues.push({
 				code: 'lint.class-without-inline',

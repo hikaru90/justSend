@@ -270,84 +270,84 @@ describe('studio: component Pi fragment helpers', () => {
 		expect(next).toContain('data-owl-component="cta-button"');
 	});
 
-describe('studio: healOwlDocCanvas', () => {
-	function staleDoc(): OwlDoc {
-		const shell = defaultOwlShell().replace(
-			'background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF)',
-			'background-color:#e8ede5;background-image:linear-gradient(#FFFFFF,#FFFFFF)',
-		);
-		const sectionHtml =
-			'<table role="presentation" data-owl-component="heading" data-owl-role="section" style="background-color:#FFFFFF;width:100%;"><tr><td style="padding:16px;background-color:#FFFFFF;"><h2 style="color:#0A2540;">Hi</h2></td></tr></table>';
-		return {
-			owl: 'v1',
-			shell,
-			sections: [{ id: 's1', key: 'heading', label: 'Heading', html: sectionHtml }],
-			slotValues: {},
-		};
-	}
-
-	it('syncs a stale white canvas pin/bgcolor/cell to the recolored canvas', () => {
-		const result = healOwlDocCanvas(staleDoc());
-		expect(result.healed).toBe(true);
-		expect(result.doc.shell).toContain(
-			'background-color:#e8ede5;background-image:linear-gradient(#e8ede5,#e8ede5)',
-		);
-		expect(result.doc.shell).toContain('bgcolor="#e8ede5"');
-		expect(result.doc.shell).toMatch(/<td style="[^"]*background-color:#e8ede5;"/);
-		expect(result.doc.shell).not.toContain('linear-gradient(#FFFFFF,#FFFFFF)');
-	});
-
-	it('strips baked-in section whites but keeps authored colors and accent surfaces', () => {
-		const result = healOwlDocCanvas(staleDoc());
-		expect(result.doc.sections[0].html).not.toContain('#FFFFFF');
-		expect(result.doc.sections[0].html).toContain('color:#0A2540');
-		expect(result.doc.sections[0].html).toContain('width:100%');
-	});
-
-	it('keeps data-owl-dark-style surfaces (buttons) untouched', () => {
-		const doc = staleDoc();
-		doc.sections[0].html =
-			'<table data-owl-role="section"><tr><td style="background-color:#FFFFFF;"><a data-owl-dark-style style="background-color:#0A2540;color:#ffffff;">Buy</a></td></tr></table>';
-		const result = healOwlDocCanvas(doc);
-		expect(result.doc.sections[0].html).toContain('background-color:#0A2540;color:#ffffff');
-		expect(result.doc.sections[0].html).not.toContain('background-color:#FFFFFF');
-	});
-
-	it('is idempotent: an already-consistent doc reports healed:false', () => {
-		const once = healOwlDocCanvas(staleDoc());
-		const twice = healOwlDocCanvas(once.doc);
-		expect(twice.healed).toBe(false);
-		expect(twice.doc.shell).toBe(once.doc.shell);
-		expect(twice.doc.sections).toEqual(once.doc.sections);
-	});
-
-	it('leaves a fresh consistent doc alone', () => {
-		const doc = emptyOwlDoc(defaultOwlShell(), 'Preview me');
-		const result = healOwlDocCanvas(doc);
-		expect(result.healed).toBe(false);
-	});
-
-	it('preserves authored white section backgrounds on a non-white canvas', () => {
-		// Consistent recolored canvas — every canvas surface is #e8ede5, no stale white pin.
-		const shell = defaultOwlShell()
-			.replaceAll(
+	describe('studio: healOwlDocCanvas', () => {
+		function staleDoc(): OwlDoc {
+			const shell = defaultOwlShell().replace(
 				'background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF)',
+				'background-color:#e8ede5;background-image:linear-gradient(#FFFFFF,#FFFFFF)',
+			);
+			const sectionHtml =
+				'<table role="presentation" data-owl-component="heading" data-owl-role="section" style="background-color:#FFFFFF;width:100%;"><tr><td style="padding:16px;background-color:#FFFFFF;"><h2 style="color:#0A2540;">Hi</h2></td></tr></table>';
+			return {
+				owl: 'v1',
+				shell,
+				sections: [{ id: 's1', key: 'heading', label: 'Heading', html: sectionHtml }],
+				slotValues: {},
+			};
+		}
+
+		it('syncs a stale white canvas pin/bgcolor/cell to the recolored canvas', () => {
+			const result = healOwlDocCanvas(staleDoc());
+			expect(result.healed).toBe(true);
+			expect(result.doc.shell).toContain(
 				'background-color:#e8ede5;background-image:linear-gradient(#e8ede5,#e8ede5)',
-			)
-			.replaceAll('bgcolor="#FFFFFF"', 'bgcolor="#e8ede5"')
-			.replaceAll('background-color:#FFFFFF;', 'background-color:#e8ede5;');
-		const sectionHtml =
-			'<table role="presentation" data-owl-component="heading" data-owl-role="section" style="background-color:#FFFFFF;width:100%;"><tr><td style="padding:16px;background-color:#FFFFFF;"><h2 style="color:#0A2540;">Hi</h2></td></tr></table>';
-		const doc: OwlDoc = {
-			owl: 'v1',
-			shell,
-			sections: [{ id: 's1', key: 'heading', label: 'Heading', html: sectionHtml }],
-			slotValues: {},
-		};
-		const result = healOwlDocCanvas(doc);
-		expect(result.healed).toBe(false);
-		expect(result.doc.sections[0].html).toContain('background-color:#FFFFFF');
-		expect(result.doc.sections[0].html).toContain('color:#0A2540');
+			);
+			expect(result.doc.shell).toContain('bgcolor="#e8ede5"');
+			expect(result.doc.shell).toMatch(/<td style="[^"]*background-color:#e8ede5;"/);
+			expect(result.doc.shell).not.toContain('linear-gradient(#FFFFFF,#FFFFFF)');
+		});
+
+		it('strips baked-in section whites but keeps authored colors and accent surfaces', () => {
+			const result = healOwlDocCanvas(staleDoc());
+			expect(result.doc.sections[0].html).not.toContain('#FFFFFF');
+			expect(result.doc.sections[0].html).toContain('color:#0A2540');
+			expect(result.doc.sections[0].html).toContain('width:100%');
+		});
+
+		it('keeps data-owl-dark-style surfaces (buttons) untouched', () => {
+			const doc = staleDoc();
+			doc.sections[0].html =
+				'<table data-owl-role="section"><tr><td style="background-color:#FFFFFF;"><a data-owl-dark-style style="background-color:#0A2540;color:#ffffff;">Buy</a></td></tr></table>';
+			const result = healOwlDocCanvas(doc);
+			expect(result.doc.sections[0].html).toContain('background-color:#0A2540;color:#ffffff');
+			expect(result.doc.sections[0].html).not.toContain('background-color:#FFFFFF');
+		});
+
+		it('is idempotent: an already-consistent doc reports healed:false', () => {
+			const once = healOwlDocCanvas(staleDoc());
+			const twice = healOwlDocCanvas(once.doc);
+			expect(twice.healed).toBe(false);
+			expect(twice.doc.shell).toBe(once.doc.shell);
+			expect(twice.doc.sections).toEqual(once.doc.sections);
+		});
+
+		it('leaves a fresh consistent doc alone', () => {
+			const doc = emptyOwlDoc(defaultOwlShell(), 'Preview me');
+			const result = healOwlDocCanvas(doc);
+			expect(result.healed).toBe(false);
+		});
+
+		it('preserves authored white section backgrounds on a non-white canvas', () => {
+			// Consistent recolored canvas — every canvas surface is #e8ede5, no stale white pin.
+			const shell = defaultOwlShell()
+				.replaceAll(
+					'background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF)',
+					'background-color:#e8ede5;background-image:linear-gradient(#e8ede5,#e8ede5)',
+				)
+				.replaceAll('bgcolor="#FFFFFF"', 'bgcolor="#e8ede5"')
+				.replaceAll('background-color:#FFFFFF;', 'background-color:#e8ede5;');
+			const sectionHtml =
+				'<table role="presentation" data-owl-component="heading" data-owl-role="section" style="background-color:#FFFFFF;width:100%;"><tr><td style="padding:16px;background-color:#FFFFFF;"><h2 style="color:#0A2540;">Hi</h2></td></tr></table>';
+			const doc: OwlDoc = {
+				owl: 'v1',
+				shell,
+				sections: [{ id: 's1', key: 'heading', label: 'Heading', html: sectionHtml }],
+				slotValues: {},
+			};
+			const result = healOwlDocCanvas(doc);
+			expect(result.healed).toBe(false);
+			expect(result.doc.sections[0].html).toContain('background-color:#FFFFFF');
+			expect(result.doc.sections[0].html).toContain('color:#0A2540');
+		});
 	});
-});
 });

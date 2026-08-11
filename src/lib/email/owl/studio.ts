@@ -38,7 +38,11 @@ export function parseOwlDoc(content: string | null | undefined): OwlDoc | null {
 		const parsed = JSON.parse(content) as unknown;
 		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
 		const doc = parsed as OwlDoc;
-		if (doc.owl !== OWL_DOC_VERSION || typeof doc.shell !== 'string' || !Array.isArray(doc.sections)) {
+		if (
+			doc.owl !== OWL_DOC_VERSION ||
+			typeof doc.shell !== 'string' ||
+			!Array.isArray(doc.sections)
+		) {
 			return null;
 		}
 		const slotValues = doc.slotValues;
@@ -72,7 +76,9 @@ export type TemplateStudioSnapshot = {
 	testVariables?: Partial<Record<'email' | 'firstName' | 'lastName', string>>;
 };
 
-export function parseTemplateStudioSnapshot(raw: string | null | undefined): TemplateStudioSnapshot {
+export function parseTemplateStudioSnapshot(
+	raw: string | null | undefined,
+): TemplateStudioSnapshot {
 	if (!raw?.trim()) return {};
 	try {
 		const parsed = JSON.parse(raw) as unknown;

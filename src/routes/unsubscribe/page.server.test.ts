@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb } from '../../tests/helpers/db';
-import {
-	createTeam,
-	createContactBook,
-	createContact,
-} from '../../tests/helpers/factories';
+import { createTeam, createContactBook, createContact } from '../../tests/helpers/factories';
 import { createContactUnsubUrl } from '$lib/server/service/campaign-service';
 import { load } from './+page.server';
 

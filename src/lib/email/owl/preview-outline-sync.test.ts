@@ -7,7 +7,11 @@ import {
 	syncInlinePreviewOutlines,
 } from './preview-outline';
 
-function mountTable(): { root: HTMLDivElement; row: HTMLTableRowElement; cells: HTMLTableCellElement[] } {
+function mountTable(): {
+	root: HTMLDivElement;
+	row: HTMLTableRowElement;
+	cells: HTMLTableCellElement[];
+} {
 	const root = document.createElement('div');
 	root.innerHTML = `
 		<table data-owl-id="w0">

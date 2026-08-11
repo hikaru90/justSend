@@ -147,10 +147,13 @@ function decorateMarkdownLinks(html: string, options?: OwlMarkdownOptions): stri
 		let attrs = rawAttrs;
 
 		if (/\bstyle\s*=/i.test(attrs)) {
-			attrs = attrs.replace(/\bstyle\s*=\s*(["'])([\s\S]*?)\1/i, (_s, q: string, existing: string) => {
-				const merged = `${style}${existing.trim()}`;
-				return `style=${q}${merged}${q}`;
-			});
+			attrs = attrs.replace(
+				/\bstyle\s*=\s*(["'])([\s\S]*?)\1/i,
+				(_s, q: string, existing: string) => {
+					const merged = `${style}${existing.trim()}`;
+					return `style=${q}${merged}${q}`;
+				},
+			);
 		} else {
 			attrs += ` style="${style}"`;
 		}

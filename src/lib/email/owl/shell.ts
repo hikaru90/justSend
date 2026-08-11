@@ -35,7 +35,7 @@ function setPreheader(doc: Document, preheader: string, issues: OwlIssue[]): voi
 	}
 
 	// Ensure the filler run is present (guarded by its trailing ZWNJ).
-	if (!((el.textContent ?? '').includes('\u200c'))) {
+	if (!(el.textContent ?? '').includes('\u200c')) {
 		el.appendChild(doc.createTextNode(OWL_FILLER));
 	}
 }

@@ -191,7 +191,11 @@ function renderHtml(block: TEditorBlock, blockId: string): string {
 	return `<div class="${cls}" style="${paddingCss(style.padding)}${fontSize}">${contents}</div>`;
 }
 
-function renderContainer(document: TEditorConfiguration, block: TEditorBlock, blockId: string): string {
+function renderContainer(
+	document: TEditorConfiguration,
+	block: TEditorBlock,
+	blockId: string,
+): string {
 	const style = styleOf(block);
 	const kids = renderChildren(document, childrenIds(block));
 	const content = style.overlayColor
@@ -247,7 +251,11 @@ ${vmlOpen}${content}${vmlClose}
 	return `<div class="${cls}" style="${bg}${pad}${border}${radius}${textAlign}${minH}">${content}</div>`;
 }
 
-function renderColumns(document: TEditorConfiguration, block: TEditorBlock, blockId: string): string {
+function renderColumns(
+	document: TEditorConfiguration,
+	block: TEditorBlock,
+	blockId: string,
+): string {
 	const style = styleOf(block);
 	const props = (block.data.props ?? {}) as {
 		columns?: Array<{ childrenIds: string[] }>;
@@ -367,4 +375,3 @@ export function renderBlock(document: TEditorConfiguration, blockId: string): st
 			return '';
 	}
 }
-

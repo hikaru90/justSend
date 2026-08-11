@@ -62,10 +62,8 @@ export function toMjmlDocument(document: TEditorConfiguration): string {
 	// The canvas table in renderEmailLayout carries the base text styles; the
 	// MJML wrapper replaces that table, so the raw content div re-declares them
 	// (otherwise mj-raw content falls back to the browser default font).
-	const textRootStyle = `color:${textColor};font-family:${font};font-size:16px;line-height:1.5;`.replace(
-		/"/g,
-		"'",
-	);
+	const textRootStyle =
+		`color:${textColor};font-family:${font};font-size:16px;line-height:1.5;`.replace(/"/g, "'");
 
 	return (
 		`<mjml lang="en"><mj-head><mj-style>${BASE_CSS}</mj-style></mj-head>` +

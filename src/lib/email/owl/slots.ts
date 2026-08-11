@@ -5,7 +5,14 @@
  * to sanitized HTML (preheader stays plain text).
  */
 import { normalizeDesignAssetSrc } from '$lib/design-asset-urls';
-import { walkElements, parseFragment, parseDocument, importNodes, type Document, type Element } from './parser';
+import {
+	walkElements,
+	parseFragment,
+	parseDocument,
+	importNodes,
+	type Document,
+	type Element,
+} from './parser';
 import { normalizeDocument } from './normalize';
 import { OWL, OWL_SLOT_TYPES, type OwlSlot, type OwlSlotType, type OwlSlotValues } from './format';
 import { renderOwlMarkdown, type OwlMarkdownOptions } from './markdown';
@@ -124,10 +131,14 @@ export function applySlotValues(
 				if (value === false) {
 					el.setAttribute(
 						'style',
-						mergeStyleDecls(el.getAttribute('style'), [
-							['display', 'none'],
-							['mso-hide', 'all'],
-						], true),
+						mergeStyleDecls(
+							el.getAttribute('style'),
+							[
+								['display', 'none'],
+								['mso-hide', 'all'],
+							],
+							true,
+						),
 					);
 				} else {
 					el.setAttribute(
