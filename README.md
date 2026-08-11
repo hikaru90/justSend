@@ -8,12 +8,36 @@ Self-hosted email infrastructure for transactional and marketing email via Amazo
 
 ## Features
 
-- **Transactional email** — REST API send/batch/schedule with templates, attachments, and idempotency keys
-- **Marketing campaigns** — contact books, scheduled/batched sends, open/click tracking
-- **Domains & SES** — DKIM/SPF/DMARC helpers, multi-region SES settings, SNS delivery webhooks
-- **Visual email builder** — block editor, design system, AI-assisted generation
-- **Automations** — visual flows (trigger → wait → send)
-- **Self-hosted** — single Docker image (web + worker), SQLite, no Redis required
+- **Amazon SES** — Multi-region SES configuration from the dashboard. Creates SNS topics, subscribes your callback URL, and registers SES configuration sets for open/click tracking. DKIM selector (default `owlery`), SPF/DMARC helpers, and background domain verification jobs. Transactional quota and send rate limit per region.
+
+- **Transactional email** — REST API send/batch/schedule with templates, attachments, custom headers, reply-to/cc/bcc, and idempotency keys. Cancel queued messages. Status timeline: queued → sent → delivered / bounced / complained / opened / clicked. Suppression short-circuit without hitting SES.
+
+- **Marketing campaigns** — Campaign CRUD with HTML/content, subject, and preview text. Bind to contact books and domains. Schedule, pause, resume. Batched sending with configurable batch size and window. Aggregate counters (sent, delivered, opened, clicked, bounced, complained, unsubscribed). Dedupe tracking via campaign-contact join table.
+
+- **Contacts & compliance** — Contact books with custom variables/properties and emoji labels. Bulk add (queued), subscribe/unsubscribe public pages, one-click unsubscribe API, double opt-in with configurable from/subject/content per book. Suppression list (hard bounce, complaint, manual) with team/domain scope.
+
+- **Visual flow automations** — Visual flow editor using [xyflow](https://xyflow.com) nodes: trigger → wait → send email → end. Statuses: draft / active / paused. Trigger types (e.g. contact created) with config JSON. Enrollments track current node and wait-until. Execution log events (entered, email queued, wait scheduled, completed, error). Flows process in the background queue worker.
+
+- **Templates & visual email builder** — Template library per team/domain. Block-based visual email builder with inspector and component library. Template elements: logo, text, button, CTA, link, image, component. Templates store content as **OwlDoc** JSON (deterministic fixed-point format) which is transpiled through MJML → HTML with URL absolutization and fluidify passes. `{{variable}}` substitution, prompt-based AI generation via OpenRouter.
+
+- **Automatic design system** — AI-powered design system management. Point Owlery at a website URL and it will:
+  - Fetch the page, strip noise, and call OpenRouter to infer a **design.md** (brand voice, colors, typography, spacing, buttons, links, logo usage, email-friendly layout notes)
+  - Download the logo and web fonts automatically
+  - Save everything as a reusable design system per team
+  - **Reapply** the design system to existing library components via AI to restyle their block-tree document while preserving structure and slot pointers
+  - **Pi-assisted editing**: an AI coding agent can edit templates and components directly
+
+- **MCP (Model Context Protocol)** — Expose templates and flows to AI agents via a standard MCP server (HTTP or stdio). Tools: `list_templates`, `get_template`, `create_template`, `update_template`, `delete_template`, `compile_template_preview`, `list_flows`, `get_flow`, `create_flow`, `update_flow`, `delete_flow`, `describe_owl_doc`. Authenticated with the same API keys as the REST API.
+
+- **Teams & access** — First registered user bootstraps the team; additional users join via invite. Roles: `ADMIN` | `MEMBER`. Team switcher and domain (project) switcher in the sidebar. Instance admin UI when user email matches `ADMIN_EMAIL`.
+
+- **Webhooks (outbound)** — Register URLs with secrets, event type filters, and domain filters. Status: active / paused / auto-disabled after consecutive failures. Delivery attempts with retries, response capture, and discard path. Driven by email lifecycle events from SES SNS parsing.
+
+- **Analytics & limits** — Dashboard overview metrics, API email time series and reputation metrics. Daily usage by team/domain/type (transactional vs marketing). Team daily email limit and API rate limits.
+
+- **Developer settings** — API key create/list/revoke (`us_…` style tokens, hashed at rest). SMTP setup guidance page.
+
+- **Self-hosted** — Single Docker image (web + worker via supervisor), SQLite (WAL), no Redis required. Compose with persistent volume. Optional dedicated worker service.
 
 ## Quick start (Docker)
 
@@ -66,6 +90,7 @@ Open [http://localhost:5173](http://localhost:5173).
 | `npm run build` | Production build (adapter-node + worker bundle) |
 | `npm run start` | Run production supervisor (web + worker) |
 | `npm run start:web` | Run web server only |
+| `npm run mcp` | Run MCP stdio server (for local AI agents) |
 | `npm test` | Run Vitest suite |
 | `npm run check` | Typecheck with svelte-check |
 | `npm run lint` / `npm run format` | Prettier check / write |
@@ -85,6 +110,27 @@ Open [http://localhost:5173](http://localhost:5173).
 
 Full walkthrough: [docs/deployment.md](./docs/deployment.md).
 
+## MCP
+
+Owlery ships an MCP server that exposes templates and flows to AI agents:
+
+```yaml
+# ~/.hermes/config.yaml
+mcp_servers:
+  owlery:
+    url: "https://<your-owlery-host>/mcp"
+    headers:
+      Authorization: "Bearer ${OWLERY_API_KEY}"
+```
+
+Or for local agents with direct SQLite access:
+
+```bash
+npm run mcp
+```
+
+See [mcp/README.md](./mcp/README.md) for the full tool reference.
+
 ## API
 
 REST API lives at `/api/v1/*`. Authenticate with `Authorization: Bearer us_...` API keys created in the dashboard.
@@ -97,6 +143,7 @@ See [docs/api.md](./docs/api.md) for curl examples (send, batch, contacts, campa
 |-----|----------|
 | [Overview](./docs/overview.md) | What Owlery is and how to run it |
 | [Architecture](./docs/architecture.md) | Processes, data model, queue |
+| [Features](./docs/features.md) | Full capability map |
 | [Deployment](./docs/deployment.md) | SES/SNS, reverse proxy, backups |
 | [API](./docs/api.md) | `/api/v1` reference |
 | [Contributing](./CONTRIBUTING.md) | Dev setup and PR checklist |
