@@ -57,7 +57,7 @@
 
 ## Phase 2 — Community files
 
-- [ ] **2.1** `LICENSE` — MIT, © 2026 Alexander Buckner.
+- [ ] **2.1** `LICENSE` — MIT, © 2026 Alexander Bückner.
 - [ ] **2.2** `CONTRIBUTING.md` — dev setup, scripts table, pointer to `docs/architecture.md`, testing conventions (co-located `*.test.ts`, DB factories in `src/tests/helpers`, mocked AWS), the `AGENTS.md` rules that apply to humans (form actions on `+page.server.ts` only, native SvelteKit endpoints, no Hono), PR checklist.
 - [ ] **2.3** `SECURITY.md` — report privately via GitHub Security Advisories; note the sensitive surface (AWS credentials, email content, contact PII).
 - [ ] **2.4** `CODE_OF_CONDUCT.md` — Contributor Covenant v2.1.

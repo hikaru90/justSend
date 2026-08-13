@@ -161,6 +161,10 @@ See `.env.example` for the full list. Key variables:
 - `FROM_EMAIL` — Sender for magic-link emails (optional)
 - `AWS_*` — Credentials and region for SES/SNS
 
+## Acknowledgements
+
+Thanks to Abdulrahman Mahmutoglu ([JustSend](https://github.com/AbdAsh/JustSend/), MIT), which Owlery started from.
+
 ## License
 
-[MIT](./LICENSE) © 2026 Alexander Buckner
+[MIT](./LICENSE) © 2026 Alexander Bückner.
