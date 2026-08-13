@@ -1,0 +1,9 @@
+node_modules
+/build
+/.svelte-kit
+/data
+package-lock.json
+*.md
+drizzle/meta
+# Compact email HTML — Prettier would expand CSS/attrs and break delivery + tests
+**/*.owl.html

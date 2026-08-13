@@ -1,0 +1,20 @@
+title = "owlery"
+
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+	'''node_modules/.*''',
+	'''\.pnpm-store/.*''',
+	'''\.svelte-kit/.*''',
+	'''build/.*''',
+	'''data/.*''',
+	'''^\.env$''',
+	'''^\.env\..*''',
+	'''opencode\.json'''
+]
+regexes = [
+	'''-----BEGIN PRIVATE KEY-----''',
+	'''-----BEGIN RSA PRIVATE KEY-----'''
+]
