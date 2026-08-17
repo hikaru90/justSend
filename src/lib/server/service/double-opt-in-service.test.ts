@@ -37,7 +37,7 @@ describe('double-opt-in-service', () => {
 	});
 
 	describe('confirmDoubleOptInSubscription', () => {
-		it('confirms subscription with a valid hash', () => {
+		it('confirms subscription with a valid hash', async () => {
 			const team = createTeam();
 			const book = createContactBook(team.id, { doubleOptInEnabled: true });
 			const contact = createContact(book.id, { subscribed: false });
@@ -45,7 +45,7 @@ describe('double-opt-in-service', () => {
 			const expiresAt = Date.now() + 86_400_000;
 			const hash = validHash(contact.id, expiresAt);
 
-			const updated = confirmDoubleOptInSubscription({
+			const updated = await confirmDoubleOptInSubscription({
 				contactId: contact.id,
 				expiresAt: String(expiresAt),
 				hash,
@@ -55,45 +55,45 @@ describe('double-opt-in-service', () => {
 			expect(updated.unsubscribeReason).toBeNull();
 		});
 
-		it('throws for an invalid hash', () => {
+		it('throws for an invalid hash', async () => {
 			const team = createTeam();
 			const book = createContactBook(team.id, { doubleOptInEnabled: true });
 			const contact = createContact(book.id, { subscribed: false });
 			const expiresAt = Date.now() + 86_400_000;
 
-			expect(() =>
+			await expect(
 				confirmDoubleOptInSubscription({
 					contactId: contact.id,
 					expiresAt: String(expiresAt),
 					hash: 'invalid-hash',
 				}),
-			).toThrow('Invalid confirmation link');
+			).rejects.toThrow('Invalid confirmation link');
 		});
 
-		it('throws for an expired link', () => {
+		it('throws for an expired link', async () => {
 			const team = createTeam();
 			const book = createContactBook(team.id, { doubleOptInEnabled: true });
 			const contact = createContact(book.id, { subscribed: false });
 			const expiresAt = Date.now() - 1000;
 			const hash = validHash(contact.id, expiresAt);
 
-			expect(() =>
+			await expect(
 				confirmDoubleOptInSubscription({
 					contactId: contact.id,
 					expiresAt: String(expiresAt),
 					hash,
 				}),
-			).toThrow('Confirmation link has expired');
+			).rejects.toThrow('Confirmation link has expired');
 		});
 
-		it('returns existing contact when already subscribed', () => {
+		it('returns existing contact when already subscribed', async () => {
 			const team = createTeam();
 			const book = createContactBook(team.id, { doubleOptInEnabled: true });
 			const contact = createContact(book.id, { subscribed: true });
 			const expiresAt = Date.now() + 86_400_000;
 			const hash = validHash(contact.id, expiresAt);
 
-			const result = confirmDoubleOptInSubscription({
+			const result = await confirmDoubleOptInSubscription({
 				contactId: contact.id,
 				expiresAt: String(expiresAt),
 				hash,
@@ -103,17 +103,17 @@ describe('double-opt-in-service', () => {
 			expect(result.subscribed).toBe(true);
 		});
 
-		it('throws when contact is not found', () => {
+		it('throws when contact is not found', async () => {
 			const expiresAt = Date.now() + 86_400_000;
 			const hash = validHash('missing-contact', expiresAt);
 
-			expect(() =>
+			await expect(
 				confirmDoubleOptInSubscription({
 					contactId: 'missing-contact',
 					expiresAt: String(expiresAt),
 					hash,
 				}),
-			).toThrow('Contact not found');
+			).rejects.toThrow('Contact not found');
 		});
 	});
 });
