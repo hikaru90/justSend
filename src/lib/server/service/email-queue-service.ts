@@ -224,11 +224,7 @@ export async function executeEmail(payload: unknown): Promise<void> {
 		return;
 	}
 
-	const text = email.text
-		? email.text
-		: email.html
-			? stripHtml(email.html)
-			: undefined;
+	const text = email.text ? email.text : email.html ? stripHtml(email.html) : undefined;
 
 	let inReplyToMessageId: string | undefined;
 	if (email.inReplyToId) {

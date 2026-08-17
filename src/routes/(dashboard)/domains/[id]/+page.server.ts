@@ -51,19 +51,25 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const defaultFromRaw = String(form.get('defaultFrom') ?? '').trim();
 		try {
-		if (defaultFromRaw) {
-			const domain = await getDomain(id, teamId);
-			// Allow a display name: "Alex from Eigen Mesh <alex@eigenmesh.com>".
-			const match = defaultFromRaw.match(/<([^>]+)>/);
-			const address = match?.[1] ?? defaultFromRaw;
-			const at = address.lastIndexOf('@');
-			const host = at >= 0 ? address.slice(at + 1).toLowerCase().replace(/>$/, '') : '';
-			if (!host || host !== domain.name.toLowerCase()) {
-				return fail(400, {
-					error: `Default sender must use the domain ${domain.name}`,
-				});
+			if (defaultFromRaw) {
+				const domain = await getDomain(id, teamId);
+				// Allow a display name: "Alex from Eigen Mesh <alex@eigenmesh.com>".
+				const match = defaultFromRaw.match(/<([^>]+)>/);
+				const address = match?.[1] ?? defaultFromRaw;
+				const at = address.lastIndexOf('@');
+				const host =
+					at >= 0
+						? address
+								.slice(at + 1)
+								.toLowerCase()
+								.replace(/>$/, '')
+						: '';
+				if (!host || host !== domain.name.toLowerCase()) {
+					return fail(400, {
+						error: `Default sender must use the domain ${domain.name}`,
+					});
+				}
 			}
-		}
 			await updateDomain(id, {
 				clickTracking: form.get('clickTracking') === 'on',
 				openTracking: form.get('openTracking') === 'on',

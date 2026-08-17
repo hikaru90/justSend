@@ -29,10 +29,7 @@ type Contact = typeof contacts.$inferSelect;
 
 const BUILT_IN_CONTACT_VARIABLES = ['email', 'firstName', 'lastName'] as const;
 
-const CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS = [
-	'unsubscribe_url',
-	'owlery_unsubscribe_url',
-] as const;
+const CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS = ['unsubscribe_url', 'owlery_unsubscribe_url'] as const;
 
 const CAMPAIGN_UNSUB_PLACEHOLDER_REGEXES = CAMPAIGN_UNSUB_PLACEHOLDER_TOKENS.map(
 	(token) => new RegExp(`\\{\\{\\s*${token}\\s*\\}\\}`, 'i'),

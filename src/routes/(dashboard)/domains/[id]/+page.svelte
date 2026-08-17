@@ -78,17 +78,17 @@
 		</label>
 		<div>
 			<label class="mb-1 block text-sm" for="defaultFrom">Default sender address</label>
-		<Input
-			id="defaultFrom"
-			name="defaultFrom"
-			type="text"
-			placeholder={`Alex from Eigen Mesh <newsletter@${data.domain.name}>`}
-			value={data.domain.defaultFrom ?? ''}
-		/>
-		<p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
-			Used as the From address for flows and double opt-in when not overridden. A display name
-			is supported, e.g. <code>Alex from Eigen Mesh &lt;newsletter@{data.domain.name}&gt;</code>.
-		</p>
+			<Input
+				id="defaultFrom"
+				name="defaultFrom"
+				type="text"
+				placeholder={`Alex from Eigen Mesh <newsletter@${data.domain.name}>`}
+				value={data.domain.defaultFrom ?? ''}
+			/>
+			<p class="mt-1 text-xs text-[hsl(var(--muted-foreground))]">
+				Used as the From address for flows and double opt-in when not overridden. A display name is
+				supported, e.g. <code>Alex from Eigen Mesh &lt;newsletter@{data.domain.name}&gt;</code>.
+			</p>
 		</div>
 		<Button type="submit" size="sm">Save</Button>
 	</form>

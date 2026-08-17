@@ -374,9 +374,7 @@ export async function parseSesHook(event: SesEvent): Promise<boolean> {
 
 	// Race condition fallback: match by the custom email id header.
 	if (!email) {
-		const header = event.mail?.headers?.find(
-			(h) => h.name === 'X-Owlery-Email-ID',
-		);
+		const header = event.mail?.headers?.find((h) => h.name === 'X-Owlery-Email-ID');
 		if (header?.value) {
 			email = db.select().from(emails).where(eq(emails.id, header.value)).get() ?? null;
 			if (email && sesEmailId) {
